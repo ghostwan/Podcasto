@@ -1,4 +1,93 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Podcasto</string>
+
+    <!-- Navigation -->
+    <string name="nav_library">Library</string>
+    <string name="nav_playlist">Playlist</string>
+    <string name="nav_subscriptions">Subscriptions</string>
+
+    <!-- Common -->
+    <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="done">Done</string>
+    <string name="add">Add</string>
+    <string name="remove">Remove</string>
+    <string name="search">Search</string>
+    <string name="all">All</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+
+    <!-- Discover -->
+    <string name="discover">Discover</string>
+    <string name="discover_podcasts">Discover podcasts</string>
+    <string name="search_podcasts_hint">Search podcasts…</string>
+
+    <!-- Subscriptions -->
+    <string name="no_subscriptions">No subscriptions yet.\nDiscover podcasts to subscribe!</string>
+    <string name="no_podcasts_with_tag">No podcasts with this tag</string>
+
+    <!-- Podcast Detail -->
+    <string name="podcast_fallback">Podcast</string>
+    <string name="subscribe">Subscribe</string>
+    <string name="subscribed">Subscribed</string>
+    <string name="filter_played">Filter played</string>
+    <string name="tags">Tags</string>
+    <string name="episodes_count">Episodes (%d)</string>
+    <string name="unplayed_only">Unplayed only</string>
+    <string name="now_playing">Now playing</string>
+    <string name="played">Played</string>
+    <string name="unable_to_load_feed">Unable to load podcast feed</string>
+
+    <!-- Episode Detail -->
+    <string name="episode_fallback">Episode</string>
+    <string name="queue">Queue</string>
+    <string name="download">Download</string>
+    <string name="saved">Saved</string>
+    <string name="unplayed">Unplayed</string>
+    <string name="bookmark">Bookmark</string>
+    <string name="bookmarks_count">Bookmarks (%d)</string>
+    <string name="description_label">Description</string>
+    <string name="no_description">No description available.</string>
+    <string name="delete_bookmark">Delete bookmark</string>
+    <string name="add_bookmark">Add Bookmark</string>
+    <string name="add_bookmark_description">Bookmark the current playback position with an optional comment.</string>
+    <string name="comment_optional">Comment (optional)</string>
+
+    <!-- Tag Management -->
+    <string name="manage_tags">Manage Tags</string>
+    <string name="new_tag">New tag</string>
+
+    <!-- Player -->
+    <string name="now_playing_title">Now Playing</string>
+    <string name="nothing_playing">Nothing playing</string>
+    <string name="rewind_10s">Rewind 10s</string>
+    <string name="forward_30s">Forward 30s</string>
+    <string name="go_to_playlist">Go to playlist</string>
+
+    <!-- Playlist -->
+    <string name="play_all">Play All</string>
+    <string name="playlist_empty">Your playlist is empty.\nAdd episodes from their detail page!</string>
+    <string name="auto_add_episodes">Auto-add episodes</string>
+    <string name="clear_playlist">Clear playlist</string>
+    <string name="reorder">Reorder</string>
+    <string name="auto_add_title">Auto-add Latest Episodes</string>
+    <string name="auto_add_description">Add the latest unplayed episode from each subscription.</string>
+    <string name="from_all_subscriptions">From all subscriptions</string>
+    <string name="or_filter_by_tag">Or filter by tag:</string>
+
+    <!-- Download -->
+    <string name="downloading_episode">Downloading episode…</string>
+
+    <!-- Country filter -->
+    <string name="country_all">All</string>
+    <string name="country_fr">France</string>
+    <string name="country_us">USA</string>
+    <string name="country_gb">UK</string>
+    <string name="country_de">Germany</string>
+    <string name="country_es">Spain</string>
+    <string name="country_it">Italy</string>
+    <string name="country_br">Brazil</string>
+    <string name="country_jp">Japan</string>
 </resources>

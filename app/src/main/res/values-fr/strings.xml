@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Podcasto</string>
+
+    <!-- Navigation -->
+    <string name="nav_library">Bibliothèque</string>
+    <string name="nav_playlist">Playlist</string>
+    <string name="nav_subscriptions">Abonnements</string>
+
+    <!-- Common -->
+    <string name="back">Retour</string>
+    <string name="cancel">Annuler</string>
+    <string name="save">Enregistrer</string>
+    <string name="done">Terminé</string>
+    <string name="add">Ajouter</string>
+    <string name="remove">Retirer</string>
+    <string name="search">Rechercher</string>
+    <string name="all">Tous</string>
+    <string name="play">Lecture</string>
+    <string name="pause">Pause</string>
+
+    <!-- Discover -->
+    <string name="discover">Découvrir</string>
+    <string name="discover_podcasts">Découvrir des podcasts</string>
+    <string name="search_podcasts_hint">Rechercher des podcasts…</string>
+
+    <!-- Subscriptions -->
+    <string name="no_subscriptions">Aucun abonnement.\nDécouvrez des podcasts pour vous abonner !</string>
+    <string name="no_podcasts_with_tag">Aucun podcast avec ce tag</string>
+
+    <!-- Podcast Detail -->
+    <string name="podcast_fallback">Podcast</string>
+    <string name="subscribe">S\'abonner</string>
+    <string name="subscribed">Abonné</string>
+    <string name="filter_played">Filtrer les écoutés</string>
+    <string name="tags">Tags</string>
+    <string name="episodes_count">Épisodes (%d)</string>
+    <string name="unplayed_only">Non écoutés</string>
+    <string name="now_playing">En cours</string>
+    <string name="played">Écouté</string>
+    <string name="unable_to_load_feed">Impossible de charger le flux du podcast</string>
+
+    <!-- Episode Detail -->
+    <string name="episode_fallback">Épisode</string>
+    <string name="queue">File d\'attente</string>
+    <string name="download">Télécharger</string>
+    <string name="saved">Enregistré</string>
+    <string name="unplayed">Non écouté</string>
+    <string name="bookmark">Signet</string>
+    <string name="bookmarks_count">Signets (%d)</string>
+    <string name="description_label">Description</string>
+    <string name="no_description">Aucune description disponible.</string>
+    <string name="delete_bookmark">Supprimer le signet</string>
+    <string name="add_bookmark">Ajouter un signet</string>
+    <string name="add_bookmark_description">Marquer la position de lecture actuelle avec un commentaire optionnel.</string>
+    <string name="comment_optional">Commentaire (optionnel)</string>
+
+    <!-- Tag Management -->
+    <string name="manage_tags">Gérer les tags</string>
+    <string name="new_tag">Nouveau tag</string>
+
+    <!-- Player -->
+    <string name="now_playing_title">En cours de lecture</string>
+    <string name="nothing_playing">Aucune lecture en cours</string>
+    <string name="rewind_10s">Reculer de 10s</string>
+    <string name="forward_30s">Avancer de 30s</string>
+    <string name="go_to_playlist">Aller à la playlist</string>
+
+    <!-- Playlist -->
+    <string name="play_all">Tout lire</string>
+    <string name="playlist_empty">Votre playlist est vide.\nAjoutez des épisodes depuis leur page de détail !</string>
+    <string name="auto_add_episodes">Ajout automatique</string>
+    <string name="clear_playlist">Vider la playlist</string>
+    <string name="reorder">Réorganiser</string>
+    <string name="auto_add_title">Ajouter les derniers épisodes</string>
+    <string name="auto_add_description">Ajouter le dernier épisode non écouté de chaque abonnement.</string>
+    <string name="from_all_subscriptions">Depuis tous les abonnements</string>
+    <string name="or_filter_by_tag">Ou filtrer par tag :</string>
+
+    <!-- Download -->
+    <string name="downloading_episode">Téléchargement de l\'épisode…</string>
+
+    <!-- Country filter -->
+    <string name="country_all">Tous</string>
+    <string name="country_fr">France</string>
+    <string name="country_us">USA</string>
+    <string name="country_gb">Royaume-Uni</string>
+    <string name="country_de">Allemagne</string>
+    <string name="country_es">Espagne</string>
+    <string name="country_it">Italie</string>
+    <string name="country_br">Brésil</string>
+    <string name="country_jp">Japon</string>
+</resources>
