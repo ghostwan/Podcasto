@@ -7,18 +7,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.compose.AsyncImage
+import com.music.podcasto.R
 import com.music.podcasto.data.local.PodcastEntity
 import com.music.podcasto.data.local.TagEntity
 import com.music.podcasto.data.repository.PodcastRepository
@@ -62,6 +66,7 @@ class SubscriptionsViewModel @Inject constructor(
 @Composable
 fun SubscriptionsScreen(
     onPodcastClick: (Long) -> Unit,
+    onDiscoverClick: () -> Unit,
     viewModel: SubscriptionsViewModel = hiltViewModel(),
 ) {
     val allPodcasts by viewModel.subscribedPodcasts.collectAsState()
@@ -71,10 +76,21 @@ fun SubscriptionsScreen(
 
     val displayPodcasts = filteredPodcasts ?: allPodcasts
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text("Subscriptions") },
-        )
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.nav_subscriptions)) },
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onDiscoverClick,
+            ) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.discover_podcasts))
+            }
+        },
+    ) { innerPadding ->
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
 
         // Tag filter chips
         if (allTags.isNotEmpty()) {
@@ -88,7 +104,7 @@ fun SubscriptionsScreen(
                 FilterChip(
                     selected = selectedTagId == null,
                     onClick = { viewModel.selectTag(null) },
-                    label = { Text("All") },
+                    label = { Text(stringResource(R.string.all)) },
                 )
                 allTags.forEach { tag ->
                     FilterChip(
@@ -106,7 +122,7 @@ fun SubscriptionsScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = if (selectedTagId != null) "No podcasts with this tag" else "No subscriptions yet.\nDiscover podcasts to subscribe!",
+                    text = if (selectedTagId != null) stringResource(R.string.no_podcasts_with_tag) else stringResource(R.string.no_subscriptions),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -123,6 +139,7 @@ fun SubscriptionsScreen(
                         onClick = { onPodcastClick(podcast.id) },
                     )
                 }
+            }
             }
         }
     }

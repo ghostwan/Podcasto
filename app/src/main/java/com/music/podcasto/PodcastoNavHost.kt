@@ -2,12 +2,12 @@ package com.music.podcasto
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +16,7 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import com.music.podcasto.R
 import com.music.podcasto.player.PlayerManager
 import com.music.podcasto.ui.screens.*
 
@@ -48,22 +49,8 @@ fun PodcastoNavHost(
                         val currentRoute = navBackStackEntry?.destination?.route
 
                         NavigationBarItem(
-                            icon = { Icon(Icons.Default.Explore, contentDescription = "Discover") },
-                            label = { Text("Discover") },
-                            selected = currentRoute == "discover",
-                            onClick = {
-                                navController.navigate("discover") {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                        )
-                        NavigationBarItem(
-                            icon = { Icon(Icons.Default.Subscriptions, contentDescription = "Subscriptions") },
-                            label = { Text("Library") },
+                            icon = { Icon(Icons.Default.Subscriptions, contentDescription = stringResource(R.string.nav_subscriptions)) },
+                            label = { Text(stringResource(R.string.nav_library)) },
                             selected = currentRoute == "subscriptions",
                             onClick = {
                                 navController.navigate("subscriptions") {
@@ -76,8 +63,8 @@ fun PodcastoNavHost(
                             },
                         )
                         NavigationBarItem(
-                            icon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Playlist") },
-                            label = { Text("Playlist") },
+                            icon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = stringResource(R.string.nav_playlist)) },
+                            label = { Text(stringResource(R.string.nav_playlist)) },
                             selected = currentRoute == "playlist",
                             onClick = {
                                 navController.navigate("playlist") {
@@ -95,7 +82,7 @@ fun PodcastoNavHost(
         ) { innerPadding ->
             NavHost(
                 navController = navController,
-                startDestination = "discover",
+                startDestination = "subscriptions",
                 modifier = Modifier.padding(innerPadding),
             ) {
                 composable("discover") {
@@ -109,6 +96,7 @@ fun PodcastoNavHost(
                                 launchSingleTop = true
                             }
                         },
+                        onBack = { navController.popBackStack() },
                     )
                 }
 
@@ -116,6 +104,11 @@ fun PodcastoNavHost(
                     SubscriptionsScreen(
                         onPodcastClick = { podcastId ->
                             navController.navigate("podcast/$podcastId") {
+                                launchSingleTop = true
+                            }
+                        },
+                        onDiscoverClick = {
+                            navController.navigate("discover") {
                                 launchSingleTop = true
                             }
                         },
