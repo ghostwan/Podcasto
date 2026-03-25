@@ -1,7 +1,9 @@
 package com.music.podcasto.ui.screens
 
 import android.text.Html
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -25,10 +29,12 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.compose.AsyncImage
+import com.music.podcasto.R
 import com.music.podcasto.data.local.EpisodeEntity
 import com.music.podcasto.data.local.PodcastEntity
 import com.music.podcasto.data.local.TagEntity
 import com.music.podcasto.data.repository.PodcastRepository
+import com.music.podcasto.player.PlayerManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
@@ -38,6 +44,7 @@ import javax.inject.Inject
 @HiltViewModel
 class PodcastDetailViewModel @Inject constructor(
     private val repository: PodcastRepository,
+    private val playerManager: PlayerManager,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -73,6 +80,15 @@ class PodcastDetailViewModel @Inject constructor(
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    val nowPlayingEpisodeId: StateFlow<Long?> = playerManager.playerState
+        .map { it.currentEpisode?.id }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun playEpisode(episode: EpisodeEntity) {
+        val artwork = _podcast.value?.artworkUrl ?: artworkUrl
+        playerManager.play(episode, artwork)
+    }
 
     private var episodesJob: Job? = null
 
@@ -187,6 +203,7 @@ fun PodcastDetailScreen(
     val podcastTags by viewModel.podcastTags.collectAsState()
     val hidePlayed by viewModel.hidePlayedEpisodes.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val nowPlayingId by viewModel.nowPlayingEpisodeId.collectAsState()
 
     if (showTagDialog) {
         TagManagementDialog(
@@ -200,10 +217,10 @@ fun PodcastDetailScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(podcast?.title ?: "Podcast", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            title = { Text(podcast?.title ?: stringResource(R.string.podcast_fallback), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                 }
             },
             actions = {
@@ -211,13 +228,13 @@ fun PodcastDetailScreen(
                 IconButton(onClick = viewModel::toggleHidePlayed) {
                     Icon(
                         Icons.Default.FilterList,
-                        contentDescription = "Filter played",
+                        contentDescription = stringResource(R.string.filter_played),
                         tint = if (hidePlayed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 if (isSubscribed) {
                     IconButton(onClick = viewModel::showTagDialog) {
-                        Icon(Icons.AutoMirrored.Filled.Label, contentDescription = "Tags")
+                        Icon(Icons.AutoMirrored.Filled.Label, contentDescription = stringResource(R.string.tags))
                     }
                 }
             },
@@ -276,7 +293,7 @@ fun PodcastDetailScreen(
                                     modifier = Modifier.size(18.dp),
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text(if (isSubscribed) "Subscribed" else "Subscribe")
+                                Text(if (isSubscribed) stringResource(R.string.subscribed) else stringResource(R.string.subscribe))
                             }
                         }
                     }
@@ -315,13 +332,13 @@ fun PodcastDetailScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Episodes (${episodes.size})",
+                            text = stringResource(R.string.episodes_count, episodes.size),
                             style = MaterialTheme.typography.titleMedium,
                             modifier = Modifier.weight(1f),
                         )
                         if (hidePlayed) {
                             Text(
-                                text = "Unplayed only",
+                                text = stringResource(R.string.unplayed_only),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                             )
@@ -334,7 +351,9 @@ fun PodcastDetailScreen(
                 items(episodes) { episode ->
                     EpisodeListItem(
                         episode = episode,
+                        isNowPlaying = episode.id == nowPlayingId,
                         onClick = { onEpisodeClick(episode.id) },
+                        onLongClick = { viewModel.playEpisode(episode) },
                     )
                 }
             }
@@ -342,19 +361,37 @@ fun PodcastDetailScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EpisodeListItem(
     episode: EpisodeEntity,
+    isNowPlaying: Boolean = false,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
+        colors = if (isNowPlaying) CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ) else CardDefaults.cardColors(),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isNowPlaying) {
+                    Icon(
+                        Icons.Default.GraphicEq,
+                        contentDescription = stringResource(R.string.now_playing),
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = episode.title,
@@ -389,7 +426,7 @@ fun EpisodeListItem(
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 Icons.Default.Check,
-                                contentDescription = "Played",
+                                contentDescription = stringResource(R.string.played),
                                 modifier = Modifier.size(14.dp),
                                 tint = MaterialTheme.colorScheme.primary,
                             )
@@ -404,8 +441,10 @@ fun EpisodeListItem(
                     progress = { (episode.playbackPosition.toFloat() / (episode.duration * 1000)).coerceIn(0f, 1f) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(3.dp),
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = if (isNowPlaying) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
                 )
             }
         }
@@ -425,13 +464,13 @@ fun TagManagementDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Manage Tags") },
+        title = { Text(stringResource(R.string.manage_tags)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = newTagName,
                     onValueChange = { newTagName = it },
-                    label = { Text("New tag") },
+                    label = { Text(stringResource(R.string.new_tag)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
@@ -440,7 +479,7 @@ fun TagManagementDialog(
                                 onCreateTag(newTagName.trim())
                                 newTagName = ""
                             }) {
-                                Icon(Icons.Default.Add, contentDescription = "Add")
+                                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add))
                             }
                         }
                     },
@@ -467,7 +506,7 @@ fun TagManagementDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Done")
+                Text(stringResource(R.string.done))
             }
         },
     )
