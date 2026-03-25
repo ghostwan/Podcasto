@@ -1,5 +1,6 @@
 package com.music.podcasto.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,9 +18,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.music.podcasto.R
 import com.music.podcasto.data.repository.PodcastRepository
 import com.music.podcasto.player.PlayerManager
 import com.music.podcasto.player.PlayerState
@@ -76,7 +79,7 @@ fun MiniPlayer(
             IconButton(onClick = { playerManager.togglePlayPause() }) {
                 Icon(
                     if (playerState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (playerState.isPlaying) "Pause" else "Play",
+                    contentDescription = if (playerState.isPlaying) stringResource(R.string.pause) else stringResource(R.string.play),
                 )
             }
         }
@@ -97,6 +100,9 @@ fun PlayerScreen(
 
     var showBookmarkDialog by remember { mutableStateOf(false) }
 
+    // Intercept system back gesture to close player overlay
+    BackHandler { onBack() }
+
     if (showBookmarkDialog && repository != null && episode != null) {
         AddBookmarkDialog(
             onConfirm = { comment ->
@@ -110,32 +116,28 @@ fun PlayerScreen(
         )
     }
 
-    // Periodically update position
-    LaunchedEffect(playerState.isPlaying) {
-        while (playerState.isPlaying) {
-            delay(500)
-            playerManager.updateState()
-        }
-    }
-
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text("Now Playing") },
+            title = { Text(stringResource(R.string.now_playing_title)) },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                 }
             },
             actions = {
                 // Bookmark button
                 if (repository != null && episode != null) {
                     IconButton(onClick = { showBookmarkDialog = true }) {
-                        Icon(Icons.Default.Bookmark, contentDescription = "Add bookmark")
+                        Icon(Icons.Default.Bookmark, contentDescription = stringResource(R.string.add_bookmark))
                     }
                 }
                 // Go to playlist button
                 IconButton(onClick = onGoToPlaylist) {
-                    Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Go to playlist")
+                    Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = stringResource(R.string.go_to_playlist))
                 }
             },
         )
@@ -145,7 +147,7 @@ fun PlayerScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Nothing playing", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.nothing_playing), style = MaterialTheme.typography.bodyLarge)
             }
         } else {
             Column(
@@ -221,7 +223,7 @@ fun PlayerScreen(
                     ) {
                         Icon(
                             Icons.Default.Replay10,
-                            contentDescription = "Rewind 10s",
+                            contentDescription = stringResource(R.string.rewind_10s),
                             modifier = Modifier.size(36.dp),
                         )
                     }
@@ -232,7 +234,7 @@ fun PlayerScreen(
                     ) {
                         Icon(
                             if (playerState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (playerState.isPlaying) "Pause" else "Play",
+                            contentDescription = if (playerState.isPlaying) stringResource(R.string.pause) else stringResource(R.string.play),
                             modifier = Modifier.size(40.dp),
                         )
                     }
@@ -243,12 +245,13 @@ fun PlayerScreen(
                     ) {
                         Icon(
                             Icons.Default.Forward30,
-                            contentDescription = "Forward 30s",
+                            contentDescription = stringResource(R.string.forward_30s),
                             modifier = Modifier.size(36.dp),
                         )
                     }
                 }
             }
         }
+    }
     }
 }
