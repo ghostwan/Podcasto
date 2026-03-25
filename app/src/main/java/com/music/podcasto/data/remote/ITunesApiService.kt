@@ -10,5 +10,6 @@ interface ITunesApiService {
         @Query("media") media: String = "podcast",
         @Query("entity") entity: String = "podcast",
         @Query("limit") limit: Int = 30,
+        @Query("country") country: String? = null,
     ): ITunesSearchResponse
 }
