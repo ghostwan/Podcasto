@@ -1,0 +1,165 @@
+package com.music.podcasto.player
+
+import android.content.ComponentName
+import android.content.Context
+import android.net.Uri
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
+import com.music.podcasto.data.local.EpisodeEntity
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
+
+data class PlayerState(
+    val currentEpisode: EpisodeEntity? = null,
+    val isPlaying: Boolean = false,
+    val currentPosition: Long = 0,
+    val duration: Long = 0,
+    val podcastArtworkUrl: String = "",
+)
+
+@Singleton
+class PlayerManager @Inject constructor(
+    @ApplicationContext private val context: Context,
+) {
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var controller: MediaController? = null
+
+    private val _playerState = MutableStateFlow(PlayerState())
+    val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
+
+    private var currentEpisode: EpisodeEntity? = null
+    private var currentArtworkUrl: String = ""
+
+    fun initialize() {
+        val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
+        controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
+        controllerFuture?.addListener({
+            controller = controllerFuture?.let {
+                try {
+                    it.get()
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            controller?.addListener(object : Player.Listener {
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    updateState()
+                }
+
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    updateState()
+                }
+
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    updateState()
+                }
+            })
+        }, MoreExecutors.directExecutor())
+    }
+
+    fun play(episode: EpisodeEntity, artworkUrl: String = "") {
+        currentEpisode = episode
+        currentArtworkUrl = artworkUrl
+        val audioUri = if (episode.downloadPath != null) {
+            Uri.parse(episode.downloadPath)
+        } else {
+            Uri.parse(episode.audioUrl)
+        }
+        val mediaItem = MediaItem.Builder()
+            .setUri(audioUri)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(episode.title)
+                    .setDescription(episode.description)
+                    .setArtworkUri(if (artworkUrl.isNotEmpty()) Uri.parse(artworkUrl) else null)
+                    .build()
+            )
+            .build()
+        controller?.setMediaItem(mediaItem)
+        controller?.prepare()
+        controller?.play()
+        updateState()
+    }
+
+    fun playMultiple(episodes: List<EpisodeEntity>, startIndex: Int = 0, artworkUrl: String = "") {
+        if (episodes.isEmpty()) return
+        currentEpisode = episodes[startIndex]
+        currentArtworkUrl = artworkUrl
+        val mediaItems = episodes.map { episode ->
+            val audioUri = if (episode.downloadPath != null) {
+                Uri.parse(episode.downloadPath)
+            } else {
+                Uri.parse(episode.audioUrl)
+            }
+            MediaItem.Builder()
+                .setUri(audioUri)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(episode.title)
+                        .setDescription(episode.description)
+                        .build()
+                )
+                .build()
+        }
+        controller?.setMediaItems(mediaItems, startIndex, 0)
+        controller?.prepare()
+        controller?.play()
+        updateState()
+    }
+
+    fun togglePlayPause() {
+        controller?.let {
+            if (it.isPlaying) it.pause() else it.play()
+        }
+        updateState()
+    }
+
+    fun seekTo(position: Long) {
+        controller?.seekTo(position)
+        updateState()
+    }
+
+    fun skipForward(ms: Long = 30_000) {
+        controller?.let {
+            it.seekTo(minOf(it.currentPosition + ms, it.duration))
+        }
+    }
+
+    fun skipBackward(ms: Long = 10_000) {
+        controller?.let {
+            it.seekTo(maxOf(it.currentPosition - ms, 0))
+        }
+    }
+
+    fun stop() {
+        controller?.stop()
+        currentEpisode = null
+        updateState()
+    }
+
+    fun updateState() {
+        _playerState.value = PlayerState(
+            currentEpisode = currentEpisode,
+            isPlaying = controller?.isPlaying == true,
+            currentPosition = controller?.currentPosition ?: 0,
+            duration = controller?.duration?.takeIf { it > 0 } ?: 0,
+            podcastArtworkUrl = currentArtworkUrl,
+        )
+    }
+
+    fun release() {
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controller = null
+    }
+
+    fun getController(): MediaController? = controller
+}

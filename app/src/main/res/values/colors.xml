@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="podcasto_primary">#FF6750A4</color>
+    <color name="podcasto_on_primary">#FFFFFFFF</color>
+    <color name="podcasto_background">#FFFFFBFE</color>
+</resources>

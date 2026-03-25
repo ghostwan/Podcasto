@@ -1,0 +1,171 @@
+package com.music.podcasto.ui.screens
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import coil.compose.AsyncImage
+import com.music.podcasto.data.local.PodcastEntity
+import com.music.podcasto.data.local.TagEntity
+import com.music.podcasto.data.repository.PodcastRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class SubscriptionsViewModel @Inject constructor(
+    private val repository: PodcastRepository,
+) : ViewModel() {
+
+    val subscribedPodcasts: StateFlow<List<PodcastEntity>> = repository.getSubscribedPodcasts()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allTags: StateFlow<List<TagEntity>> = repository.getAllTags()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _selectedTagId = MutableStateFlow<Long?>(null)
+    val selectedTagId: StateFlow<Long?> = _selectedTagId.asStateFlow()
+
+    private val _filteredPodcasts = MutableStateFlow<List<PodcastEntity>?>(null)
+    val filteredPodcasts: StateFlow<List<PodcastEntity>?> = _filteredPodcasts.asStateFlow()
+
+    fun selectTag(tagId: Long?) {
+        _selectedTagId.value = tagId
+        if (tagId == null) {
+            _filteredPodcasts.value = null
+        } else {
+            viewModelScope.launch {
+                repository.getPodcastsForTag(tagId).collect {
+                    _filteredPodcasts.value = it
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SubscriptionsScreen(
+    onPodcastClick: (Long) -> Unit,
+    viewModel: SubscriptionsViewModel = hiltViewModel(),
+) {
+    val allPodcasts by viewModel.subscribedPodcasts.collectAsState()
+    val allTags by viewModel.allTags.collectAsState()
+    val selectedTagId by viewModel.selectedTagId.collectAsState()
+    val filteredPodcasts by viewModel.filteredPodcasts.collectAsState()
+
+    val displayPodcasts = filteredPodcasts ?: allPodcasts
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        TopAppBar(
+            title = { Text("Subscriptions") },
+        )
+
+        // Tag filter chips
+        if (allTags.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = selectedTagId == null,
+                    onClick = { viewModel.selectTag(null) },
+                    label = { Text("All") },
+                )
+                allTags.forEach { tag ->
+                    FilterChip(
+                        selected = selectedTagId == tag.id,
+                        onClick = { viewModel.selectTag(tag.id) },
+                        label = { Text(tag.name) },
+                    )
+                }
+            }
+        }
+
+        if (displayPodcasts.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = if (selectedTagId != null) "No podcasts with this tag" else "No subscriptions yet.\nDiscover podcasts to subscribe!",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(displayPodcasts) { podcast ->
+                    SubscriptionItem(
+                        podcast = podcast,
+                        onClick = { onPodcastClick(podcast.id) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SubscriptionItem(
+    podcast: PodcastEntity,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AsyncImage(
+                model = podcast.artworkUrl,
+                contentDescription = podcast.title,
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Crop,
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = podcast.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = podcast.author,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
