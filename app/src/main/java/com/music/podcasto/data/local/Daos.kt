@@ -86,12 +86,27 @@ interface PlaylistDao {
     fun getPlaylistEpisodes(): Flow<List<EpisodeEntity>>
 
     @Query("""
+        SELECT e.* FROM episodes e 
+        INNER JOIN playlist_items p ON e.id = p.episodeId 
+        ORDER BY p.position ASC
+    """)
+    suspend fun getPlaylistEpisodesList(): List<EpisodeEntity>
+
+    @Query("""
         SELECT e.*, pod.artworkUrl FROM episodes e 
         INNER JOIN playlist_items p ON e.id = p.episodeId 
         INNER JOIN podcasts pod ON e.podcastId = pod.id
         ORDER BY p.position ASC
     """)
     fun getPlaylistEpisodesWithArtwork(): Flow<List<EpisodeWithArtwork>>
+
+    @Query("""
+        SELECT e.*, pod.artworkUrl FROM episodes e 
+        INNER JOIN playlist_items p ON e.id = p.episodeId 
+        INNER JOIN podcasts pod ON e.podcastId = pod.id
+        ORDER BY p.position ASC
+    """)
+    suspend fun getPlaylistEpisodesWithArtworkList(): List<EpisodeWithArtwork>
 
     @Query("SELECT * FROM playlist_items ORDER BY position ASC")
     fun getPlaylistItems(): Flow<List<PlaylistItemEntity>>

@@ -13,6 +13,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import com.music.podcasto.R
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,8 +32,8 @@ class PodcastRepository @Inject constructor(
 ) {
 
     // --- Search ---
-    suspend fun searchPodcasts(query: String): List<ITunesPodcast> {
-        return iTunesApi.searchPodcasts(query).results
+    suspend fun searchPodcasts(query: String, country: String? = null): List<ITunesPodcast> {
+        return iTunesApi.searchPodcasts(query, country = country).results
     }
 
     // --- Podcast ---
@@ -155,6 +156,10 @@ class PodcastRepository @Inject constructor(
     // --- Playlist ---
     fun getPlaylistEpisodes(): Flow<List<EpisodeEntity>> = playlistDao.getPlaylistEpisodes()
 
+    suspend fun getPlaylistEpisodesList(): List<EpisodeEntity> = playlistDao.getPlaylistEpisodesList()
+
+    suspend fun getPlaylistEpisodesWithArtworkList(): List<EpisodeWithArtwork> = playlistDao.getPlaylistEpisodesWithArtworkList()
+
     fun getPlaylistEpisodesWithArtwork(): Flow<List<EpisodeWithArtwork>> = playlistDao.getPlaylistEpisodesWithArtwork()
 
     fun getPlaylistItems(): Flow<List<PlaylistItemEntity>> = playlistDao.getPlaylistItems()
@@ -228,7 +233,7 @@ class PodcastRepository @Inject constructor(
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val request = DownloadManager.Request(Uri.parse(episode.audioUrl))
             .setTitle(episode.title)
-            .setDescription("Downloading episode...")
+            .setDescription(context.getString(R.string.downloading_episode))
             .setDestinationUri(Uri.fromFile(destFile))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
 

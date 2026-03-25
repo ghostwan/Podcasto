@@ -16,6 +16,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,6 +47,19 @@ class PlayerManager @Inject constructor(
 
     private var currentEpisode: EpisodeEntity? = null
     private var currentArtworkUrl: String = ""
+    private var positionPollingJob: Job? = null
+
+    private fun startPositionPolling() {
+        positionPollingJob?.cancel()
+        positionPollingJob = scope.launch {
+            while (true) {
+                delay(500)
+                if (controller?.isPlaying == true) {
+                    updateState()
+                }
+            }
+        }
+    }
 
     fun initialize() {
         if (controller != null) return
@@ -78,61 +93,82 @@ class PlayerManager @Inject constructor(
                     updateState()
                 }
             })
+            startPositionPolling()
         }, MoreExecutors.directExecutor())
     }
 
     fun play(episode: EpisodeEntity, artworkUrl: String = "") {
-        currentEpisode = episode
+        // Save position of currently playing episode before switching
+        saveCurrentPosition()
+
         currentArtworkUrl = artworkUrl
-        val audioUri = if (episode.downloadPath != null) {
-            Uri.parse(episode.downloadPath)
-        } else {
-            Uri.parse(episode.audioUrl)
+
+        // Reload episode from DB to get the latest playback position
+        scope.launch {
+            val freshEpisode = repository.getEpisodeById(episode.id) ?: episode
+            currentEpisode = freshEpisode
+            val audioUri = if (freshEpisode.downloadPath != null) {
+                Uri.parse(freshEpisode.downloadPath)
+            } else {
+                Uri.parse(freshEpisode.audioUrl)
+            }
+            val mediaItem = MediaItem.Builder()
+                .setUri(audioUri)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(freshEpisode.title)
+                        .setDescription(freshEpisode.description)
+                        .setArtworkUri(if (artworkUrl.isNotEmpty()) Uri.parse(artworkUrl) else null)
+                        .build()
+                )
+                .build()
+            controller?.setMediaItem(mediaItem)
+            controller?.prepare()
+            // Resume from saved position if any
+            if (freshEpisode.playbackPosition > 0) {
+                controller?.seekTo(freshEpisode.playbackPosition)
+            }
+            controller?.play()
+            updateState()
         }
-        val mediaItem = MediaItem.Builder()
-            .setUri(audioUri)
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(episode.title)
-                    .setDescription(episode.description)
-                    .setArtworkUri(if (artworkUrl.isNotEmpty()) Uri.parse(artworkUrl) else null)
-                    .build()
-            )
-            .build()
-        controller?.setMediaItem(mediaItem)
-        controller?.prepare()
-        // Resume from saved position if any
-        if (episode.playbackPosition > 0) {
-            controller?.seekTo(episode.playbackPosition)
-        }
-        controller?.play()
-        updateState()
     }
 
     fun playMultiple(episodes: List<EpisodeEntity>, startIndex: Int = 0, artworkUrl: String = "") {
         if (episodes.isEmpty()) return
-        currentEpisode = episodes[startIndex]
+        // Save position of currently playing episode before switching
+        saveCurrentPosition()
+
         currentArtworkUrl = artworkUrl
-        val mediaItems = episodes.map { episode ->
-            val audioUri = if (episode.downloadPath != null) {
-                Uri.parse(episode.downloadPath)
-            } else {
-                Uri.parse(episode.audioUrl)
+
+        scope.launch {
+            // Reload episodes from DB to get fresh playback positions
+            val freshEpisodes = episodes.map { ep ->
+                repository.getEpisodeById(ep.id) ?: ep
             }
-            MediaItem.Builder()
-                .setUri(audioUri)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(episode.title)
-                        .setDescription(episode.description)
-                        .build()
-                )
-                .build()
+            currentEpisode = freshEpisodes[startIndex]
+
+            val mediaItems = freshEpisodes.map { episode ->
+                val audioUri = if (episode.downloadPath != null) {
+                    Uri.parse(episode.downloadPath)
+                } else {
+                    Uri.parse(episode.audioUrl)
+                }
+                MediaItem.Builder()
+                    .setUri(audioUri)
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(episode.title)
+                            .setDescription(episode.description)
+                            .build()
+                    )
+                    .build()
+            }
+            val startPosition = freshEpisodes[startIndex].playbackPosition
+            controller?.setMediaItems(mediaItems, startIndex, startPosition)
+            controller?.prepare()
+            controller?.play()
+            updateState()
         }
-        controller?.setMediaItems(mediaItems, startIndex, 0)
-        controller?.prepare()
-        controller?.play()
-        updateState()
     }
 
     fun togglePlayPause() {
@@ -190,6 +226,16 @@ class PlayerManager @Inject constructor(
         val ep = currentEpisode ?: return
         scope.launch {
             repository.markAsPlayed(ep.id)
+            repository.removeFromPlaylist(ep.id)
+            // Play next episode from playlist if available
+            val remaining = repository.getPlaylistEpisodesWithArtworkList()
+            if (remaining.isNotEmpty()) {
+                val next = remaining.first()
+                play(next.episode, next.artworkUrl)
+            } else {
+                currentEpisode = null
+                updateState()
+            }
         }
     }
 
