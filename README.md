@@ -17,6 +17,15 @@ A full-featured podcast player for Android, built with Kotlin and Jetpack Compos
 
 ## Screenshots
 
+<p align="center">
+  <img src="screenshots/01_library.png" width="180" alt="Library" />
+  <img src="screenshots/02_discover.png" width="180" alt="Discover" />
+  <img src="screenshots/03_podcast_detail.png" width="180" alt="Podcast Detail" />
+  <img src="screenshots/04_episode_detail.png" width="180" alt="Episode Detail" />
+  <img src="screenshots/05_player.png" width="180" alt="Player" />
+  <img src="screenshots/06_playlist.png" width="180" alt="Playlist" />
+</p>
+
 The app uses Material 3 dynamic theming with a two-tab layout (Library + Playlist). Discover is accessed via a FAB button in the Library screen.
 
 ## Tech Stack
