@@ -22,13 +22,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
+import com.music.podcasto.R
 import com.music.podcasto.data.local.BookmarkEntity
 import com.music.podcasto.data.local.EpisodeEntity
 import com.music.podcasto.data.local.PodcastEntity
@@ -178,14 +182,14 @@ fun EpisodeDetailScreen(
         TopAppBar(
             title = {
                 Text(
-                    episode?.title ?: "Episode",
+                    episode?.title ?: stringResource(R.string.episode_fallback),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             },
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                 }
             },
         )
@@ -236,72 +240,37 @@ fun EpisodeDetailScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Action buttons row 1: Play, Queue, Download
+            // Action buttons: icon on top, label below
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                Button(
+                ActionIconButton(
+                    icon = Icons.Default.PlayArrow,
+                    label = stringResource(R.string.play),
                     onClick = viewModel::play,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Play")
-                }
-
-                OutlinedButton(
+                )
+                ActionIconButton(
+                    icon = if (isInPlaylist) Icons.Default.PlaylistRemove else Icons.AutoMirrored.Filled.PlaylistAdd,
+                    label = if (isInPlaylist) stringResource(R.string.remove) else stringResource(R.string.queue),
                     onClick = viewModel::togglePlaylist,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        if (isInPlaylist) Icons.Default.PlaylistRemove else Icons.AutoMirrored.Filled.PlaylistAdd,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(if (isInPlaylist) "Remove" else "Queue")
-                }
-
-                OutlinedButton(
+                )
+                ActionIconButton(
+                    icon = Icons.Default.Download,
+                    label = if (isDownloaded) stringResource(R.string.saved) else stringResource(R.string.download),
                     onClick = viewModel::download,
                     enabled = !isDownloaded,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(if (isDownloaded) "Saved" else "Download")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Action buttons row 2: Mark played/unplayed, Add bookmark
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedButton(
+                )
+                ActionIconButton(
+                    icon = if (episode?.played == true) Icons.Default.RadioButtonUnchecked else Icons.Default.Check,
+                    label = if (episode?.played == true) stringResource(R.string.unplayed) else stringResource(R.string.played),
                     onClick = viewModel::togglePlayed,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        if (episode?.played == true) Icons.Default.RadioButtonUnchecked else Icons.Default.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(if (episode?.played == true) "Unplayed" else "Played")
-                }
-
-                OutlinedButton(
+                )
+                ActionIconButton(
+                    icon = Icons.Default.Bookmark,
+                    label = stringResource(R.string.bookmark),
                     onClick = { showBookmarkDialog = true },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(Icons.Default.Bookmark, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Bookmark")
-                }
+                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -309,7 +278,7 @@ fun EpisodeDetailScreen(
             // Bookmarks section
             if (bookmarks.isNotEmpty()) {
                 Text(
-                    text = "Bookmarks (${bookmarks.size})",
+                    text = stringResource(R.string.bookmarks_count, bookmarks.size),
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -325,17 +294,49 @@ fun EpisodeDetailScreen(
 
             // Description
             Text(
-                text = "Description",
+                text = stringResource(R.string.description_label),
                 style = MaterialTheme.typography.titleMedium,
             )
             Spacer(modifier = Modifier.height(8.dp))
             val desc = episode?.description ?: ""
             val cleanDesc = Html.fromHtml(desc, Html.FROM_HTML_MODE_COMPACT).toString().trim()
             Text(
-                text = cleanDesc.ifEmpty { "No description available." },
+                text = cleanDesc.ifEmpty { stringResource(R.string.no_description) },
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
+    }
+}
+
+@Composable
+fun ActionIconButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    val contentColor = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(64.dp)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 8.dp),
+    ) {
+        Icon(
+            icon,
+            contentDescription = label,
+            modifier = Modifier.size(28.dp),
+            tint = contentColor,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -373,7 +374,7 @@ fun BookmarkItem(
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "Delete bookmark",
+                    contentDescription = stringResource(R.string.delete_bookmark),
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.error,
                 )
@@ -391,18 +392,18 @@ fun AddBookmarkDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Bookmark") },
+        title = { Text(stringResource(R.string.add_bookmark)) },
         text = {
             Column {
                 Text(
-                    text = "Bookmark the current playback position with an optional comment.",
+                    text = stringResource(R.string.add_bookmark_description),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
                     value = comment,
                     onValueChange = { comment = it },
-                    label = { Text("Comment (optional)") },
+                    label = { Text(stringResource(R.string.comment_optional)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -410,12 +411,12 @@ fun AddBookmarkDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(comment.trim()) }) {
-                Text("Save")
+                Text(stringResource(R.string.save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         },
     )
