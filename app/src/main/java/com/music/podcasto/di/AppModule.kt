@@ -2,6 +2,8 @@ package com.music.podcasto.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.music.podcasto.data.local.*
 import com.music.podcasto.data.remote.ITunesApiService
 import dagger.Module
@@ -55,11 +57,20 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): PodcastoDatabase {
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE episodes ADD COLUMN pubDateTimestamp INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         return Room.databaseBuilder(
             context,
             PodcastoDatabase::class.java,
             "podcasto.db",
-        ).build()
+        )
+            .addMigrations(MIGRATION_2_3)
+            .fallbackToDestructiveMigrationOnDowngrade()
+            .build()
     }
 
     @Provides
@@ -73,4 +84,7 @@ object AppModule {
 
     @Provides
     fun provideTagDao(db: PodcastoDatabase): TagDao = db.tagDao()
+
+    @Provides
+    fun provideBookmarkDao(db: PodcastoDatabase): BookmarkDao = db.bookmarkDao()
 }

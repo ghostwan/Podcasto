@@ -91,6 +91,9 @@ dependencies {
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 
+    // Reorderable (drag-to-reorder for LazyColumn)
+    implementation("sh.calvin.reorderable:reorderable:2.4.2")
+
     // Core
     implementation("androidx.core:core-ktx:1.15.0")
 

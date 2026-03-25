@@ -8,19 +8,21 @@ import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.music.podcasto.player.PlayerManager
 import com.music.podcasto.ui.screens.*
-import javax.inject.Inject
 
 @Composable
 fun PodcastoNavHost(
     playerManager: PlayerManager = hiltViewModel<NavHostViewModel>().playerManager,
+    repository: com.music.podcasto.data.repository.PodcastRepository = hiltViewModel<NavHostViewModel>().repository,
 ) {
     val navController = rememberNavController()
     val playerState by playerManager.playerState.collectAsState()
@@ -32,12 +34,7 @@ fun PodcastoNavHost(
 
     var showPlayer by remember { mutableStateOf(false) }
 
-    if (showPlayer) {
-        PlayerScreen(
-            playerManager = playerManager,
-            onBack = { showPlayer = false },
-        )
-    } else {
+    Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             bottomBar = {
                 Column {
@@ -56,8 +53,11 @@ fun PodcastoNavHost(
                             selected = currentRoute == "discover",
                             onClick = {
                                 navController.navigate("discover") {
-                                    popUpTo("discover") { inclusive = true }
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
                                     launchSingleTop = true
+                                    restoreState = true
                                 }
                             },
                         )
@@ -67,8 +67,11 @@ fun PodcastoNavHost(
                             selected = currentRoute == "subscriptions",
                             onClick = {
                                 navController.navigate("subscriptions") {
-                                    popUpTo("discover")
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
                                     launchSingleTop = true
+                                    restoreState = true
                                 }
                             },
                         )
@@ -78,8 +81,11 @@ fun PodcastoNavHost(
                             selected = currentRoute == "playlist",
                             onClick = {
                                 navController.navigate("playlist") {
-                                    popUpTo("discover")
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
                                     launchSingleTop = true
+                                    restoreState = true
                                 }
                             },
                         )
@@ -99,7 +105,9 @@ fun PodcastoNavHost(
                             val artworkUrl = java.net.URLEncoder.encode(podcast.artworkUrl600 ?: podcast.artworkUrl100 ?: "", "UTF-8")
                             val name = java.net.URLEncoder.encode(podcast.collectionName, "UTF-8")
                             val artist = java.net.URLEncoder.encode(podcast.artistName, "UTF-8")
-                            navController.navigate("podcast/${podcast.collectionId}?feedUrl=$feedUrl&artworkUrl=$artworkUrl&collectionName=$name&artistName=$artist")
+                            navController.navigate("podcast/${podcast.collectionId}?feedUrl=$feedUrl&artworkUrl=$artworkUrl&collectionName=$name&artistName=$artist") {
+                                launchSingleTop = true
+                            }
                         },
                     )
                 }
@@ -107,7 +115,9 @@ fun PodcastoNavHost(
                 composable("subscriptions") {
                     SubscriptionsScreen(
                         onPodcastClick = { podcastId ->
-                            navController.navigate("podcast/$podcastId")
+                            navController.navigate("podcast/$podcastId") {
+                                launchSingleTop = true
+                            }
                         },
                     )
                 }
@@ -115,7 +125,9 @@ fun PodcastoNavHost(
                 composable("playlist") {
                     PlaylistScreen(
                         onEpisodeClick = { episodeId ->
-                            navController.navigate("episode/$episodeId")
+                            navController.navigate("episode/$episodeId") {
+                                launchSingleTop = true
+                            }
                         },
                     )
                 }
@@ -133,7 +145,9 @@ fun PodcastoNavHost(
                     PodcastDetailScreen(
                         onBack = { navController.popBackStack() },
                         onEpisodeClick = { episodeId ->
-                            navController.navigate("episode/$episodeId")
+                            navController.navigate("episode/$episodeId") {
+                                launchSingleTop = true
+                            }
                         },
                     )
                 }
@@ -149,6 +163,25 @@ fun PodcastoNavHost(
                     )
                 }
             }
+        }
+
+        // PlayerScreen overlay — always keeps Scaffold mounted underneath
+        if (showPlayer) {
+            PlayerScreen(
+                playerManager = playerManager,
+                onBack = { showPlayer = false },
+                onGoToPlaylist = {
+                    showPlayer = false
+                    navController.navigate("playlist") {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                repository = repository,
+            )
         }
     }
 }

@@ -1,11 +1,12 @@
 package com.music.podcasto.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Forward30
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -19,9 +20,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.music.podcasto.data.repository.PodcastRepository
 import com.music.podcasto.player.PlayerManager
 import com.music.podcasto.player.PlayerState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun MiniPlayer(
@@ -85,9 +88,27 @@ fun MiniPlayer(
 fun PlayerScreen(
     playerManager: PlayerManager,
     onBack: () -> Unit,
+    onGoToPlaylist: () -> Unit = {},
+    repository: PodcastRepository? = null,
 ) {
     val playerState by playerManager.playerState.collectAsState()
     val episode = playerState.currentEpisode
+    val scope = rememberCoroutineScope()
+
+    var showBookmarkDialog by remember { mutableStateOf(false) }
+
+    if (showBookmarkDialog && repository != null && episode != null) {
+        AddBookmarkDialog(
+            onConfirm = { comment ->
+                scope.launch {
+                    val positionMs = playerManager.getCurrentPositionMs()
+                    repository.addBookmark(episode.id, positionMs, comment)
+                }
+                showBookmarkDialog = false
+            },
+            onDismiss = { showBookmarkDialog = false },
+        )
+    }
 
     // Periodically update position
     LaunchedEffect(playerState.isPlaying) {
@@ -103,6 +124,18 @@ fun PlayerScreen(
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+            },
+            actions = {
+                // Bookmark button
+                if (repository != null && episode != null) {
+                    IconButton(onClick = { showBookmarkDialog = true }) {
+                        Icon(Icons.Default.Bookmark, contentDescription = "Add bookmark")
+                    }
+                }
+                // Go to playlist button
+                IconButton(onClick = onGoToPlaylist) {
+                    Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Go to playlist")
                 }
             },
         )

@@ -1,5 +1,6 @@
 package com.music.podcasto.data.local
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -22,8 +23,11 @@ data class EpisodeEntity(
     val description: String,
     val audioUrl: String,
     val pubDate: String,
+    val pubDateTimestamp: Long = 0,
     val duration: Long = 0,
     val downloadPath: String? = null,
+    val played: Boolean = false,
+    val playbackPosition: Long = 0,
 )
 
 @Entity(tableName = "playlist_items")
@@ -43,4 +47,18 @@ data class TagEntity(
 data class PodcastTagCrossRef(
     val podcastId: Long,
     val tagId: Long,
+)
+
+data class EpisodeWithArtwork(
+    @Embedded val episode: EpisodeEntity,
+    val artworkUrl: String,
+)
+
+@Entity(tableName = "bookmarks")
+data class BookmarkEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val episodeId: Long,
+    val positionMs: Long,
+    val comment: String,
+    val createdAt: Long = System.currentTimeMillis(),
 )

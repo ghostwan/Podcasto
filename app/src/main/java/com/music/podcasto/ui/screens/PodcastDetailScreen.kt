@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +30,7 @@ import com.music.podcasto.data.local.PodcastEntity
 import com.music.podcasto.data.local.TagEntity
 import com.music.podcasto.data.repository.PodcastRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -57,6 +59,9 @@ class PodcastDetailViewModel @Inject constructor(
     private val _isSubscribed = MutableStateFlow(false)
     val isSubscribed: StateFlow<Boolean> = _isSubscribed.asStateFlow()
 
+    private val _hidePlayedEpisodes = MutableStateFlow(false)
+    val hidePlayedEpisodes: StateFlow<Boolean> = _hidePlayedEpisodes.asStateFlow()
+
     val allTags: StateFlow<List<TagEntity>> = repository.getAllTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -66,6 +71,11 @@ class PodcastDetailViewModel @Inject constructor(
     private val _showTagDialog = MutableStateFlow(false)
     val showTagDialog: StateFlow<Boolean> = _showTagDialog.asStateFlow()
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private var episodesJob: Job? = null
+
     init {
         loadPodcast()
     }
@@ -73,21 +83,19 @@ class PodcastDetailViewModel @Inject constructor(
     private fun loadPodcast() {
         viewModelScope.launch {
             _isLoading.value = true
+            _errorMessage.value = null
             try {
-                // Check if already in DB
                 val existing = repository.getPodcastById(podcastId)
                 if (existing != null) {
                     _podcast.value = existing
                     _isSubscribed.value = existing.subscribed
-                    // Launch a refresh in background to ensure episodes are loaded
                     launch {
                         repository.refreshPodcastEpisodes(existing)
                     }
-                    repository.getEpisodesForPodcast(podcastId).collect {
-                        _episodes.value = it
-                        _isLoading.value = false
-                    }
-                } else if (feedUrl.isNotEmpty()) {
+                    collectEpisodes()
+                } else {
+                    // feedUrl may be empty for some podcasts (e.g. Radio France);
+                    // fetchPodcastPreview will use ApplePodcastsScraper as fallback
                     val (pod, eps) = repository.fetchPodcastPreview(
                         feedUrl, podcastId, artworkUrl, collectionName, artistName
                     )
@@ -95,14 +103,33 @@ class PodcastDetailViewModel @Inject constructor(
                     _episodes.value = eps
                     _isSubscribed.value = false
                     _isLoading.value = false
-                } else {
-                    _isLoading.value = false
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                _errorMessage.value = "Unable to load podcast feed"
                 _isLoading.value = false
             }
         }
+    }
+
+    private fun collectEpisodes() {
+        episodesJob?.cancel()
+        episodesJob = viewModelScope.launch {
+            val flow = if (_hidePlayedEpisodes.value) {
+                repository.getUnplayedEpisodesForPodcast(podcastId)
+            } else {
+                repository.getEpisodesForPodcast(podcastId)
+            }
+            flow.collect {
+                _episodes.value = it
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun toggleHidePlayed() {
+        _hidePlayedEpisodes.value = !_hidePlayedEpisodes.value
+        collectEpisodes()
     }
 
     fun toggleSubscription() {
@@ -158,6 +185,8 @@ fun PodcastDetailScreen(
     val showTagDialog by viewModel.showTagDialog.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
     val podcastTags by viewModel.podcastTags.collectAsState()
+    val hidePlayed by viewModel.hidePlayedEpisodes.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     if (showTagDialog) {
         TagManagementDialog(
@@ -178,6 +207,14 @@ fun PodcastDetailScreen(
                 }
             },
             actions = {
+                // Filter played/unplayed toggle
+                IconButton(onClick = viewModel::toggleHidePlayed) {
+                    Icon(
+                        Icons.Default.FilterList,
+                        contentDescription = "Filter played",
+                        tint = if (hidePlayed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 if (isSubscribed) {
                     IconButton(onClick = viewModel::showTagDialog) {
                         Icon(Icons.AutoMirrored.Filled.Label, contentDescription = "Tags")
@@ -189,6 +226,14 @@ fun PodcastDetailScreen(
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
+            }
+        } else if (errorMessage != null) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = errorMessage ?: "",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
         } else {
             LazyColumn(
@@ -268,10 +313,20 @@ fun PodcastDetailScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Episodes (${episodes.size})",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Episodes (${episodes.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (hidePlayed) {
+                            Text(
+                                text = "Unplayed only",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
@@ -299,24 +354,58 @@ fun EpisodeListItem(
             .clickable(onClick = onClick),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = episode.title,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (episode.pubDate.isNotEmpty()) {
-                Text(
-                    text = episode.pubDate,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = episode.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = if (episode.played) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (episode.pubDate.isNotEmpty()) {
+                            Text(
+                                text = episode.pubDate,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (episode.duration > 0) {
+                            if (episode.pubDate.isNotEmpty()) {
+                                Text(
+                                    text = " - ",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Text(
+                                text = formatDuration(episode.duration),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (episode.played) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = "Played",
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
             }
-            if (episode.duration > 0) {
-                Text(
-                    text = formatDuration(episode.duration),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // Playback progress bar
+            if (!episode.played && episode.playbackPosition > 0 && episode.duration > 0) {
+                Spacer(modifier = Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = { (episode.playbackPosition.toFloat() / (episode.duration * 1000)).coerceIn(0f, 1f) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp),
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 )
             }
         }

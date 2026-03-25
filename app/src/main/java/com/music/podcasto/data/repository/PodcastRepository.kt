@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import com.music.podcasto.data.local.*
+import com.music.podcasto.data.remote.ApplePodcastsScraper
 import com.music.podcasto.data.remote.ITunesApiService
 import com.music.podcasto.data.remote.ITunesPodcast
 import com.music.podcasto.data.remote.RssParser
@@ -20,10 +21,12 @@ import javax.inject.Singleton
 class PodcastRepository @Inject constructor(
     private val iTunesApi: ITunesApiService,
     private val rssParser: RssParser,
+    private val applePodcastsScraper: ApplePodcastsScraper,
     private val podcastDao: PodcastDao,
     private val episodeDao: EpisodeDao,
     private val playlistDao: PlaylistDao,
     private val tagDao: TagDao,
+    private val bookmarkDao: BookmarkDao,
     @ApplicationContext private val context: Context,
 ) {
 
@@ -38,7 +41,9 @@ class PodcastRepository @Inject constructor(
     suspend fun getPodcastById(id: Long): PodcastEntity? = podcastDao.getPodcastById(id)
 
     suspend fun subscribeToPodcast(podcast: ITunesPodcast) {
-        val feedUrl = podcast.feedUrl ?: return
+        val feedUrl = podcast.feedUrl
+            ?: applePodcastsScraper.fetchFeedUrl(podcast.collectionId)
+            ?: return
         val entity = PodcastEntity(
             id = podcast.collectionId,
             title = podcast.collectionName,
@@ -58,7 +63,6 @@ class PodcastRepository @Inject constructor(
         if (episodes.isNotEmpty()) {
             episodeDao.insertEpisodes(episodes)
         }
-        // Also refresh from RSS to get full data
         refreshPodcastEpisodes(subscribed)
     }
 
@@ -76,6 +80,8 @@ class PodcastRepository @Inject constructor(
             )
             podcastDao.insertPodcast(updatedPodcast)
             val episodes = feed.episodes.mapIndexed { index, rssEpisode ->
+                // Preserve played state and position if episode already exists
+                val existingEpisode = episodeDao.getEpisodeById(podcast.id * 100000 + index)
                 EpisodeEntity(
                     id = (podcast.id * 100000 + index),
                     podcastId = podcast.id,
@@ -83,7 +89,11 @@ class PodcastRepository @Inject constructor(
                     description = rssEpisode.description,
                     audioUrl = rssEpisode.audioUrl,
                     pubDate = rssEpisode.pubDate,
+                    pubDateTimestamp = rssEpisode.pubDateTimestamp,
                     duration = parseDuration(rssEpisode.duration),
+                    downloadPath = existingEpisode?.downloadPath,
+                    played = existingEpisode?.played ?: false,
+                    playbackPosition = existingEpisode?.playbackPosition ?: 0,
                 )
             }
             episodeDao.insertEpisodes(episodes)
@@ -93,13 +103,17 @@ class PodcastRepository @Inject constructor(
     }
 
     suspend fun fetchPodcastPreview(feedUrl: String, collectionId: Long, artworkUrl: String, collectionName: String, artistName: String): Pair<PodcastEntity, List<EpisodeEntity>> = withContext(Dispatchers.IO) {
-        val feed = rssParser.parseFeed(feedUrl)
+        val resolvedFeedUrl = feedUrl.ifEmpty {
+            applePodcastsScraper.fetchFeedUrl(collectionId)
+                ?: throw IllegalStateException("No feed URL available for podcast $collectionId")
+        }
+        val feed = rssParser.parseFeed(resolvedFeedUrl)
         val podcast = PodcastEntity(
             id = collectionId,
             title = feed.title.ifEmpty { collectionName },
             author = feed.author.ifEmpty { artistName },
             description = feed.description,
-            feedUrl = feedUrl,
+            feedUrl = resolvedFeedUrl,
             artworkUrl = feed.imageUrl.ifEmpty { artworkUrl },
             subscribed = false,
         )
@@ -111,6 +125,7 @@ class PodcastRepository @Inject constructor(
                 description = rssEpisode.description,
                 audioUrl = rssEpisode.audioUrl,
                 pubDate = rssEpisode.pubDate,
+                pubDateTimestamp = rssEpisode.pubDateTimestamp,
                 duration = parseDuration(rssEpisode.duration),
             )
         }
@@ -121,10 +136,26 @@ class PodcastRepository @Inject constructor(
     fun getEpisodesForPodcast(podcastId: Long): Flow<List<EpisodeEntity>> =
         episodeDao.getEpisodesForPodcast(podcastId)
 
+    fun getUnplayedEpisodesForPodcast(podcastId: Long): Flow<List<EpisodeEntity>> =
+        episodeDao.getUnplayedEpisodesForPodcast(podcastId)
+
     suspend fun getEpisodeById(id: Long): EpisodeEntity? = episodeDao.getEpisodeById(id)
+
+    suspend fun markAsPlayed(episodeId: Long) = episodeDao.markAsPlayed(episodeId)
+
+    suspend fun markAsUnplayed(episodeId: Long) {
+        episodeDao.updatePlayed(episodeId, false)
+        episodeDao.updatePlaybackPosition(episodeId, 0)
+    }
+
+    suspend fun updatePlaybackPosition(episodeId: Long, position: Long) {
+        episodeDao.updatePlaybackPosition(episodeId, position)
+    }
 
     // --- Playlist ---
     fun getPlaylistEpisodes(): Flow<List<EpisodeEntity>> = playlistDao.getPlaylistEpisodes()
+
+    fun getPlaylistEpisodesWithArtwork(): Flow<List<EpisodeWithArtwork>> = playlistDao.getPlaylistEpisodesWithArtwork()
 
     fun getPlaylistItems(): Flow<List<PlaylistItemEntity>> = playlistDao.getPlaylistItems()
 
@@ -140,6 +171,26 @@ class PodcastRepository @Inject constructor(
     suspend fun isInPlaylist(episodeId: Long): Boolean = playlistDao.isInPlaylist(episodeId)
 
     suspend fun clearPlaylist() = playlistDao.clearPlaylist()
+
+    suspend fun updatePlaylistPositions(episodeIds: List<Long>) {
+        episodeIds.forEachIndexed { index, episodeId ->
+            playlistDao.updatePosition(episodeId, index)
+        }
+    }
+
+    suspend fun autoAddLatestEpisodes() {
+        val episodes = episodeDao.getLatestEpisodesFromSubscriptions()
+        for (ep in episodes) {
+            addToPlaylist(ep.id)
+        }
+    }
+
+    suspend fun autoAddLatestEpisodesForTag(tagId: Long) {
+        val episodes = episodeDao.getLatestEpisodesForTag(tagId)
+        for (ep in episodes) {
+            addToPlaylist(ep.id)
+        }
+    }
 
     // --- Tags ---
     fun getAllTags(): Flow<List<TagEntity>> = tagDao.getAllTags()
@@ -157,6 +208,15 @@ class PodcastRepository @Inject constructor(
 
     suspend fun removeTagFromPodcast(podcastId: Long, tagId: Long) =
         tagDao.deletePodcastTagCrossRef(PodcastTagCrossRef(podcastId, tagId))
+
+    // --- Bookmarks ---
+    fun getBookmarksForEpisode(episodeId: Long): Flow<List<BookmarkEntity>> =
+        bookmarkDao.getBookmarksForEpisode(episodeId)
+
+    suspend fun addBookmark(episodeId: Long, positionMs: Long, comment: String): Long =
+        bookmarkDao.insertBookmark(BookmarkEntity(episodeId = episodeId, positionMs = positionMs, comment = comment))
+
+    suspend fun deleteBookmark(bookmark: BookmarkEntity) = bookmarkDao.deleteBookmark(bookmark)
 
     // --- Download ---
     suspend fun downloadEpisode(episode: EpisodeEntity): Long = withContext(Dispatchers.IO) {

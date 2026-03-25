@@ -23,8 +23,11 @@ interface PodcastDao {
 
 @Dao
 interface EpisodeDao {
-    @Query("SELECT * FROM episodes WHERE podcastId = :podcastId ORDER BY pubDate DESC")
+    @Query("SELECT * FROM episodes WHERE podcastId = :podcastId ORDER BY pubDateTimestamp DESC")
     fun getEpisodesForPodcast(podcastId: Long): Flow<List<EpisodeEntity>>
+
+    @Query("SELECT * FROM episodes WHERE podcastId = :podcastId AND played = 0 ORDER BY pubDateTimestamp DESC")
+    fun getUnplayedEpisodesForPodcast(podcastId: Long): Flow<List<EpisodeEntity>>
 
     @Query("SELECT * FROM episodes WHERE id = :id")
     suspend fun getEpisodeById(id: Long): EpisodeEntity?
@@ -37,6 +40,40 @@ interface EpisodeDao {
 
     @Query("SELECT * FROM episodes WHERE downloadPath IS NOT NULL")
     fun getDownloadedEpisodes(): Flow<List<EpisodeEntity>>
+
+    @Query("UPDATE episodes SET played = :played WHERE id = :id")
+    suspend fun updatePlayed(id: Long, played: Boolean)
+
+    @Query("UPDATE episodes SET playbackPosition = :position WHERE id = :id")
+    suspend fun updatePlaybackPosition(id: Long, position: Long)
+
+    @Query("UPDATE episodes SET played = 1, playbackPosition = 0 WHERE id = :id")
+    suspend fun markAsPlayed(id: Long)
+
+    @Query("""
+        SELECT e.* FROM episodes e
+        INNER JOIN podcasts p ON e.podcastId = p.id
+        WHERE p.subscribed = 1 AND e.played = 0
+          AND e.pubDateTimestamp = (
+              SELECT MAX(e2.pubDateTimestamp) FROM episodes e2
+              WHERE e2.podcastId = e.podcastId AND e2.played = 0
+          )
+        ORDER BY e.pubDateTimestamp DESC
+    """)
+    suspend fun getLatestEpisodesFromSubscriptions(): List<EpisodeEntity>
+
+    @Query("""
+        SELECT e.* FROM episodes e
+        INNER JOIN podcasts p ON e.podcastId = p.id
+        INNER JOIN podcast_tag_cross_ref ptc ON p.id = ptc.podcastId
+        WHERE ptc.tagId = :tagId AND p.subscribed = 1 AND e.played = 0
+          AND e.pubDateTimestamp = (
+              SELECT MAX(e2.pubDateTimestamp) FROM episodes e2
+              WHERE e2.podcastId = e.podcastId AND e2.played = 0
+          )
+        ORDER BY e.pubDateTimestamp DESC
+    """)
+    suspend fun getLatestEpisodesForTag(tagId: Long): List<EpisodeEntity>
 }
 
 @Dao
@@ -47,6 +84,14 @@ interface PlaylistDao {
         ORDER BY p.position ASC
     """)
     fun getPlaylistEpisodes(): Flow<List<EpisodeEntity>>
+
+    @Query("""
+        SELECT e.*, pod.artworkUrl FROM episodes e 
+        INNER JOIN playlist_items p ON e.id = p.episodeId 
+        INNER JOIN podcasts pod ON e.podcastId = pod.id
+        ORDER BY p.position ASC
+    """)
+    fun getPlaylistEpisodesWithArtwork(): Flow<List<EpisodeWithArtwork>>
 
     @Query("SELECT * FROM playlist_items ORDER BY position ASC")
     fun getPlaylistItems(): Flow<List<PlaylistItemEntity>>
@@ -65,6 +110,9 @@ interface PlaylistDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM playlist_items WHERE episodeId = :episodeId)")
     suspend fun isInPlaylist(episodeId: Long): Boolean
+
+    @Query("UPDATE playlist_items SET position = :position WHERE episodeId = :episodeId")
+    suspend fun updatePosition(episodeId: Long, position: Int)
 }
 
 @Dao
@@ -97,4 +145,16 @@ interface TagDao {
         WHERE ptc.tagId = :tagId AND p.subscribed = 1
     """)
     fun getPodcastsForTag(tagId: Long): Flow<List<PodcastEntity>>
+}
+
+@Dao
+interface BookmarkDao {
+    @Query("SELECT * FROM bookmarks WHERE episodeId = :episodeId ORDER BY positionMs ASC")
+    fun getBookmarksForEpisode(episodeId: Long): Flow<List<BookmarkEntity>>
+
+    @Insert
+    suspend fun insertBookmark(bookmark: BookmarkEntity): Long
+
+    @Delete
+    suspend fun deleteBookmark(bookmark: BookmarkEntity)
 }

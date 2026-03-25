@@ -11,10 +11,15 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.music.podcasto.data.local.EpisodeEntity
+import com.music.podcasto.data.repository.PodcastRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,9 +34,11 @@ data class PlayerState(
 @Singleton
 class PlayerManager @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val repository: PodcastRepository,
 ) {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
@@ -40,6 +47,7 @@ class PlayerManager @Inject constructor(
     private var currentArtworkUrl: String = ""
 
     fun initialize() {
+        if (controller != null) return
         val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
         controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
         controllerFuture?.addListener({
@@ -53,10 +61,17 @@ class PlayerManager @Inject constructor(
             controller?.addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     updateState()
+                    // Save position when pausing
+                    if (!isPlaying) {
+                        saveCurrentPosition()
+                    }
                 }
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     updateState()
+                    if (playbackState == Player.STATE_ENDED) {
+                        markCurrentAsPlayed()
+                    }
                 }
 
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -86,6 +101,10 @@ class PlayerManager @Inject constructor(
             .build()
         controller?.setMediaItem(mediaItem)
         controller?.prepare()
+        // Resume from saved position if any
+        if (episode.playbackPosition > 0) {
+            controller?.seekTo(episode.playbackPosition)
+        }
         controller?.play()
         updateState()
     }
@@ -141,10 +160,13 @@ class PlayerManager @Inject constructor(
     }
 
     fun stop() {
+        saveCurrentPosition()
         controller?.stop()
         currentEpisode = null
         updateState()
     }
+
+    fun getCurrentPositionMs(): Long = controller?.currentPosition ?: 0
 
     fun updateState() {
         _playerState.value = PlayerState(
@@ -156,7 +178,23 @@ class PlayerManager @Inject constructor(
         )
     }
 
+    private fun saveCurrentPosition() {
+        val ep = currentEpisode ?: return
+        val pos = controller?.currentPosition ?: return
+        scope.launch {
+            repository.updatePlaybackPosition(ep.id, pos)
+        }
+    }
+
+    private fun markCurrentAsPlayed() {
+        val ep = currentEpisode ?: return
+        scope.launch {
+            repository.markAsPlayed(ep.id)
+        }
+    }
+
     fun release() {
+        saveCurrentPosition()
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controller = null
     }
