@@ -1,6 +1,8 @@
 package com.music.podcasto.ui.screens
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -11,6 +13,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,19 +21,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.compose.AsyncImage
+import com.music.podcasto.R
 import com.music.podcasto.data.local.EpisodeWithArtwork
 import com.music.podcasto.data.local.TagEntity
 import com.music.podcasto.data.repository.PodcastRepository
 import com.music.podcasto.player.PlayerManager
+import com.music.podcasto.player.PlayerState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
@@ -48,6 +57,15 @@ class PlaylistViewModel @Inject constructor(
 
     val allTags: StateFlow<List<TagEntity>> = repository.getAllTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val nowPlayingEpisodeId: StateFlow<Long?> = playerManager.playerState
+        .map { it.currentEpisode?.id }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val playerState = playerManager.playerState
+
+    private val _isAutoAdding = MutableStateFlow(false)
+    val isAutoAdding: StateFlow<Boolean> = _isAutoAdding.asStateFlow()
 
     fun playAll() {
         val eps = episodes.value.map { it.episode }
@@ -74,13 +92,17 @@ class PlaylistViewModel @Inject constructor(
 
     fun autoAddLatestFromAll() {
         viewModelScope.launch {
+            _isAutoAdding.value = true
             repository.autoAddLatestEpisodes()
+            _isAutoAdding.value = false
         }
     }
 
     fun autoAddLatestForTag(tagId: Long) {
         viewModelScope.launch {
+            _isAutoAdding.value = true
             repository.autoAddLatestEpisodesForTag(tagId)
+            _isAutoAdding.value = false
         }
     }
 
@@ -103,6 +125,9 @@ fun PlaylistScreen(
 ) {
     val dbEpisodes by viewModel.episodes.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
+    val nowPlayingId by viewModel.nowPlayingEpisodeId.collectAsState()
+    val playerState by viewModel.playerState.collectAsState()
+    val isAutoAdding by viewModel.isAutoAdding.collectAsState()
 
     // Local mutable copy for reordering
     var localEpisodes by remember { mutableStateOf(dbEpisodes) }
@@ -137,32 +162,35 @@ fun PlaylistScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text("Playlist") },
+            title = { Text(stringResource(R.string.nav_playlist)) },
             actions = {
                 IconButton(onClick = { showAutoAddDialog = true }) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = "Auto-add episodes")
+                    Icon(Icons.Default.AutoAwesome, contentDescription = stringResource(R.string.auto_add_episodes))
                 }
                 if (localEpisodes.isNotEmpty()) {
                     IconButton(onClick = viewModel::clearPlaylist) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = "Clear playlist")
+                        Icon(Icons.Default.DeleteSweep, contentDescription = stringResource(R.string.clear_playlist))
                     }
                 }
             },
         )
 
-        if (localEpisodes.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize()) {
+        if (localEpisodes.isEmpty() && !isAutoAdding) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "Your playlist is empty.\nAdd episodes from their detail page!",
+                    text = stringResource(R.string.playlist_empty),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        } else {
+        } else if (!isAutoAdding || localEpisodes.isNotEmpty()) {
+            Column {
             // Play all button
+            if (localEpisodes.isNotEmpty()) {
             Button(
                 onClick = viewModel::playAll,
                 modifier = Modifier
@@ -171,7 +199,8 @@ fun PlaylistScreen(
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Play All")
+                Text(stringResource(R.string.play_all))
+            }
             }
 
             LazyColumn(
@@ -187,7 +216,11 @@ fun PlaylistScreen(
                             index = index + 1,
                             item = item,
                             elevation = elevation,
+                            isNowPlaying = item.episode.id == nowPlayingId,
+                            livePosition = if (item.episode.id == nowPlayingId) playerState.currentPosition else null,
+                            liveDuration = if (item.episode.id == nowPlayingId) playerState.duration else null,
                             onClick = { onEpisodeClick(item.episode.id) },
+                            onLongClick = { viewModel.playEpisode(item) },
                             onRemove = { viewModel.removeFromPlaylist(item.episode.id) },
                             dragModifier = Modifier.longPressDraggableHandle(
                                 onDragStopped = {
@@ -198,43 +231,83 @@ fun PlaylistScreen(
                     }
                 }
             }
+            } // end Column
         }
+
+        // Loading overlay for auto-add
+        if (isAutoAdding) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+        } // end Box
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlaylistEpisodeItem(
     index: Int,
     item: EpisodeWithArtwork,
     elevation: androidx.compose.ui.unit.Dp = 0.dp,
+    isNowPlaying: Boolean = false,
+    livePosition: Long? = null,
+    liveDuration: Long? = null,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onRemove: () -> Unit,
     dragModifier: Modifier = Modifier,
 ) {
     Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = elevation),
+        colors = if (isNowPlaying) CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ) else CardDefaults.cardColors(),
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Drag handle
+            // Drag handle — long press here only triggers drag
             Icon(
                 Icons.Default.DragHandle,
-                contentDescription = "Reorder",
+                contentDescription = stringResource(R.string.reorder),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = dragModifier.size(24.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "$index",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(28.dp),
-            )
+            // Content area — tap = detail, long press = play
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .combinedClickable(
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+            if (isNowPlaying) {
+                Icon(
+                    Icons.Default.GraphicEq,
+                    contentDescription = stringResource(R.string.now_playing),
+                    modifier = Modifier.width(28.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            } else {
+                Text(
+                    text = "$index",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(28.dp),
+                )
+            }
             Spacer(modifier = Modifier.width(8.dp))
             AsyncImage(
                 model = item.artworkUrl,
@@ -259,11 +332,29 @@ fun PlaylistEpisodeItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                // Progress bar: use live position for now-playing, DB position for others
+                val position = livePosition ?: item.episode.playbackPosition
+                val duration = liveDuration ?: (item.episode.duration * 1000L)
+                val showProgress = if (isNowPlaying) duration > 0 && position > 0
+                    else !item.episode.played && item.episode.playbackPosition > 0 && item.episode.duration > 0
+                if (showProgress && duration > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { (position.toFloat() / duration).coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = if (isNowPlaying) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                    )
+                }
             }
+            } // end combinedClickable Row
             IconButton(onClick = onRemove) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "Remove",
+                    contentDescription = stringResource(R.string.remove),
                     tint = MaterialTheme.colorScheme.error,
                 )
             }
@@ -280,11 +371,11 @@ fun AutoAddDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Auto-add Latest Episodes") },
+        title = { Text(stringResource(R.string.auto_add_title)) },
         text = {
             Column {
                 Text(
-                    text = "Add the latest unplayed episode from each subscription.",
+                    text = stringResource(R.string.auto_add_description),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -294,14 +385,14 @@ fun AutoAddDialog(
                     onClick = onAddFromAll,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("From all subscriptions")
+                    Text(stringResource(R.string.from_all_subscriptions))
                 }
 
                 // By tag
                 if (tags.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Or filter by tag:",
+                        text = stringResource(R.string.or_filter_by_tag),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -320,7 +411,7 @@ fun AutoAddDialog(
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         },
     )
