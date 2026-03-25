@@ -7,6 +7,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
@@ -48,6 +52,9 @@ class SubscriptionsViewModel @Inject constructor(
     private val _filteredPodcasts = MutableStateFlow<List<PodcastEntity>?>(null)
     val filteredPodcasts: StateFlow<List<PodcastEntity>?> = _filteredPodcasts.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     fun selectTag(tagId: Long?) {
         _selectedTagId.value = tagId
         if (tagId == null) {
@@ -60,19 +67,41 @@ class SubscriptionsViewModel @Inject constructor(
             }
         }
     }
+
+    fun refreshAll() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            val podcasts = subscribedPodcasts.value
+            podcasts.forEach { podcast ->
+                try {
+                    repository.refreshPodcastEpisodes(podcast)
+                } catch (_: Exception) {}
+            }
+            _isRefreshing.value = false
+        }
+    }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun SubscriptionsScreen(
     onPodcastClick: (Long) -> Unit,
     onDiscoverClick: () -> Unit,
+    initialTagId: Long? = null,
     viewModel: SubscriptionsViewModel = hiltViewModel(),
 ) {
     val allPodcasts by viewModel.subscribedPodcasts.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
     val selectedTagId by viewModel.selectedTagId.collectAsState()
     val filteredPodcasts by viewModel.filteredPodcasts.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
+
+    // Apply tag filter when navigating from PodcastDetailScreen
+    LaunchedEffect(initialTagId) {
+        if (initialTagId != null) {
+            viewModel.selectTag(initialTagId)
+        }
+    }
 
     val displayPodcasts = filteredPodcasts ?: allPodcasts
 
@@ -116,6 +145,16 @@ fun SubscriptionsScreen(
             }
         }
 
+        val pullRefreshState = rememberPullRefreshState(
+            refreshing = isRefreshing,
+            onRefresh = { viewModel.refreshAll() },
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pullRefresh(pullRefreshState),
+        ) {
         if (displayPodcasts.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -140,7 +179,14 @@ fun SubscriptionsScreen(
                     )
                 }
             }
-            }
+        }
+
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter),
+        )
+        }
         }
     }
 }

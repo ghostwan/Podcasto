@@ -24,6 +24,7 @@ import com.music.podcasto.ui.screens.*
 fun PodcastoNavHost(
     playerManager: PlayerManager = hiltViewModel<NavHostViewModel>().playerManager,
     repository: com.music.podcasto.data.repository.PodcastRepository = hiltViewModel<NavHostViewModel>().repository,
+    openPlayerRequest: MutableState<Boolean> = mutableStateOf(false),
 ) {
     val navController = rememberNavController()
     val playerState by playerManager.playerState.collectAsState()
@@ -34,6 +35,15 @@ fun PodcastoNavHost(
     }
 
     var showPlayer by remember { mutableStateOf(false) }
+    var pendingTagId by remember { mutableStateOf<Long?>(null) }
+
+    // Open player when requested from notification tap
+    LaunchedEffect(openPlayerRequest.value) {
+        if (openPlayerRequest.value) {
+            showPlayer = true
+            openPlayerRequest.value = false
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -101,6 +111,12 @@ fun PodcastoNavHost(
                 }
 
                 composable("subscriptions") {
+                    val tagId = pendingTagId
+                    LaunchedEffect(tagId) {
+                        if (tagId != null) {
+                            pendingTagId = null
+                        }
+                    }
                     SubscriptionsScreen(
                         onPodcastClick = { podcastId ->
                             navController.navigate("podcast/$podcastId") {
@@ -112,6 +128,7 @@ fun PodcastoNavHost(
                                 launchSingleTop = true
                             }
                         },
+                        initialTagId = tagId,
                     )
                 }
 
@@ -140,6 +157,16 @@ fun PodcastoNavHost(
                         onEpisodeClick = { episodeId ->
                             navController.navigate("episode/$episodeId") {
                                 launchSingleTop = true
+                            }
+                        },
+                        onTagClick = { tagId ->
+                            pendingTagId = tagId
+                            navController.navigate("subscriptions") {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
                         },
                     )

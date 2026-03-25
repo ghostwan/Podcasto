@@ -1,10 +1,18 @@
 package com.music.podcasto.ui.screens
 
+import android.graphics.Typeface
 import android.text.Html
+import android.text.Spanned
+import android.text.style.StyleSpan
+import android.text.style.URLSpan
+import android.text.style.UnderlineSpan
+import android.text.style.BulletSpan
+import android.text.style.ForegroundColorSpan
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,8 +31,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
@@ -221,9 +237,10 @@ fun EpisodeDetailScreen(
                         text = episode?.title ?: "",
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    if (episode?.pubDate?.isNotEmpty() == true) {
+                    val formattedDate = formatPubDate(episode?.pubDateTimestamp ?: 0, episode?.pubDate ?: "")
+                    if (formattedDate.isNotEmpty()) {
                         Text(
-                            text = episode?.pubDate ?: "",
+                            text = formattedDate,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -299,11 +316,28 @@ fun EpisodeDetailScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             val desc = episode?.description ?: ""
-            val cleanDesc = Html.fromHtml(desc, Html.FROM_HTML_MODE_COMPACT).toString().trim()
-            Text(
-                text = cleanDesc.ifEmpty { stringResource(R.string.no_description) },
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            if (desc.isNotEmpty()) {
+                val linkColor = MaterialTheme.colorScheme.primary
+                val annotatedDesc = remember(desc) { htmlToAnnotatedString(desc, linkColor) }
+                val uriHandler = LocalUriHandler.current
+                ClickableText(
+                    text = annotatedDesc,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    onClick = { offset ->
+                        annotatedDesc.getStringAnnotations("URL", offset, offset)
+                            .firstOrNull()?.let { annotation ->
+                                try { uriHandler.openUri(annotation.item) } catch (_: Exception) {}
+                            }
+                    },
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.no_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
         }
     }
 }
@@ -420,4 +454,48 @@ fun AddBookmarkDialog(
             }
         },
     )
+}
+
+fun htmlToAnnotatedString(html: String, linkColor: androidx.compose.ui.graphics.Color): AnnotatedString {
+    val spanned = Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT)
+    return buildAnnotatedString {
+        append(spanned.toString())
+        // Apply style spans
+        spanned.getSpans(0, spanned.length, Any::class.java).forEach { span ->
+            val start = spanned.getSpanStart(span)
+            val end = spanned.getSpanEnd(span)
+            when (span) {
+                is StyleSpan -> when (span.style) {
+                    Typeface.BOLD -> addStyle(SpanStyle(fontWeight = FontWeight.Bold), start, end)
+                    Typeface.ITALIC -> addStyle(SpanStyle(fontStyle = FontStyle.Italic), start, end)
+                    Typeface.BOLD_ITALIC -> addStyle(
+                        SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic),
+                        start, end,
+                    )
+                }
+                is UnderlineSpan -> addStyle(
+                    SpanStyle(textDecoration = TextDecoration.Underline), start, end,
+                )
+                is URLSpan -> {
+                    addStyle(
+                        SpanStyle(
+                            color = linkColor,
+                            textDecoration = TextDecoration.Underline,
+                        ),
+                        start, end,
+                    )
+                    addStringAnnotation("URL", span.url, start, end)
+                }
+            }
+        }
+    }.let { annotated ->
+        // Trim trailing whitespace/newlines
+        val text = annotated.text
+        val trimEnd = text.length - text.trimEnd().length
+        if (trimEnd > 0) {
+            annotated.subSequence(0, text.length - trimEnd) as AnnotatedString
+        } else {
+            annotated
+        }
+    }
 }

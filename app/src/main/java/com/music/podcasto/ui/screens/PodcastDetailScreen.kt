@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -21,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -192,6 +194,7 @@ class PodcastDetailViewModel @Inject constructor(
 fun PodcastDetailScreen(
     onBack: () -> Unit,
     onEpisodeClick: (Long) -> Unit,
+    onTagClick: (Long) -> Unit = {},
     viewModel: PodcastDetailViewModel = hiltViewModel(),
 ) {
     val podcast by viewModel.podcast.collectAsState()
@@ -308,7 +311,7 @@ fun PodcastDetailScreen(
                         ) {
                             podcastTags.forEach { tag ->
                                 AssistChip(
-                                    onClick = {},
+                                    onClick = { onTagClick(tag.id) },
                                     label = { Text(tag.name, style = MaterialTheme.typography.labelSmall) },
                                 )
                             }
@@ -320,13 +323,23 @@ fun PodcastDetailScreen(
                 item {
                     Spacer(modifier = Modifier.height(12.dp))
                     val desc = podcast?.description ?: ""
-                    val cleanDesc = Html.fromHtml(desc, Html.FROM_HTML_MODE_COMPACT).toString().trim()
-                    if (cleanDesc.isNotEmpty()) {
-                        Text(
-                            text = cleanDesc,
-                            style = MaterialTheme.typography.bodySmall,
+                    if (desc.isNotEmpty()) {
+                        val linkColor = MaterialTheme.colorScheme.primary
+                        val annotatedDesc = remember(desc) { htmlToAnnotatedString(desc, linkColor) }
+                        val uriHandler = LocalUriHandler.current
+                        ClickableText(
+                            text = annotatedDesc,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                            ),
                             maxLines = 5,
                             overflow = TextOverflow.Ellipsis,
+                            onClick = { offset ->
+                                annotatedDesc.getStringAnnotations("URL", offset, offset)
+                                    .firstOrNull()?.let { annotation ->
+                                        try { uriHandler.openUri(annotation.item) } catch (_: Exception) {}
+                                    }
+                            },
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -401,15 +414,16 @@ fun EpisodeListItem(
                         color = if (episode.played) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (episode.pubDate.isNotEmpty()) {
+                        val formattedDate = formatPubDate(episode.pubDateTimestamp, episode.pubDate)
+                        if (formattedDate.isNotEmpty()) {
                             Text(
-                                text = episode.pubDate,
+                                text = formattedDate,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         if (episode.duration > 0) {
-                            if (episode.pubDate.isNotEmpty()) {
+                            if (formattedDate.isNotEmpty()) {
                                 Text(
                                     text = " - ",
                                     style = MaterialTheme.typography.labelSmall,
@@ -521,4 +535,11 @@ fun formatDuration(seconds: Long): String {
     } else {
         String.format("%d:%02d", m, s)
     }
+}
+
+fun formatPubDate(pubDateTimestamp: Long, pubDateFallback: String): String {
+    if (pubDateTimestamp <= 0) return pubDateFallback
+    val date = java.util.Date(pubDateTimestamp)
+    val format = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM, java.util.Locale.getDefault())
+    return format.format(date)
 }

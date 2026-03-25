@@ -1,5 +1,6 @@
 package com.music.podcasto.player
 
+import android.app.PendingIntent
 import android.content.Intent
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -10,6 +11,7 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.music.podcasto.MainActivity
 import com.music.podcasto.R
 
 class PlaybackService : MediaSessionService() {
@@ -24,6 +26,14 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
         val player = ExoPlayer.Builder(this).build()
 
+        val sessionActivityIntent = Intent(this, MainActivity::class.java).apply {
+            putExtra("OPEN_PLAYER", true)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, sessionActivityIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
         val backwardButton = CommandButton.Builder(CommandButton.ICON_SKIP_BACK_10)
             .setDisplayName(getString(R.string.rewind_10s))
             .setSessionCommand(SEEK_BACKWARD_COMMAND)
@@ -35,6 +45,7 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(pendingIntent)
             .setCustomLayout(listOf(backwardButton, forwardButton))
             .setCallback(object : MediaSession.Callback {
                 override fun onConnect(
