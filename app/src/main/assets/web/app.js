@@ -798,9 +798,7 @@ async function autoAddPlaylist() {
     html += '</div>';
 
     document.getElementById('dialog-text').innerHTML = html;
-    document.getElementById('dialog-confirm').textContent = 'Annuler';
-    document.getElementById('dialog-confirm').className = 'btn-text';
-    document.getElementById('dialog-confirm').onclick = () => closeDialog();
+    document.getElementById('dialog-confirm').style.display = 'none';
     document.getElementById('dialog-overlay').style.display = '';
 }
 
@@ -1381,6 +1379,7 @@ function confirmUnsubscribe(podcastId, title) {
 
 function closeDialog() {
     document.getElementById('dialog-overlay').style.display = 'none';
+    document.getElementById('dialog-confirm').style.display = '';
     dialogCallback = null;
 }
 
