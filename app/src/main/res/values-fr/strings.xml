@@ -108,4 +108,13 @@
     <string name="country_it">Italie</string>
     <string name="country_br">Brésil</string>
     <string name="country_jp">Japon</string>
+
+    <!-- Web Server -->
+    <string name="web_server_channel">Serveur web</string>
+    <string name="web_server_channel_desc">Notification du serveur web intégré</string>
+    <string name="web_server_running">Serveur web actif</string>
+    <string name="web_server_running_desc">Accessible à %1$s</string>
+    <string name="web_server_start">Démarrer le serveur web</string>
+    <string name="web_server_stop">Arrêter le serveur web</string>
+    <string name="web_server_url">URL du serveur</string>
 </resources>

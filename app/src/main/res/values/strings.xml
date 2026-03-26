@@ -108,4 +108,13 @@
     <string name="country_it">Italy</string>
     <string name="country_br">Brazil</string>
     <string name="country_jp">Japan</string>
+
+    <!-- Web Server -->
+    <string name="web_server_channel">Web Server</string>
+    <string name="web_server_channel_desc">Notification for the embedded web server</string>
+    <string name="web_server_running">Web server running</string>
+    <string name="web_server_running_desc">Accessible at %1$s</string>
+    <string name="web_server_start">Start web server</string>
+    <string name="web_server_stop">Stop web server</string>
+    <string name="web_server_url">Server URL</string>
 </resources>

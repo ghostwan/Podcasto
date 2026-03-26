@@ -20,7 +20,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -31,6 +35,7 @@ import com.music.podcasto.R
 import com.music.podcasto.data.local.PodcastEntity
 import com.music.podcasto.data.local.TagEntity
 import com.music.podcasto.data.repository.PodcastRepository
+import com.music.podcasto.web.WebServerService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -113,10 +118,46 @@ fun SubscriptionsScreen(
 
     val displayPodcasts = filteredPodcasts ?: allPodcasts
 
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val webServerRunning by WebServerService.isRunning.collectAsState()
+    val webServerUrl by WebServerService.serverUrl.collectAsState()
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.nav_subscriptions)) },
+                actions = {
+                    if (webServerRunning && webServerUrl != null) {
+                        TextButton(
+                            onClick = {
+                                clipboardManager.setText(AnnotatedString(webServerUrl!!))
+                            },
+                        ) {
+                            Text(
+                                text = webServerUrl!!,
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = {
+                            if (webServerRunning) {
+                                WebServerService.stop(context)
+                            } else {
+                                WebServerService.start(context)
+                            }
+                        },
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                if (webServerRunning) R.drawable.ic_web_on else R.drawable.ic_web_off,
+                            ),
+                            contentDescription = if (webServerRunning) stringResource(R.string.web_server_stop) else stringResource(R.string.web_server_start),
+                            tint = if (webServerRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
             )
         },
         floatingActionButton = {

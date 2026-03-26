@@ -17,6 +17,11 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
+        // Gemini API key — set GEMINI_API_KEY in local.properties or environment
+        val geminiKey = project.findProperty("GEMINI_API_KEY") as? String
+            ?: System.getenv("GEMINI_API_KEY") ?: ""
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
     }
 
     buildTypes {
@@ -41,6 +46,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -95,6 +101,18 @@ dependencies {
 
     // Reorderable (drag-to-reorder for LazyColumn)
     implementation("sh.calvin.reorderable:reorderable:2.4.2")
+
+    // Ktor embedded server (for web management UI)
+    val ktorVersion = "3.0.3"
+    implementation("io.ktor:ktor-server-core:$ktorVersion")
+    implementation("io.ktor:ktor-server-cio:$ktorVersion")
+    implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+    implementation("io.ktor:ktor-server-cors:$ktorVersion")
+    implementation("io.ktor:ktor-server-html-builder:$ktorVersion")
+
+    // Google Generative AI (Gemini)
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 
     // Core
     implementation("androidx.core:core-ktx:1.15.0")

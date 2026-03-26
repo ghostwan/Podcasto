@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podcasto - Gestion</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+</head>
+<body>
+    <nav>
+        <div class="nav-brand">
+            <span class="material-icons-round">headphones</span>
+            <h1>Podcasto</h1>
+        </div>
+        <div class="nav-tabs">
+            <button class="tab active" data-tab="library">
+                <span class="material-icons-round">library_music</span>
+                Bibliothèque
+            </button>
+            <button class="tab" data-tab="search">
+                <span class="material-icons-round">search</span>
+                Rechercher
+            </button>
+            <button class="tab" data-tab="discover">
+                <span class="material-icons-round">auto_awesome</span>
+                Découvrir
+            </button>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Library -->
+        <section id="library" class="page active">
+            <div class="page-header">
+                <h2>Mes abonnements</h2>
+                <span id="podcast-count" class="badge">0</span>
+            </div>
+            <div id="tags-filter" class="tags-bar"></div>
+            <div id="podcasts-grid" class="podcasts-grid"></div>
+            <div id="library-empty" class="empty-state" style="display:none">
+                <span class="material-icons-round">podcasts</span>
+                <p>Aucun abonnement. Recherchez des podcasts pour commencer !</p>
+            </div>
+        </section>
+
+        <!-- Search -->
+        <section id="search" class="page">
+            <div class="search-bar">
+                <span class="material-icons-round">search</span>
+                <input type="text" id="search-input" placeholder="Rechercher des podcasts..." autocomplete="off">
+                <select id="country-select">
+                    <option value="">Tous</option>
+                    <option value="FR">France</option>
+                    <option value="US">USA</option>
+                    <option value="GB">UK</option>
+                    <option value="DE">Allemagne</option>
+                    <option value="ES">Espagne</option>
+                    <option value="IT">Italie</option>
+                    <option value="BR">Brésil</option>
+                    <option value="JP">Japon</option>
+                </select>
+            </div>
+            <div id="search-results" class="podcasts-grid"></div>
+            <div id="search-empty" class="empty-state">
+                <span class="material-icons-round">search</span>
+                <p>Tapez un nom de podcast pour lancer la recherche</p>
+            </div>
+            <div id="search-loading" class="loading" style="display:none">
+                <div class="spinner"></div>
+                <p>Recherche en cours...</p>
+            </div>
+        </section>
+
+        <!-- Discover -->
+        <section id="discover" class="page">
+            <div class="page-header">
+                <h2>Découverte IA</h2>
+                <button id="discover-btn" class="btn-primary" onclick="loadDiscovery()">
+                    <span class="material-icons-round">auto_awesome</span>
+                    Générer des suggestions
+                </button>
+            </div>
+            <p id="ai-intro" class="ai-intro"></p>
+            <div id="discover-results" class="suggestions-grid"></div>
+            <div id="discover-empty" class="empty-state">
+                <span class="material-icons-round">auto_awesome</span>
+                <p>Cliquez sur le bouton pour obtenir des recommandations personnalisées basées sur votre bibliothèque</p>
+            </div>
+            <div id="discover-loading" class="loading" style="display:none">
+                <div class="spinner"></div>
+                <p>Gemini analyse votre bibliothèque...</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Unsubscribe confirm dialog -->
+    <div id="dialog-overlay" class="dialog-overlay" style="display:none">
+        <div class="dialog">
+            <h3 id="dialog-title">Confirmer</h3>
+            <p id="dialog-text"></p>
+            <div class="dialog-actions">
+                <button class="btn-text" onclick="closeDialog()">Annuler</button>
+                <button class="btn-danger" id="dialog-confirm">Supprimer</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
