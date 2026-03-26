@@ -1,8 +1,7 @@
 package com.music.podcasto.ui.screens
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,7 +19,6 @@ import androidx.compose.material.icons.filled.FiberNew
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.PlaylistRemove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -106,6 +104,10 @@ class NewEpisodesViewModel @Inject constructor(
                 repository.addToPlaylist(episodeId)
             }
         }
+    }
+
+    fun playEpisode(item: EpisodeWithArtwork) {
+        playerManager.play(item.episode, item.artworkUrl)
     }
 
     fun refreshEpisodes() {
@@ -224,12 +226,13 @@ fun NewEpisodesScreen(
                         val isInPlaylist = item.episode.id in playlistIds
                         val isNowPlaying = item.episode.id == nowPlayingId
 
-                        SwipeTogglePlaylistItem(
+                        NewEpisodeRow(
                             item = item,
                             isInPlaylist = isInPlaylist,
                             isNowPlaying = isNowPlaying,
-                            onSwipeToggle = { viewModel.togglePlaylist(item.episode.id) },
+                            onTogglePlaylist = { viewModel.togglePlaylist(item.episode.id) },
                             onClick = { onEpisodeClick(item.episode.id) },
+                            onLongClick = { viewModel.playEpisode(item) },
                         )
                     }
                 }
@@ -244,79 +247,15 @@ fun NewEpisodesScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SwipeTogglePlaylistItem(
-    item: EpisodeWithArtwork,
-    isInPlaylist: Boolean,
-    isNowPlaying: Boolean,
-    onSwipeToggle: () -> Unit,
-    onClick: () -> Unit,
-) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.StartToEnd) {
-                onSwipeToggle()
-            }
-            false
-        },
-    )
-
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            val color by animateColorAsState(
-                when (dismissState.targetValue) {
-                    SwipeToDismissBoxValue.StartToEnd ->
-                        if (isInPlaylist) MaterialTheme.colorScheme.errorContainer
-                        else MaterialTheme.colorScheme.primaryContainer
-                    else -> MaterialTheme.colorScheme.surface
-                },
-                label = "swipe-bg",
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(color)
-                    .padding(horizontal = 24.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        if (isInPlaylist) Icons.Default.PlaylistRemove
-                        else Icons.AutoMirrored.Filled.PlaylistAdd,
-                        contentDescription = null,
-                        tint = if (isInPlaylist) MaterialTheme.colorScheme.onErrorContainer
-                        else MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        if (isInPlaylist) stringResource(R.string.remove_from_playlist)
-                        else stringResource(R.string.add_to_playlist),
-                        color = if (isInPlaylist) MaterialTheme.colorScheme.onErrorContainer
-                        else MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
-            }
-        },
-        enableDismissFromEndToStart = false,
-    ) {
-        NewEpisodeRow(
-            item = item,
-            isInPlaylist = isInPlaylist,
-            isNowPlaying = isNowPlaying,
-            onClick = onClick,
-        )
-    }
-}
-
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun NewEpisodeRow(
     item: EpisodeWithArtwork,
     isInPlaylist: Boolean,
     isNowPlaying: Boolean,
+    onTogglePlaylist: () -> Unit,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
 ) {
     val dateFormat = remember {
         DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault())
@@ -327,7 +266,10 @@ private fun NewEpisodeRow(
         color = MaterialTheme.colorScheme.surface,
     ) {
         ListItem(
-            modifier = Modifier.clickable(onClick = onClick),
+            modifier = Modifier.combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
             leadingContent = {
                 Box {
                     AsyncImage(
@@ -376,20 +318,23 @@ private fun NewEpisodeRow(
                 }
             },
             trailingContent = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (isInPlaylist) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.QueueMusic,
-                            contentDescription = stringResource(R.string.already_in_playlist),
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     if (item.episode.played) {
                         Text(
                             text = stringResource(R.string.played),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+                    IconButton(onClick = onTogglePlaylist) {
+                        Icon(
+                            if (isInPlaylist) Icons.AutoMirrored.Filled.QueueMusic
+                            else Icons.AutoMirrored.Filled.PlaylistAdd,
+                            contentDescription = if (isInPlaylist) stringResource(R.string.remove_from_playlist)
+                            else stringResource(R.string.add_to_playlist),
+                            tint = if (isInPlaylist) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
