@@ -574,9 +574,14 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
             call.respond(HttpStatusCode.OK, mapOf("status" to "cleared"))
         }
 
-        // POST /api/playlist/auto-add — auto-add latest episodes
+        // POST /api/playlist/auto-add — auto-add latest episodes (optional ?tagId=...)
         post("/playlist/auto-add") {
-            repository.autoAddLatestEpisodes()
+            val tagId = call.request.queryParameters["tagId"]?.toLongOrNull()
+            if (tagId != null) {
+                repository.autoAddLatestEpisodesForTag(tagId)
+            } else {
+                repository.autoAddLatestEpisodes()
+            }
             call.respond(HttpStatusCode.OK, mapOf("status" to "auto-added"))
         }
 

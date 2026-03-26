@@ -697,8 +697,12 @@ async function deleteBookmark(bookmarkId) {
 // ========================
 async function loadPlaylist() {
     try {
-        const res = await fetch('/api/playlist');
+        const [res, tagsRes] = await Promise.all([
+            fetch('/api/playlist'),
+            fetch('/api/tags'),
+        ]);
         const items = await res.json();
+        allTags = await tagsRes.json();
         const container = document.getElementById('playlist-items');
         const empty = document.getElementById('playlist-empty');
         document.getElementById('playlist-count').textContent = items.length;
@@ -771,12 +775,54 @@ async function removeFromPlaylist(episodeId) {
 }
 
 async function autoAddPlaylist() {
+    // If no tags, just auto-add all directly
+    if (allTags.length === 0) {
+        await doAutoAdd(null);
+        return;
+    }
+
+    // Show tag selection dialog
+    document.getElementById('dialog-title').textContent = 'Auto-ajout par tag';
+
+    let html = '<div style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto">';
+    html += `<button class="btn-outline" onclick="closeDialog(); doAutoAdd(null)" style="width:100%;text-align:left;padding:10px 16px">
+        <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:8px">select_all</span>
+        Tous les podcasts
+    </button>`;
+    allTags.forEach(tag => {
+        html += `<button class="btn-outline" onclick="closeDialog(); doAutoAdd(${tag.id})" style="width:100%;text-align:left;padding:10px 16px">
+            <span class="material-icons-round" style="font-size:18px;vertical-align:middle;margin-right:8px">label</span>
+            ${esc(tag.name)}
+        </button>`;
+    });
+    html += '</div>';
+
+    document.getElementById('dialog-text').innerHTML = html;
+    document.getElementById('dialog-confirm').textContent = 'Annuler';
+    document.getElementById('dialog-confirm').className = 'btn-text';
+    document.getElementById('dialog-confirm').onclick = () => closeDialog();
+    document.getElementById('dialog-overlay').style.display = '';
+}
+
+async function doAutoAdd(tagId) {
+    const btn = document.querySelector('.playlist-actions .btn-outline:first-child');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0;display:inline-block"></div> Ajout...';
+    }
     try {
-        await fetch('/api/playlist/auto-add', { method: 'POST' });
+        let url = '/api/playlist/auto-add';
+        if (tagId !== null) url += `?tagId=${tagId}`;
+        await fetch(url, { method: 'POST' });
         showToast('Episodes ajout\u00e9s automatiquement');
         loadPlaylist();
     } catch (e) {
         showToast('Erreur: ' + e.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-icons-round">auto_fix_high</span> Auto-ajout';
+        }
     }
 }
 
