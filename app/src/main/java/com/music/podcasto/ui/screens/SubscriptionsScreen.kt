@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -45,6 +46,9 @@ class SubscriptionsViewModel @Inject constructor(
 
     val allTags: StateFlow<List<TagEntity>> = repository.getAllTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val latestTimestamps: StateFlow<Map<Long, Long>> = repository.getLatestEpisodeTimestampPerPodcast()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     private val _selectedTagId = MutableStateFlow<Long?>(null)
     val selectedTagId: StateFlow<Long?> = _selectedTagId.asStateFlow()
@@ -96,6 +100,8 @@ fun SubscriptionsScreen(
     val selectedTagId by viewModel.selectedTagId.collectAsState()
     val filteredPodcasts by viewModel.filteredPodcasts.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val latestTimestamps by viewModel.latestTimestamps.collectAsState()
+    val threeMonthsAgo = remember { System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000 }
 
     // Apply tag filter when navigating from PodcastDetailScreen
     LaunchedEffect(pendingTagId) {
@@ -175,8 +181,11 @@ fun SubscriptionsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(displayPodcasts) { podcast ->
+                    val latestTs = latestTimestamps[podcast.id] ?: 0L
+                    val isStale = latestTs in 1..threeMonthsAgo
                     SubscriptionItem(
                         podcast = podcast,
+                        isStale = isStale,
                         onClick = { onPodcastClick(podcast.id) },
                     )
                 }
@@ -196,11 +205,13 @@ fun SubscriptionsScreen(
 @Composable
 fun SubscriptionItem(
     podcast: PodcastEntity,
+    isStale: Boolean = false,
     onClick: () -> Unit,
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (isStale) Modifier.alpha(0.45f) else Modifier)
             .clickable(onClick = onClick),
     ) {
         Row(

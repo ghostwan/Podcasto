@@ -77,3 +77,8 @@ data class HistoryWithDetails(
     val podcastTitle: String,
     val artworkUrl: String,
 )
+
+data class PodcastLatestTimestamp(
+    val podcastId: Long,
+    val latestTimestamp: Long,
+)

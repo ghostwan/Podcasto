@@ -93,6 +93,13 @@ interface EpisodeDao {
         ORDER BY e.pubDateTimestamp DESC
     """)
     suspend fun getLatestEpisodesForTag(tagId: Long): List<EpisodeEntity>
+
+    @Query("""
+        SELECT podcastId, MAX(pubDateTimestamp) AS latestTimestamp
+        FROM episodes
+        GROUP BY podcastId
+    """)
+    fun getLatestEpisodeTimestampPerPodcast(): Flow<List<PodcastLatestTimestamp>>
 }
 
 @Dao

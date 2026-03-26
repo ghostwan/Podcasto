@@ -12,6 +12,7 @@ import com.music.podcasto.data.remote.RssParser
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import com.music.podcasto.R
 import java.io.File
@@ -146,6 +147,10 @@ class PodcastRepository @Inject constructor(
 
     fun getUnplayedEpisodesForPodcast(podcastId: Long): Flow<List<EpisodeEntity>> =
         episodeDao.getUnplayedEpisodesForPodcast(podcastId)
+
+    fun getLatestEpisodeTimestampPerPodcast(): Flow<Map<Long, Long>> =
+        episodeDao.getLatestEpisodeTimestampPerPodcast()
+            .map { list -> list.associate { it.podcastId to it.latestTimestamp } }
 
     suspend fun getEpisodeById(id: Long): EpisodeEntity? = episodeDao.getEpisodeById(id)
 
