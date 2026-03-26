@@ -1,9 +1,11 @@
 package com.music.podcasto.ui.screens
 
 import android.text.Html
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,10 +25,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
@@ -44,6 +49,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 @HiltViewModel
 class PodcastDetailViewModel @Inject constructor(
@@ -404,96 +410,148 @@ fun EpisodeListItem(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
-    Card(
+    val coroutineScope = rememberCoroutineScope()
+    val offsetX = remember { Animatable(0f) }
+    val swipeThresholdPx = with(LocalDensity.current) { 120.dp.toPx() }
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick,
-            ),
-        colors = if (isNowPlaying) CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-        ) else CardDefaults.cardColors(),
+            .clip(RoundedCornerShape(12.dp)),
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isNowPlaying) {
+        // Background revealed during swipe
+        if (onTogglePlaylist != null && offsetX.value != 0f) {
+            val swipingRight = offsetX.value > 0
+            Surface(
+                modifier = Modifier.matchParentSize(),
+                color = if (isInPlaylist) MaterialTheme.colorScheme.errorContainer
+                else MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = if (swipingRight) Alignment.CenterStart else Alignment.CenterEnd,
+                ) {
                     Icon(
-                        Icons.Default.GraphicEq,
-                        contentDescription = stringResource(R.string.now_playing),
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.primary,
+                        if (isInPlaylist) Icons.AutoMirrored.Filled.QueueMusic
+                        else Icons.AutoMirrored.Filled.PlaylistAdd,
+                        contentDescription = null,
+                        tint = if (isInPlaylist) MaterialTheme.colorScheme.onErrorContainer
+                        else MaterialTheme.colorScheme.onPrimaryContainer,
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
                 }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = episode.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        color = if (episode.played) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val formattedDate = formatPubDate(episode.pubDateTimestamp, episode.pubDate)
-                        if (formattedDate.isNotEmpty()) {
-                            Text(
-                                text = formattedDate,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            }
+        }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .then(
+                    if (onTogglePlaylist != null) {
+                        Modifier.pointerInput(isInPlaylist) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    val threshold = swipeThresholdPx
+                                    if (kotlin.math.abs(offsetX.value) >= threshold) {
+                                        onTogglePlaylist()
+                                    }
+                                    coroutineScope.launch {
+                                        offsetX.animateTo(0f)
+                                    }
+                                },
+                                onDragCancel = {
+                                    coroutineScope.launch {
+                                        offsetX.animateTo(0f)
+                                    }
+                                },
+                                onHorizontalDrag = { _, dragAmount ->
+                                    coroutineScope.launch {
+                                        val newValue = offsetX.value + dragAmount
+                                        offsetX.snapTo(newValue.coerceIn(-swipeThresholdPx * 1.2f, swipeThresholdPx * 1.2f))
+                                    }
+                                },
                             )
                         }
-                        if (episode.duration > 0) {
+                    } else Modifier
+                )
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                ),
+            colors = if (isNowPlaying) CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+            ) else CardDefaults.cardColors(),
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isNowPlaying) {
+                        Icon(
+                            Icons.Default.GraphicEq,
+                            contentDescription = stringResource(R.string.now_playing),
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = episode.title,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            color = if (episode.played) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val formattedDate = formatPubDate(episode.pubDateTimestamp, episode.pubDate)
                             if (formattedDate.isNotEmpty()) {
                                 Text(
-                                    text = " - ",
+                                    text = formattedDate,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            Text(
-                                text = formatDuration(episode.duration),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        if (episode.played) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = stringResource(R.string.played),
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
+                            if (episode.duration > 0) {
+                                if (formattedDate.isNotEmpty()) {
+                                    Text(
+                                        text = " - ",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Text(
+                                    text = formatDuration(episode.duration),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (episode.played) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = stringResource(R.string.played),
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
                     }
                 }
-                if (onTogglePlaylist != null) {
-                    IconButton(onClick = onTogglePlaylist) {
-                        Icon(
-                            if (isInPlaylist) Icons.AutoMirrored.Filled.QueueMusic
-                            else Icons.AutoMirrored.Filled.PlaylistAdd,
-                            contentDescription = if (isInPlaylist) stringResource(R.string.remove_from_playlist)
-                            else stringResource(R.string.add_to_playlist),
-                            tint = if (isInPlaylist) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                // Playback progress bar
+                if (!episode.played && episode.playbackPosition > 0 && episode.duration > 0) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = { (episode.playbackPosition.toFloat() / (episode.duration * 1000)).coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = if (isNowPlaying) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                    )
                 }
-            }
-            // Playback progress bar
-            if (!episode.played && episode.playbackPosition > 0 && episode.duration > 0) {
-                Spacer(modifier = Modifier.height(6.dp))
-                LinearProgressIndicator(
-                    progress = { (episode.playbackPosition.toFloat() / (episode.duration * 1000)).coerceIn(0f, 1f) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp)),
-                    color = if (isNowPlaying) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
-                )
             }
         }
     }

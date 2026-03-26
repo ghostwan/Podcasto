@@ -1,7 +1,9 @@
 package com.music.podcasto.ui.screens
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,9 +26,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -45,6 +50,7 @@ import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -260,85 +266,130 @@ private fun NewEpisodeRow(
     val dateFormat = remember {
         DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault())
     }
+    val coroutineScope = rememberCoroutineScope()
+    val offsetX = remember { Animatable(0f) }
+    val swipeThresholdPx = with(LocalDensity.current) { 120.dp.toPx() }
 
-    Surface(
+    Box(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
     ) {
-        ListItem(
-            modifier = Modifier.combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick,
-            ),
-            leadingContent = {
-                Box {
-                    AsyncImage(
-                        model = item.artworkUrl,
+        // Background revealed during swipe
+        if (offsetX.value != 0f) {
+            val swipingRight = offsetX.value > 0
+            Surface(
+                modifier = Modifier.matchParentSize(),
+                color = if (isInPlaylist) MaterialTheme.colorScheme.errorContainer
+                else MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = if (swipingRight) Alignment.CenterStart else Alignment.CenterEnd,
+                ) {
+                    Icon(
+                        if (isInPlaylist) Icons.AutoMirrored.Filled.QueueMusic
+                        else Icons.AutoMirrored.Filled.PlaylistAdd,
                         contentDescription = null,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop,
+                        tint = if (isInPlaylist) MaterialTheme.colorScheme.onErrorContainer
+                        else MaterialTheme.colorScheme.onPrimaryContainer,
                     )
-                    if (isNowPlaying) {
-                        Icon(
-                            Icons.Default.GraphicEq,
-                            contentDescription = stringResource(R.string.now_playing),
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .size(20.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
                 }
-            },
-            headlineContent = {
-                Text(
-                    text = item.episode.title,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            supportingContent = {
-                Column {
-                    Text(
-                        text = if (item.episode.pubDateTimestamp > 0)
-                            dateFormat.format(Date(item.episode.pubDateTimestamp))
-                        else item.episode.pubDate,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+            }
+        }
+
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .pointerInput(isInPlaylist) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            val threshold = swipeThresholdPx
+                            if (kotlin.math.abs(offsetX.value) >= threshold) {
+                                onTogglePlaylist()
+                            }
+                            coroutineScope.launch {
+                                offsetX.animateTo(0f)
+                            }
+                        },
+                        onDragCancel = {
+                            coroutineScope.launch {
+                                offsetX.animateTo(0f)
+                            }
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            coroutineScope.launch {
+                                val newValue = offsetX.value + dragAmount
+                                offsetX.snapTo(newValue.coerceIn(-swipeThresholdPx * 1.2f, swipeThresholdPx * 1.2f))
+                            }
+                        },
                     )
-                    if (item.episode.duration > 0) {
+                },
+            color = MaterialTheme.colorScheme.surface,
+        ) {
+            ListItem(
+                modifier = Modifier.combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                ),
+                leadingContent = {
+                    Box {
+                        AsyncImage(
+                            model = item.artworkUrl,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop,
+                        )
+                        if (isNowPlaying) {
+                            Icon(
+                                Icons.Default.GraphicEq,
+                                contentDescription = stringResource(R.string.now_playing),
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                },
+                headlineContent = {
+                    Text(
+                        text = item.episode.title,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                supportingContent = {
+                    Column {
                         Text(
-                            text = formatDuration(item.episode.duration),
+                            text = if (item.episode.pubDateTimestamp > 0)
+                                dateFormat.format(Date(item.episode.pubDateTimestamp))
+                            else item.episode.pubDate,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (item.episode.duration > 0) {
+                            Text(
+                                text = formatDuration(item.episode.duration),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
-                }
-            },
-            trailingContent = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                },
+                trailingContent = {
                     if (item.episode.played) {
                         Text(
                             text = stringResource(R.string.played),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
                     }
-                    IconButton(onClick = onTogglePlaylist) {
-                        Icon(
-                            if (isInPlaylist) Icons.AutoMirrored.Filled.QueueMusic
-                            else Icons.AutoMirrored.Filled.PlaylistAdd,
-                            contentDescription = if (isInPlaylist) stringResource(R.string.remove_from_playlist)
-                            else stringResource(R.string.add_to_playlist),
-                            tint = if (isInPlaylist) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            },
-        )
+                },
+            )
+        }
     }
 }
