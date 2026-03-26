@@ -752,5 +752,19 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                 call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Failed to clear history"))
             }
         }
+
+        // POST /api/history/:episodeId — add history entry
+        post("/history/{episodeId}") {
+            val episodeId = call.parameters["episodeId"]?.toLongOrNull()
+                ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            try {
+                val episode = repository.getEpisodeById(episodeId)
+                    ?: return@post call.respond(HttpStatusCode.NotFound, ErrorResponse("Episode not found"))
+                repository.addHistoryEntry(episode.id, episode.podcastId)
+                call.respond(HttpStatusCode.OK, mapOf("status" to "added"))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Failed to add history"))
+            }
+        }
     }
 }

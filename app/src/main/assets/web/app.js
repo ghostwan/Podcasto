@@ -986,6 +986,7 @@ async function playNewEpisode(episodeId, artworkUrl) {
         showPlayerBar();
         startPositionSync();
         updatePlayerUI();
+        addToHistory(episodeId);
         loadNewEpisodes();
     } catch (e) {
         showToast('Erreur lecture: ' + e.message);
@@ -1100,6 +1101,7 @@ async function playHistoryEpisode(episodeId, artworkUrl, podcastTitle) {
         showPlayerBar();
         startPositionSync();
         updatePlayerUI();
+        addToHistory(episodeId);
         loadHistory();
     } catch (e) {
         showToast('Erreur lecture: ' + e.message);
@@ -1184,6 +1186,7 @@ async function playEpisode(episodeId, seekTo) {
         showPlayerBar();
         startPositionSync();
         updatePlayerUI();
+        addToHistory(episodeId);
         // Update episode lists if visible
         renderEpisodes();
         updateEpisodeDetailButtons();
@@ -1218,6 +1221,7 @@ async function playEpisodeFromPlaylist(episodeId, artworkUrl, podcastTitle) {
         showPlayerBar();
         startPositionSync();
         updatePlayerUI();
+        addToHistory(episodeId);
         loadPlaylist(); // refresh playlist indicators
     } catch (e) {
         showToast('Erreur lecture: ' + e.message);
@@ -1369,6 +1373,14 @@ function stopPositionSync() {
     if (positionSyncInterval) {
         clearInterval(positionSyncInterval);
         positionSyncInterval = null;
+    }
+}
+
+async function addToHistory(episodeId) {
+    try {
+        await fetch(`/api/history/${episodeId}`, { method: 'POST' });
+    } catch (e) {
+        console.error('Failed to add to history', e);
     }
 }
 

@@ -566,7 +566,7 @@ main {
     width: 100%;
     max-width: 120px;
     height: 3px;
-    background: var(--surface-variant);
+    background: var(--primary-light);
     border-radius: 2px;
     overflow: hidden;
 }
@@ -576,6 +576,10 @@ main {
     background: var(--primary);
     border-radius: 2px;
     transition: width 0.3s;
+}
+
+.now-playing .episode-progress {
+    background: rgba(255, 255, 255, 0.7);
 }
 
 .episode-actions {
