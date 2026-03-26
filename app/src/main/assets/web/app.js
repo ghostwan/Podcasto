@@ -720,8 +720,8 @@ async function loadPlaylist() {
 
             return `
             <div class="playlist-item ${isNowPlaying ? 'now-playing' : ''}">
-                <img class="playlist-item-artwork" src="${esc(item.artworkUrl)}" alt="" onerror="this.src='${placeholderImg()}'">
-                <div class="playlist-item-info" onclick="playEpisodeFromPlaylist(${item.id}, '${escJs(item.artworkUrl)}', '${escJs(item.podcastTitle)}')">
+                <img class="playlist-item-artwork" src="${esc(item.artworkUrl)}" alt="" onclick="openPlaylistEpisodeDetail(${item.id}, '${escJs(item.artworkUrl)}', '${escJs(item.podcastTitle)}')" style="cursor:pointer" onerror="this.src='${placeholderImg()}'">
+                <div class="playlist-item-info" onclick="openPlaylistEpisodeDetail(${item.id}, '${escJs(item.artworkUrl)}', '${escJs(item.podcastTitle)}')" style="cursor:pointer">
                     <div class="playlist-item-title">${esc(item.title)}</div>
                     <div class="playlist-item-podcast">${esc(item.podcastTitle)}</div>
                 </div>
@@ -769,6 +769,39 @@ async function removeFromPlaylist(episodeId) {
         await fetch(`/api/playlist/${episodeId}`, { method: 'DELETE' });
         showToast('Retir\u00e9 de la playlist');
         loadPlaylist();
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+async function openPlaylistEpisodeDetail(episodeId, artworkUrl, podcastTitle) {
+    navStack.push('playlist');
+    showPage('episode-detail');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+    try {
+        const res = await fetch(`/api/episodes/${episodeId}`);
+        currentEpisodeDetail = await res.json();
+        currentEpisodeArtwork = artworkUrl || currentEpisodeDetail.artworkUrl || '';
+        currentEpisodePodcastTitle = podcastTitle || '';
+
+        // Try to get podcast detail
+        const podcastRes = await fetch(`/api/podcasts/${currentEpisodeDetail.podcastId}`);
+        if (podcastRes.ok) {
+            currentPodcastDetail = await podcastRes.json();
+            currentEpisodePodcastTitle = currentPodcastDetail.title;
+        }
+
+        document.getElementById('ep-detail-artwork').src = currentEpisodeArtwork;
+        document.getElementById('ep-detail-title').textContent = currentEpisodeDetail.title;
+        document.getElementById('ep-detail-podcast').textContent = currentEpisodePodcastTitle;
+        document.getElementById('ep-detail-date').textContent = currentEpisodeDetail.pubDateTimestamp > 0
+            ? new Date(currentEpisodeDetail.pubDateTimestamp).toLocaleDateString()
+            : currentEpisodeDetail.pubDate;
+        document.getElementById('ep-detail-description').innerHTML = sanitizeHtml(currentEpisodeDetail.description || '');
+
+        updateEpisodeDetailButtons();
+        loadBookmarks(currentEpisodeDetail.id);
     } catch (e) {
         showToast('Erreur: ' + e.message);
     }
