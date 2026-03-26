@@ -111,12 +111,6 @@ fun PodcastoNavHost(
                 }
 
                 composable("subscriptions") {
-                    val tagId = pendingTagId
-                    LaunchedEffect(tagId) {
-                        if (tagId != null) {
-                            pendingTagId = null
-                        }
-                    }
                     SubscriptionsScreen(
                         onPodcastClick = { podcastId ->
                             navController.navigate("podcast/$podcastId") {
@@ -128,7 +122,8 @@ fun PodcastoNavHost(
                                 launchSingleTop = true
                             }
                         },
-                        initialTagId = tagId,
+                        pendingTagId = pendingTagId,
+                        onPendingTagConsumed = { pendingTagId = null },
                     )
                 }
 
@@ -163,10 +158,9 @@ fun PodcastoNavHost(
                             pendingTagId = tagId
                             navController.navigate("subscriptions") {
                                 popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                                    inclusive = true
                                 }
                                 launchSingleTop = true
-                                restoreState = true
                             }
                         },
                     )

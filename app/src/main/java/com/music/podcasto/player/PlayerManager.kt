@@ -2,6 +2,7 @@ package com.music.podcasto.player
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -49,6 +50,16 @@ class PlayerManager @Inject constructor(
     private var currentArtworkUrl: String = ""
     private var positionPollingJob: Job? = null
 
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences("player_prefs", Context.MODE_PRIVATE)
+
+    private fun saveLastEpisode(episodeId: Long, artworkUrl: String) {
+        prefs.edit()
+            .putLong("last_episode_id", episodeId)
+            .putString("last_artwork_url", artworkUrl)
+            .apply()
+    }
+
     private fun startPositionPolling() {
         positionPollingJob?.cancel()
         positionPollingJob = scope.launch {
@@ -63,6 +74,27 @@ class PlayerManager @Inject constructor(
 
     fun initialize() {
         if (controller != null) return
+
+        // Restore last episode from SharedPreferences (show in mini-player, paused)
+        val lastEpisodeId = prefs.getLong("last_episode_id", -1)
+        if (lastEpisodeId != -1L && currentEpisode == null) {
+            val lastArtwork = prefs.getString("last_artwork_url", "") ?: ""
+            scope.launch {
+                val episode = repository.getEpisodeById(lastEpisodeId)
+                if (episode != null) {
+                    currentEpisode = episode
+                    currentArtworkUrl = lastArtwork
+                    _playerState.value = PlayerState(
+                        currentEpisode = episode,
+                        isPlaying = false,
+                        currentPosition = episode.playbackPosition,
+                        duration = 0,
+                        podcastArtworkUrl = lastArtwork,
+                    )
+                }
+            }
+        }
+
         val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
         controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
         controllerFuture?.addListener({
@@ -84,7 +116,8 @@ class PlayerManager @Inject constructor(
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     updateState()
-                    if (playbackState == Player.STATE_ENDED) {
+                    // Only mark as played if we actually had media loaded and playing
+                    if (playbackState == Player.STATE_ENDED && (controller?.duration ?: 0) > 0) {
                         markCurrentAsPlayed()
                     }
                 }
@@ -102,6 +135,7 @@ class PlayerManager @Inject constructor(
         saveCurrentPosition()
 
         currentArtworkUrl = artworkUrl
+        saveLastEpisode(episode.id, artworkUrl)
 
         // Reload episode from DB to get the latest playback position
         scope.launch {
@@ -122,12 +156,10 @@ class PlayerManager @Inject constructor(
                         .build()
                 )
                 .build()
-            controller?.setMediaItem(mediaItem)
+            // Use setMediaItem with startPositionMs so the player seeks after prepare
+            val startPos = if (freshEpisode.playbackPosition > 0) freshEpisode.playbackPosition else 0L
+            controller?.setMediaItem(mediaItem, startPos)
             controller?.prepare()
-            // Resume from saved position if any
-            if (freshEpisode.playbackPosition > 0) {
-                controller?.seekTo(freshEpisode.playbackPosition)
-            }
             controller?.play()
             updateState()
         }
@@ -139,6 +171,7 @@ class PlayerManager @Inject constructor(
         saveCurrentPosition()
 
         currentArtworkUrl = artworkUrl
+        saveLastEpisode(episodes[startIndex].id, artworkUrl)
 
         scope.launch {
             // Reload episodes from DB to get fresh playback positions
@@ -173,7 +206,17 @@ class PlayerManager @Inject constructor(
 
     fun togglePlayPause() {
         controller?.let {
-            if (it.isPlaying) it.pause() else it.play()
+            if (it.isPlaying) {
+                it.pause()
+            } else if (it.mediaItemCount > 0) {
+                // Controller has media loaded, just resume
+                it.play()
+            } else {
+                // No media loaded (e.g. after app restart) — reload the restored episode
+                val ep = currentEpisode ?: return@let
+                play(ep, currentArtworkUrl)
+                return
+            }
         }
         updateState()
     }
@@ -195,10 +238,35 @@ class PlayerManager @Inject constructor(
         }
     }
 
+    fun playNext() {
+        val ep = currentEpisode ?: return
+        scope.launch {
+            val playlist = repository.getPlaylistEpisodesWithArtworkList()
+            val currentIndex = playlist.indexOfFirst { it.episode.id == ep.id }
+            if (currentIndex >= 0 && currentIndex < playlist.size - 1) {
+                val next = playlist[currentIndex + 1]
+                play(next.episode, next.artworkUrl)
+            }
+        }
+    }
+
+    fun playPrevious() {
+        val ep = currentEpisode ?: return
+        scope.launch {
+            val playlist = repository.getPlaylistEpisodesWithArtworkList()
+            val currentIndex = playlist.indexOfFirst { it.episode.id == ep.id }
+            if (currentIndex > 0) {
+                val prev = playlist[currentIndex - 1]
+                play(prev.episode, prev.artworkUrl)
+            }
+        }
+    }
+
     fun stop() {
         saveCurrentPosition()
         controller?.stop()
         currentEpisode = null
+        prefs.edit().remove("last_episode_id").remove("last_artwork_url").apply()
         updateState()
     }
 
@@ -217,6 +285,9 @@ class PlayerManager @Inject constructor(
     private fun saveCurrentPosition() {
         val ep = currentEpisode ?: return
         val pos = controller?.currentPosition ?: return
+        // Don't overwrite a saved position with 0 when the controller has no media loaded
+        // (e.g. after app restart, before any playback has started)
+        if (pos == 0L && controller?.isPlaying != true && (controller?.duration ?: 0) <= 0) return
         scope.launch {
             repository.updatePlaybackPosition(ep.id, pos)
         }

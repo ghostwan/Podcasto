@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.Forward30
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -218,13 +220,24 @@ fun PlayerScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(
+                        onClick = { playerManager.playPrevious() },
+                        modifier = Modifier.size(48.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.SkipPrevious,
+                            contentDescription = stringResource(R.string.previous_episode),
+                            modifier = Modifier.size(32.dp),
+                        )
+                    }
+
+                    IconButton(
                         onClick = { playerManager.skipBackward() },
-                        modifier = Modifier.size(56.dp),
+                        modifier = Modifier.size(48.dp),
                     ) {
                         Icon(
                             Icons.Default.Replay10,
                             contentDescription = stringResource(R.string.rewind_10s),
-                            modifier = Modifier.size(36.dp),
+                            modifier = Modifier.size(32.dp),
                         )
                     }
 
@@ -241,12 +254,23 @@ fun PlayerScreen(
 
                     IconButton(
                         onClick = { playerManager.skipForward() },
-                        modifier = Modifier.size(56.dp),
+                        modifier = Modifier.size(48.dp),
                     ) {
                         Icon(
                             Icons.Default.Forward30,
                             contentDescription = stringResource(R.string.forward_30s),
-                            modifier = Modifier.size(36.dp),
+                            modifier = Modifier.size(32.dp),
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { playerManager.playNext() },
+                        modifier = Modifier.size(48.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.SkipNext,
+                            contentDescription = stringResource(R.string.next_episode),
+                            modifier = Modifier.size(32.dp),
                         )
                     }
                 }

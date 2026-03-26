@@ -87,7 +87,8 @@ class SubscriptionsViewModel @Inject constructor(
 fun SubscriptionsScreen(
     onPodcastClick: (Long) -> Unit,
     onDiscoverClick: () -> Unit,
-    initialTagId: Long? = null,
+    pendingTagId: Long? = null,
+    onPendingTagConsumed: () -> Unit = {},
     viewModel: SubscriptionsViewModel = hiltViewModel(),
 ) {
     val allPodcasts by viewModel.subscribedPodcasts.collectAsState()
@@ -97,9 +98,10 @@ fun SubscriptionsScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     // Apply tag filter when navigating from PodcastDetailScreen
-    LaunchedEffect(initialTagId) {
-        if (initialTagId != null) {
-            viewModel.selectTag(initialTagId)
+    LaunchedEffect(pendingTagId) {
+        if (pendingTagId != null) {
+            viewModel.selectTag(pendingTagId)
+            onPendingTagConsumed()
         }
     }
 

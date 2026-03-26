@@ -64,6 +64,8 @@
     <string name="nothing_playing">Aucune lecture en cours</string>
     <string name="rewind_10s">Reculer de 10s</string>
     <string name="forward_30s">Avancer de 30s</string>
+    <string name="previous_episode">Épisode précédent</string>
+    <string name="next_episode">Épisode suivant</string>
     <string name="go_to_playlist">Aller à la playlist</string>
 
     <!-- Playlist -->
