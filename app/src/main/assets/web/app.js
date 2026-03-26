@@ -1,4 +1,4 @@
-// Podcasto Web Management UI
+// Podcasto Web UI — Full Player & Library Management
 
 // ========================
 // State
@@ -9,6 +9,29 @@ let selectedTagId = null;
 let allPodcasts = [];
 let searchDebounceTimer = null;
 let dialogCallback = null;
+
+// Podcast/Episode detail state
+let currentPodcastDetail = null;
+let currentPodcastEpisodes = [];
+let episodeFilter = 'all';
+let currentEpisodeDetail = null;
+let currentEpisodeArtwork = '';
+let currentEpisodePodcastTitle = '';
+
+// New episodes state
+let newEpisodesSelectedTagId = null;
+
+// Player state
+let playerEpisode = null;
+let playerArtwork = '';
+let playerPodcastTitle = '';
+let isPlaying = false;
+let playbackSpeed = 1.0;
+let positionSyncInterval = null;
+const SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+
+// Navigation stack for back navigation
+let navStack = [];
 
 // ========================
 // Init
@@ -38,28 +61,48 @@ document.addEventListener('DOMContentLoaded', () => {
     // Country select triggers re-search
     document.getElementById('country-select').addEventListener('change', () => {
         const query = searchInput.value.trim();
-        if (query.length >= 2) {
-            performSearch(query);
-        }
+        if (query.length >= 2) performSearch(query);
     });
+
+    // Audio element events
+    const audio = document.getElementById('audio-element');
+    audio.addEventListener('timeupdate', onAudioTimeUpdate);
+    audio.addEventListener('ended', onAudioEnded);
+    audio.addEventListener('play', () => { isPlaying = true; updatePlayButton(); });
+    audio.addEventListener('pause', () => { isPlaying = false; updatePlayButton(); });
+    audio.addEventListener('loadedmetadata', onAudioLoaded);
+
+    // Progress bar seek
+    const progressInput = document.getElementById('player-progress-input');
+    progressInput.addEventListener('input', onProgressSeek);
 
     // Load library on start
     loadLibrary();
 });
 
 // ========================
-// Tabs
+// Tabs & Navigation
 // ========================
 function switchTab(tabName) {
+    // If navigating away from detail views, clear them
+    navStack = [];
     currentTab = tabName;
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
-    document.getElementById(tabName).classList.add('active');
+    showPage(tabName);
 
-    if (tabName === 'library') {
-        loadLibrary();
-    }
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    const tabBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
+    if (tabBtn) tabBtn.classList.add('active');
+
+    if (tabName === 'library') loadLibrary();
+    if (tabName === 'new-episodes') loadNewEpisodes();
+    if (tabName === 'playlist') loadPlaylist();
+    if (tabName === 'history') loadHistory();
+}
+
+function showPage(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const page = document.getElementById(pageId);
+    if (page) page.classList.add('active');
 }
 
 // ========================
@@ -73,7 +116,6 @@ async function loadLibrary() {
         ]);
         allPodcasts = await podcastsRes.json();
         allTags = await tagsRes.json();
-
         renderTagsFilter();
         renderLibrary(allPodcasts);
     } catch (e) {
@@ -83,94 +125,1210 @@ async function loadLibrary() {
 
 function renderTagsFilter() {
     const container = document.getElementById('tags-filter');
-    if (allTags.length === 0) {
-        container.innerHTML = '';
-        return;
-    }
+    if (allTags.length === 0) { container.innerHTML = ''; return; }
 
     let html = `<button class="tag-chip ${selectedTagId === null ? 'active' : ''}" onclick="filterByTag(null)">Tous</button>`;
     allTags.forEach(tag => {
-        html += `<button class="tag-chip ${selectedTagId === tag.id ? 'active' : ''}" onclick="filterByTag(${tag.id})">${escapeHtml(tag.name)}</button>`;
+        html += `<button class="tag-chip ${selectedTagId === tag.id ? 'active' : ''}" onclick="filterByTag(${tag.id})">${esc(tag.name)}</button>`;
     });
-
-    // Add a "manage tags" chip
-    html += `<button class="tag-chip" onclick="openTagManager()" style="border-style:dashed">+ Gérer</button>`;
+    html += `<button class="tag-chip" onclick="openTagManager()" style="border-style:dashed">+ G&eacute;rer</button>`;
     container.innerHTML = html;
 }
 
 function filterByTag(tagId) {
     selectedTagId = tagId;
     renderTagsFilter();
-
     if (tagId === null) {
         renderLibrary(allPodcasts);
     } else {
-        const filtered = allPodcasts.filter(p => p.tags && p.tags.some(t => t.id === tagId));
-        renderLibrary(filtered);
+        renderLibrary(allPodcasts.filter(p => p.tags && p.tags.some(t => t.id === tagId)));
     }
 }
 
 function renderLibrary(podcasts) {
     const grid = document.getElementById('podcasts-grid');
     const empty = document.getElementById('library-empty');
-    const count = document.getElementById('podcast-count');
-
-    count.textContent = podcasts.length;
+    document.getElementById('podcast-count').textContent = podcasts.length;
 
     if (podcasts.length === 0) {
         grid.innerHTML = '';
         empty.style.display = '';
         return;
     }
-
     empty.style.display = 'none';
-    grid.innerHTML = podcasts.map(p => `
-        <div class="podcast-card">
+
+    grid.innerHTML = podcasts.map(p => {
+        const threeMonthsAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
+        const isStale = p.latestEpisodeTimestamp > 0 && p.latestEpisodeTimestamp < threeMonthsAgo;
+        return `
+        <div class="podcast-card ${isStale ? 'stale' : ''}" onclick="openPodcastDetail(${p.id})">
             <div class="card-content">
-                <img class="artwork" src="${escapeHtml(p.artworkUrl)}" alt="${escapeHtml(p.title)}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 80 80%22><rect fill=%22%23E8DEF8%22 width=%2280%22 height=%2280%22/><text x=%2240%22 y=%2245%22 text-anchor=%22middle%22 font-size=%2230%22>🎙</text></svg>'">
+                <img class="artwork" src="${esc(p.artworkUrl)}" alt="${esc(p.title)}" onerror="this.src='${placeholderImg()}'">
                 <div class="info">
-                    <div class="title">${escapeHtml(p.title)}</div>
-                    <div class="author">${escapeHtml(p.author)}</div>
+                    <div class="title">${esc(p.title)}</div>
+                    <div class="author">${esc(p.author)}</div>
                     <div class="card-tags">
-                        ${(p.tags || []).map(t => `<span class="card-tag">${escapeHtml(t.name)}</span>`).join('')}
+                        ${(p.tags || []).map(t => `<span class="card-tag">${esc(t.name)}</span>`).join('')}
                     </div>
                 </div>
             </div>
             <div class="card-actions">
-                <button onclick="showTagAssign(${p.id}, '${escapeJs(p.title)}')">
+                <button onclick="event.stopPropagation(); showTagAssign(${p.id}, '${escJs(p.title)}')">
                     <span class="material-icons-round" style="font-size:18px">label</span>
                     Tags
                 </button>
-                <button class="danger" onclick="confirmUnsubscribe(${p.id}, '${escapeJs(p.title)}')">
+                <button class="danger" onclick="event.stopPropagation(); confirmUnsubscribe(${p.id}, '${escJs(p.title)}')">
                     <span class="material-icons-round" style="font-size:18px">delete_outline</span>
                     Supprimer
                 </button>
             </div>
+        </div>`;
+    }).join('');
+}
+
+// ========================
+// Podcast Detail
+// ========================
+
+// Store search result info for subscribe-from-detail
+let previewSearchInfo = null;
+
+async function openPodcastDetail(podcastId) {
+    navStack.push(currentTab);
+    showPage('podcast-detail');
+    previewSearchInfo = null;
+
+    // Remove active tab highlight
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+    document.getElementById('episodes-list').innerHTML = '';
+    document.getElementById('episodes-loading').style.display = '';
+    document.getElementById('detail-subscribe-bar').style.display = 'none';
+    document.getElementById('detail-tags').innerHTML = '';
+
+    try {
+        const [podcastRes, episodesRes] = await Promise.all([
+            fetch(`/api/podcasts/${podcastId}`),
+            fetch(`/api/podcasts/${podcastId}/episodes`),
+        ]);
+        currentPodcastDetail = await podcastRes.json();
+        currentPodcastEpisodes = await episodesRes.json();
+
+        document.getElementById('detail-artwork').src = currentPodcastDetail.artworkUrl || '';
+        document.getElementById('detail-title').textContent = currentPodcastDetail.title;
+        document.getElementById('detail-author').textContent = currentPodcastDetail.author;
+        document.getElementById('detail-description').innerHTML = sanitizeHtml(currentPodcastDetail.description || '');
+
+        renderDetailTags(currentPodcastDetail);
+
+        episodeFilter = 'all';
+        document.getElementById('filter-all').classList.add('active');
+        document.getElementById('filter-unplayed').classList.remove('active');
+        renderEpisodes();
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    } finally {
+        document.getElementById('episodes-loading').style.display = 'none';
+    }
+}
+
+async function openSearchPodcastDetail(collectionId, collectionName, artistName, artworkUrl, feedUrl, alreadySubscribed) {
+    navStack.push('search');
+    showPage('podcast-detail');
+
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+    document.getElementById('episodes-list').innerHTML = '';
+    document.getElementById('episodes-loading').style.display = '';
+
+    // Show podcast info immediately with what we have
+    document.getElementById('detail-artwork').src = artworkUrl || '';
+    document.getElementById('detail-title').textContent = collectionName;
+    document.getElementById('detail-author').textContent = artistName;
+    document.getElementById('detail-description').textContent = '';
+    document.getElementById('detail-tags').innerHTML = '';
+
+    // Store search info for potential subscribe
+    previewSearchInfo = { collectionId, collectionName, artistName, artworkUrl, feedUrl };
+
+    try {
+        const res = await fetch('/api/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ collectionId, collectionName, artistName, artworkUrl, feedUrl }),
+        });
+        const data = await res.json();
+
+        if (data.error) {
+            showToast(data.error);
+            document.getElementById('episodes-loading').style.display = 'none';
+            return;
+        }
+
+        currentPodcastDetail = data.podcast;
+        currentPodcastEpisodes = data.episodes;
+
+        document.getElementById('detail-artwork').src = currentPodcastDetail.artworkUrl || artworkUrl || '';
+        document.getElementById('detail-title').textContent = currentPodcastDetail.title;
+        document.getElementById('detail-author').textContent = currentPodcastDetail.author;
+        document.getElementById('detail-description').innerHTML = sanitizeHtml(currentPodcastDetail.description || '');
+
+        renderDetailTags(currentPodcastDetail);
+
+        // Show subscribe button if not subscribed
+        if (!currentPodcastDetail.subscribed) {
+            document.getElementById('detail-subscribe-bar').style.display = '';
+            document.getElementById('detail-subscribe-btn').innerHTML = '<span class="material-icons-round">add_circle_outline</span> S\'abonner';
+            document.getElementById('detail-subscribe-btn').disabled = false;
+        } else {
+            document.getElementById('detail-subscribe-bar').style.display = 'none';
+        }
+
+        episodeFilter = 'all';
+        document.getElementById('filter-all').classList.add('active');
+        document.getElementById('filter-unplayed').classList.remove('active');
+        renderEpisodes();
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    } finally {
+        document.getElementById('episodes-loading').style.display = 'none';
+    }
+}
+
+async function subscribeFromDetail() {
+    if (!previewSearchInfo) return;
+    const btn = document.getElementById('detail-subscribe-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;margin:0;display:inline-block"></div> Abonnement...';
+
+    try {
+        const res = await fetch('/api/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                collectionId: previewSearchInfo.collectionId,
+                collectionName: previewSearchInfo.collectionName,
+                artistName: previewSearchInfo.artistName,
+                artworkUrl: previewSearchInfo.artworkUrl,
+                feedUrl: previewSearchInfo.feedUrl,
+            }),
+        });
+
+        if (res.ok) {
+            btn.innerHTML = '<span class="material-icons-round">check</span> Abonn\u00e9';
+            showToast('Abonn\u00e9 \u00e0 ' + previewSearchInfo.collectionName);
+            if (currentPodcastDetail) {
+                currentPodcastDetail.subscribed = true;
+                currentPodcastDetail.tags = [];
+                renderDetailTags(currentPodcastDetail);
+            }
+        } else {
+            const err = await res.json();
+            throw new Error(err.error || 'Erreur');
+        }
+    } catch (e) {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-icons-round">add_circle_outline</span> R\u00e9essayer';
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+function closePodcastDetail() {
+    const prev = navStack.pop() || 'library';
+    switchTab(prev);
+}
+
+function renderDetailTags(podcast) {
+    const container = document.getElementById('detail-tags');
+    if (!podcast || !podcast.subscribed) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const tags = podcast.tags || [];
+    let html = '';
+
+    tags.forEach(tag => {
+        html += `<span class="detail-tag-chip">${esc(tag.name)}</span>`;
+    });
+
+    html += `<button class="detail-tag-manage" onclick="showDetailTagAssign()" title="Gérer les tags">
+        <span class="material-icons-round">label</span>
+        ${tags.length === 0 ? 'Tags' : ''}
+    </button>`;
+
+    container.innerHTML = html;
+}
+
+async function showDetailTagAssign() {
+    if (!currentPodcastDetail || !currentPodcastDetail.id) return;
+    const podcastId = currentPodcastDetail.id;
+
+    // Refresh tags list
+    try {
+        const tagsRes = await fetch('/api/tags');
+        allTags = await tagsRes.json();
+    } catch (e) { /* use cached */ }
+
+    // Get current podcast tags
+    let podcastTagIds = (currentPodcastDetail.tags || []).map(t => t.id);
+    try {
+        const res = await fetch(`/api/podcasts/${podcastId}/tags`);
+        const ptags = await res.json();
+        podcastTagIds = ptags.map(t => t.id);
+    } catch (e) { /* use cached */ }
+
+    document.getElementById('dialog-title').textContent = 'Tags — ' + (currentPodcastDetail.title || '');
+
+    let html = '<div style="margin-bottom:12px">';
+    html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
+    html += '<input type="text" id="detail-new-tag-input" placeholder="Nouveau tag..." style="flex:1;padding:8px 12px;border:1px solid var(--outline);border-radius:var(--radius-xs);font-family:inherit;font-size:14px;outline:none">';
+    html += '<button onclick="createAndAssignDetailTag()" style="padding:8px 16px;background:var(--primary);color:white;border:none;border-radius:var(--radius-xs);cursor:pointer;font-family:inherit;font-weight:500">Créer</button>';
+    html += '</div>';
+
+    html += '<div style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto">';
+    if (allTags.length === 0) {
+        html += '<p style="color:var(--on-surface-variant)">Aucun tag. Créez-en ci-dessus.</p>';
+    } else {
+        allTags.forEach(tag => {
+            const checked = podcastTagIds.includes(tag.id) ? 'checked' : '';
+            html += `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0">
+                <input type="checkbox" ${checked} onchange="toggleDetailTag(${podcastId}, ${tag.id}, this.checked)" style="width:18px;height:18px;accent-color:var(--primary)">
+                <span>${esc(tag.name)}</span>
+            </label>`;
+        });
+    }
+    html += '</div></div>';
+
+    document.getElementById('dialog-text').innerHTML = html;
+    document.getElementById('dialog-confirm').textContent = 'Fermer';
+    document.getElementById('dialog-confirm').className = 'btn-text';
+    document.getElementById('dialog-confirm').onclick = () => { closeDialog(); refreshDetailTags(); };
+    document.getElementById('dialog-overlay').style.display = '';
+}
+
+async function toggleDetailTag(podcastId, tagId, add) {
+    try {
+        if (add) {
+            await fetch(`/api/podcasts/${podcastId}/tags/${tagId}`, { method: 'POST' });
+        } else {
+            await fetch(`/api/podcasts/${podcastId}/tags/${tagId}`, { method: 'DELETE' });
+        }
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+async function createAndAssignDetailTag() {
+    const input = document.getElementById('detail-new-tag-input');
+    const name = input.value.trim();
+    if (!name || !currentPodcastDetail) return;
+
+    try {
+        // Create the tag
+        const res = await fetch('/api/tags', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+        });
+        if (res.ok) {
+            const newTag = await res.json();
+            // Assign it to the podcast
+            await fetch(`/api/podcasts/${currentPodcastDetail.id}/tags/${newTag.id}`, { method: 'POST' });
+            input.value = '';
+            showToast('Tag "' + name + '" créé et assigné');
+            // Re-open the dialog to refresh
+            showDetailTagAssign();
+        }
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+async function refreshDetailTags() {
+    if (!currentPodcastDetail || !currentPodcastDetail.id) return;
+    try {
+        const res = await fetch(`/api/podcasts/${currentPodcastDetail.id}/tags`);
+        const tags = await res.json();
+        currentPodcastDetail.tags = tags;
+        renderDetailTags(currentPodcastDetail);
+    } catch (e) { /* ignore */ }
+}
+
+function filterEpisodes(filter) {
+    episodeFilter = filter;
+    document.getElementById('filter-all').classList.toggle('active', filter === 'all');
+    document.getElementById('filter-unplayed').classList.toggle('active', filter === 'unplayed');
+    renderEpisodes();
+}
+
+function renderEpisodes() {
+    let episodes = currentPodcastEpisodes;
+    if (episodeFilter === 'unplayed') {
+        episodes = episodes.filter(e => !e.played);
+    }
+
+    const list = document.getElementById('episodes-list');
+    if (episodes.length === 0) {
+        list.innerHTML = '<div class="empty-state"><p>Aucun episode</p></div>';
+        return;
+    }
+
+    list.innerHTML = episodes.map(e => {
+        const isNowPlaying = playerEpisode && playerEpisode.id === e.id;
+        const progressPct = e.duration > 0 ? Math.round((e.playbackPosition / (e.duration * 1000)) * 100) : 0;
+        const dateStr = e.pubDateTimestamp > 0 ? new Date(e.pubDateTimestamp).toLocaleDateString() : e.pubDate;
+        const durationStr = formatDuration(e.duration);
+
+        return `
+        <div class="episode-item ${e.played ? 'played' : ''} ${isNowPlaying ? 'now-playing' : ''}" onclick="openEpisodeDetail(${e.id})">
+            <button class="episode-play-btn" onclick="event.stopPropagation(); playEpisode(${e.id})" title="Lire">
+                <span class="material-icons-round">${isNowPlaying && isPlaying ? 'pause' : 'play_arrow'}</span>
+            </button>
+            <div class="episode-info">
+                <div class="episode-title">${esc(e.title)}</div>
+                <div class="episode-meta">
+                    <span>${dateStr}</span>
+                    ${durationStr ? `<span>${durationStr}</span>` : ''}
+                    ${progressPct > 0 && progressPct < 100 ? `
+                        <div class="episode-progress">
+                            <div class="episode-progress-fill" style="width:${progressPct}%"></div>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+            <div class="episode-actions">
+                <button class="episode-action-btn" onclick="event.stopPropagation(); togglePlaylistEpisode(${e.id}, this)" title="Playlist">
+                    <span class="material-icons-round">playlist_add</span>
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ========================
+// Episode Detail
+// ========================
+async function openEpisodeDetail(episodeId) {
+    navStack.push('podcast-detail');
+    showPage('episode-detail');
+
+    try {
+        const res = await fetch(`/api/episodes/${episodeId}`);
+        currentEpisodeDetail = await res.json();
+        currentEpisodeArtwork = currentEpisodeDetail.artworkUrl || (currentPodcastDetail ? currentPodcastDetail.artworkUrl : '');
+        currentEpisodePodcastTitle = currentPodcastDetail ? currentPodcastDetail.title : '';
+
+        document.getElementById('ep-detail-artwork').src = currentEpisodeArtwork;
+        document.getElementById('ep-detail-title').textContent = currentEpisodeDetail.title;
+        document.getElementById('ep-detail-podcast').textContent = currentEpisodePodcastTitle;
+        document.getElementById('ep-detail-date').textContent = currentEpisodeDetail.pubDateTimestamp > 0
+            ? new Date(currentEpisodeDetail.pubDateTimestamp).toLocaleDateString()
+            : currentEpisodeDetail.pubDate;
+
+        // Description (allow HTML)
+        document.getElementById('ep-detail-description').innerHTML = sanitizeHtml(currentEpisodeDetail.description || '');
+
+        updateEpisodeDetailButtons();
+        loadBookmarks(episodeId);
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+function closeEpisodeDetail() {
+    const prev = navStack.pop();
+    if (prev === 'podcast-detail') {
+        showPage('podcast-detail');
+    } else if (prev === 'playlist') {
+        showPage('playlist');
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('.tab[data-tab="playlist"]').classList.add('active');
+    } else if (prev === 'new-episodes') {
+        showPage('new-episodes');
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('.tab[data-tab="new-episodes"]').classList.add('active');
+    } else if (prev === 'history') {
+        showPage('history');
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('.tab[data-tab="history"]').classList.add('active');
+    } else {
+        switchTab(prev || 'library');
+    }
+}
+
+function updateEpisodeDetailButtons() {
+    if (!currentEpisodeDetail) return;
+    const e = currentEpisodeDetail;
+
+    // Play button
+    const isNowPlaying = playerEpisode && playerEpisode.id === e.id;
+    const playBtn = document.getElementById('ep-play-btn');
+    playBtn.innerHTML = isNowPlaying && isPlaying
+        ? '<span class="material-icons-round">pause</span> Pause'
+        : '<span class="material-icons-round">play_arrow</span> Lire';
+
+    // Played button
+    const playedBtn = document.getElementById('ep-played-btn');
+    playedBtn.innerHTML = e.played
+        ? '<span class="material-icons-round">check_circle</span> Lu'
+        : '<span class="material-icons-round">check_circle_outline</span> Non lu';
+    playedBtn.classList.toggle('active', e.played);
+}
+
+function playCurrentEpisode() {
+    if (!currentEpisodeDetail) return;
+    if (playerEpisode && playerEpisode.id === currentEpisodeDetail.id) {
+        playerTogglePlay();
+    } else {
+        playEpisode(currentEpisodeDetail.id);
+    }
+}
+
+async function togglePlaylistCurrentEpisode() {
+    if (!currentEpisodeDetail) return;
+    await togglePlaylistEpisode(currentEpisodeDetail.id);
+}
+
+async function togglePlayedCurrentEpisode() {
+    if (!currentEpisodeDetail) return;
+    try {
+        if (currentEpisodeDetail.played) {
+            await fetch(`/api/episodes/${currentEpisodeDetail.id}/unplayed`, { method: 'PUT' });
+            currentEpisodeDetail.played = false;
+        } else {
+            await fetch(`/api/episodes/${currentEpisodeDetail.id}/played`, { method: 'PUT' });
+            currentEpisodeDetail.played = true;
+        }
+        updateEpisodeDetailButtons();
+        showToast(currentEpisodeDetail.played ? 'Marqu\u00e9 comme lu' : 'Marqu\u00e9 comme non lu');
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+// ========================
+// Bookmarks
+// ========================
+async function loadBookmarks(episodeId) {
+    try {
+        const res = await fetch(`/api/episodes/${episodeId}/bookmarks`);
+        const bookmarks = await res.json();
+        const list = document.getElementById('bookmarks-list');
+
+        if (bookmarks.length === 0) {
+            list.innerHTML = '<p style="color:var(--on-surface-variant);font-size:13px;padding:8px 0">Aucun signet</p>';
+            return;
+        }
+
+        list.innerHTML = bookmarks.map(b => `
+            <div class="bookmark-item">
+                <span class="bookmark-time" onclick="seekToBookmark(${b.positionMs})">${formatTime(b.positionMs / 1000)}</span>
+                <span class="bookmark-comment">${esc(b.comment) || '—'}</span>
+                <button class="bookmark-delete" onclick="deleteBookmark(${b.id})" title="Supprimer">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+        `).join('');
+    } catch (e) {
+        console.error('Failed to load bookmarks', e);
+    }
+}
+
+function seekToBookmark(positionMs) {
+    if (!currentEpisodeDetail) return;
+    // Start playing this episode if not already, then seek
+    if (!playerEpisode || playerEpisode.id !== currentEpisodeDetail.id) {
+        playEpisode(currentEpisodeDetail.id, positionMs / 1000);
+    } else {
+        const audio = document.getElementById('audio-element');
+        audio.currentTime = positionMs / 1000;
+    }
+}
+
+function addBookmarkDialog() {
+    if (!currentEpisodeDetail) return;
+    const audio = document.getElementById('audio-element');
+    const currentPos = (playerEpisode && playerEpisode.id === currentEpisodeDetail.id)
+        ? Math.round(audio.currentTime * 1000)
+        : currentEpisodeDetail.playbackPosition;
+
+    document.getElementById('dialog-title').textContent = 'Ajouter un signet';
+    document.getElementById('dialog-text').innerHTML = `
+        <div style="margin-bottom:16px">
+            <label style="font-size:13px;color:var(--on-surface-variant);display:block;margin-bottom:4px">Position: ${formatTime(currentPos / 1000)}</label>
+            <input type="text" id="bookmark-comment-input" placeholder="Commentaire (optionnel)..." style="width:100%;padding:10px 12px;border:1px solid var(--outline);border-radius:var(--radius-xs);font-family:inherit;font-size:14px;outline:none">
         </div>
-    `).join('');
+    `;
+    document.getElementById('dialog-confirm').textContent = 'Ajouter';
+    document.getElementById('dialog-confirm').className = 'btn-primary';
+    document.getElementById('dialog-confirm').onclick = async () => {
+        const comment = document.getElementById('bookmark-comment-input').value.trim();
+        closeDialog();
+        try {
+            await fetch(`/api/episodes/${currentEpisodeDetail.id}/bookmarks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ positionMs: currentPos, comment }),
+            });
+            showToast('Signet ajout\u00e9');
+            loadBookmarks(currentEpisodeDetail.id);
+        } catch (e) {
+            showToast('Erreur: ' + e.message);
+        }
+    };
+    document.getElementById('dialog-overlay').style.display = '';
+}
+
+async function deleteBookmark(bookmarkId) {
+    try {
+        await fetch(`/api/bookmarks/${bookmarkId}`, { method: 'DELETE' });
+        showToast('Signet supprim\u00e9');
+        if (currentEpisodeDetail) loadBookmarks(currentEpisodeDetail.id);
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+// ========================
+// Playlist
+// ========================
+async function loadPlaylist() {
+    try {
+        const res = await fetch('/api/playlist');
+        const items = await res.json();
+        const container = document.getElementById('playlist-items');
+        const empty = document.getElementById('playlist-empty');
+        document.getElementById('playlist-count').textContent = items.length;
+
+        if (items.length === 0) {
+            container.innerHTML = '';
+            empty.style.display = '';
+            return;
+        }
+        empty.style.display = 'none';
+
+        container.innerHTML = items.map(item => {
+            const isNowPlaying = playerEpisode && playerEpisode.id === item.id;
+            const progressPct = item.duration > 0 ? Math.round((item.playbackPosition / (item.duration * 1000)) * 100) : 0;
+
+            return `
+            <div class="playlist-item ${isNowPlaying ? 'now-playing' : ''}">
+                <img class="playlist-item-artwork" src="${esc(item.artworkUrl)}" alt="" onerror="this.src='${placeholderImg()}'">
+                <div class="playlist-item-info" onclick="playEpisodeFromPlaylist(${item.id}, '${escJs(item.artworkUrl)}', '${escJs(item.podcastTitle)}')">
+                    <div class="playlist-item-title">${esc(item.title)}</div>
+                    <div class="playlist-item-podcast">${esc(item.podcastTitle)}</div>
+                </div>
+                <div class="playlist-item-progress">
+                    <div class="episode-progress" style="max-width:100%">
+                        <div class="episode-progress-fill" style="width:${progressPct}%"></div>
+                    </div>
+                </div>
+                <div class="playlist-item-actions">
+                    <button class="episode-action-btn" onclick="playEpisodeFromPlaylist(${item.id}, '${escJs(item.artworkUrl)}', '${escJs(item.podcastTitle)}')" title="Lire">
+                        <span class="material-icons-round">${isNowPlaying && isPlaying ? 'pause' : 'play_arrow'}</span>
+                    </button>
+                    <button class="episode-action-btn" onclick="removeFromPlaylist(${item.id})" title="Retirer">
+                        <span class="material-icons-round">remove_circle_outline</span>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        showToast('Erreur playlist: ' + e.message);
+    }
+}
+
+async function togglePlaylistEpisode(episodeId, btn) {
+    try {
+        // Try to add — if already in playlist, remove
+        const checkRes = await fetch('/api/playlist');
+        const items = await checkRes.json();
+        const isIn = items.some(i => i.id === episodeId);
+
+        if (isIn) {
+            await fetch(`/api/playlist/${episodeId}`, { method: 'DELETE' });
+            showToast('Retir\u00e9 de la playlist');
+        } else {
+            await fetch(`/api/playlist/${episodeId}`, { method: 'POST' });
+            showToast('Ajout\u00e9 \u00e0 la playlist');
+        }
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+async function removeFromPlaylist(episodeId) {
+    try {
+        await fetch(`/api/playlist/${episodeId}`, { method: 'DELETE' });
+        showToast('Retir\u00e9 de la playlist');
+        loadPlaylist();
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+async function autoAddPlaylist() {
+    try {
+        await fetch('/api/playlist/auto-add', { method: 'POST' });
+        showToast('Episodes ajout\u00e9s automatiquement');
+        loadPlaylist();
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+function clearPlaylistConfirm() {
+    document.getElementById('dialog-title').textContent = 'Vider la playlist';
+    document.getElementById('dialog-text').innerHTML = '<p>Voulez-vous vraiment vider toute la playlist ?</p>';
+    document.getElementById('dialog-confirm').textContent = 'Vider';
+    document.getElementById('dialog-confirm').className = 'btn-danger';
+    document.getElementById('dialog-confirm').onclick = async () => {
+        closeDialog();
+        try {
+            await fetch('/api/playlist', { method: 'DELETE' });
+            showToast('Playlist vid\u00e9e');
+            loadPlaylist();
+        } catch (e) {
+            showToast('Erreur: ' + e.message);
+        }
+    };
+    document.getElementById('dialog-overlay').style.display = '';
+}
+
+// ========================
+// New Episodes
+// ========================
+async function loadNewEpisodes() {
+    const list = document.getElementById('new-episodes-list');
+    const empty = document.getElementById('new-episodes-empty');
+    const loading = document.getElementById('new-episodes-loading');
+    const countBadge = document.getElementById('new-episodes-count');
+
+    loading.style.display = '';
+    list.innerHTML = '';
+    empty.style.display = 'none';
+
+    try {
+        // Load tags for filter
+        const tagsRes = await fetch('/api/tags');
+        allTags = await tagsRes.json();
+        renderNewEpisodesTagsFilter();
+
+        let url = '/api/new-episodes';
+        if (newEpisodesSelectedTagId !== null) {
+            url += `?tagId=${newEpisodesSelectedTagId}`;
+        }
+        const res = await fetch(url);
+        const episodes = await res.json();
+        loading.style.display = 'none';
+        countBadge.textContent = episodes.length;
+
+        if (episodes.length === 0) {
+            empty.style.display = '';
+            return;
+        }
+
+        list.innerHTML = episodes.map(e => {
+            const isNowPlaying = playerEpisode && playerEpisode.id === e.id;
+            const progressPct = e.duration > 0 ? Math.round((e.playbackPosition / (e.duration * 1000)) * 100) : 0;
+            const dateStr = e.pubDateTimestamp > 0 ? new Date(e.pubDateTimestamp).toLocaleDateString() : e.pubDate;
+            const durationStr = formatDuration(e.duration);
+
+            return `
+            <div class="episode-item-with-artwork ${e.played ? 'played' : ''} ${isNowPlaying ? 'now-playing' : ''}" onclick="openNewEpisodeDetail(${e.id}, '${escJs(e.artworkUrl)}')">
+                <img class="episode-artwork-sm" src="${esc(e.artworkUrl)}" alt="" onerror="this.src='${placeholderImg()}'">
+                <button class="episode-play-btn" onclick="event.stopPropagation(); playNewEpisode(${e.id}, '${escJs(e.artworkUrl)}')" title="Lire">
+                    <span class="material-icons-round">${isNowPlaying && isPlaying ? 'pause' : 'play_arrow'}</span>
+                </button>
+                <div class="episode-info">
+                    <div class="episode-title">${esc(e.title)}</div>
+                    <div class="episode-meta">
+                        <span>${dateStr}</span>
+                        ${durationStr ? `<span>${durationStr}</span>` : ''}
+                        ${progressPct > 0 && progressPct < 100 ? `
+                            <div class="episode-progress">
+                                <div class="episode-progress-fill" style="width:${progressPct}%"></div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                <div class="episode-actions">
+                    <button class="episode-action-btn" onclick="event.stopPropagation(); togglePlaylistEpisode(${e.id})" title="Playlist">
+                        <span class="material-icons-round">playlist_add</span>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        loading.style.display = 'none';
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+function renderNewEpisodesTagsFilter() {
+    const container = document.getElementById('new-episodes-tags');
+    if (allTags.length === 0) { container.innerHTML = ''; return; }
+
+    let html = `<button class="tag-chip ${newEpisodesSelectedTagId === null ? 'active' : ''}" onclick="filterNewEpisodesByTag(null)">Tous</button>`;
+    allTags.forEach(tag => {
+        html += `<button class="tag-chip ${newEpisodesSelectedTagId === tag.id ? 'active' : ''}" onclick="filterNewEpisodesByTag(${tag.id})">${esc(tag.name)}</button>`;
+    });
+    container.innerHTML = html;
+}
+
+function filterNewEpisodesByTag(tagId) {
+    newEpisodesSelectedTagId = tagId;
+    loadNewEpisodes();
+}
+
+async function playNewEpisode(episodeId, artworkUrl) {
+    if (playerEpisode && playerEpisode.id === episodeId) {
+        playerTogglePlay();
+        return;
+    }
+    try {
+        await saveCurrentPosition();
+        const res = await fetch(`/api/episodes/${episodeId}`);
+        const episode = await res.json();
+
+        playerEpisode = episode;
+        playerArtwork = artworkUrl || episode.artworkUrl || '';
+        playerPodcastTitle = '';
+
+        const audio = document.getElementById('audio-element');
+        audio.src = episode.audioUrl;
+        audio.playbackRate = playbackSpeed;
+
+        const startPos = episode.playbackPosition > 0 ? episode.playbackPosition / 1000 : 0;
+        audio.currentTime = startPos;
+        audio.play();
+
+        showPlayerBar();
+        startPositionSync();
+        updatePlayerUI();
+        loadNewEpisodes();
+    } catch (e) {
+        showToast('Erreur lecture: ' + e.message);
+    }
+}
+
+async function openNewEpisodeDetail(episodeId, artworkUrl) {
+    navStack.push('new-episodes');
+    showPage('episode-detail');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+    try {
+        const res = await fetch(`/api/episodes/${episodeId}`);
+        currentEpisodeDetail = await res.json();
+        currentEpisodeArtwork = artworkUrl || currentEpisodeDetail.artworkUrl || '';
+        currentEpisodePodcastTitle = '';
+
+        // Try to get podcast title
+        const podcastRes = await fetch(`/api/podcasts/${currentEpisodeDetail.podcastId}`);
+        if (podcastRes.ok) {
+            const podcast = await podcastRes.json();
+            currentPodcastDetail = podcast;
+            currentEpisodePodcastTitle = podcast.title;
+        }
+
+        document.getElementById('ep-detail-artwork').src = currentEpisodeArtwork;
+        document.getElementById('ep-detail-title').textContent = currentEpisodeDetail.title;
+        document.getElementById('ep-detail-podcast').textContent = currentEpisodePodcastTitle;
+        document.getElementById('ep-detail-date').textContent = currentEpisodeDetail.pubDateTimestamp > 0
+            ? new Date(currentEpisodeDetail.pubDateTimestamp).toLocaleDateString()
+            : currentEpisodeDetail.pubDate;
+        document.getElementById('ep-detail-description').innerHTML = sanitizeHtml(currentEpisodeDetail.description || '');
+
+        updateEpisodeDetailButtons();
+        loadBookmarks(currentEpisodeDetail.id);
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+// ========================
+// History
+// ========================
+async function loadHistory() {
+    const list = document.getElementById('history-list');
+    const empty = document.getElementById('history-empty');
+    const loading = document.getElementById('history-loading');
+    const countBadge = document.getElementById('history-count');
+
+    loading.style.display = '';
+    list.innerHTML = '';
+    empty.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/history');
+        const history = await res.json();
+        loading.style.display = 'none';
+        countBadge.textContent = history.length;
+
+        if (history.length === 0) {
+            empty.style.display = '';
+            return;
+        }
+
+        list.innerHTML = history.map(h => {
+            const dateStr = new Date(h.listenedAt).toLocaleString();
+            const isNowPlaying = playerEpisode && playerEpisode.id === h.episodeId;
+
+            return `
+            <div class="history-item ${isNowPlaying ? 'now-playing' : ''}" onclick="openHistoryEpisodeDetail(${h.episodeId}, '${escJs(h.artworkUrl)}', '${escJs(h.podcastTitle)}')">
+                <img class="history-item-artwork" src="${esc(h.artworkUrl)}" alt="" onerror="this.src='${placeholderImg()}'">
+                <div class="history-item-info">
+                    <div class="history-item-title">${esc(h.episodeTitle)}</div>
+                    <div class="history-item-podcast">${esc(h.podcastTitle)}</div>
+                    <div class="history-item-date">${dateStr}</div>
+                </div>
+                <div class="history-item-actions">
+                    <button class="episode-action-btn" onclick="event.stopPropagation(); playHistoryEpisode(${h.episodeId}, '${escJs(h.artworkUrl)}', '${escJs(h.podcastTitle)}')" title="Lire">
+                        <span class="material-icons-round">${isNowPlaying && isPlaying ? 'pause' : 'play_arrow'}</span>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        loading.style.display = 'none';
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+async function playHistoryEpisode(episodeId, artworkUrl, podcastTitle) {
+    if (playerEpisode && playerEpisode.id === episodeId) {
+        playerTogglePlay();
+        return;
+    }
+    try {
+        await saveCurrentPosition();
+        const res = await fetch(`/api/episodes/${episodeId}`);
+        const episode = await res.json();
+
+        playerEpisode = episode;
+        playerArtwork = artworkUrl || episode.artworkUrl || '';
+        playerPodcastTitle = podcastTitle || '';
+
+        const audio = document.getElementById('audio-element');
+        audio.src = episode.audioUrl;
+        audio.playbackRate = playbackSpeed;
+
+        const startPos = episode.playbackPosition > 0 ? episode.playbackPosition / 1000 : 0;
+        audio.currentTime = startPos;
+        audio.play();
+
+        showPlayerBar();
+        startPositionSync();
+        updatePlayerUI();
+        loadHistory();
+    } catch (e) {
+        showToast('Erreur lecture: ' + e.message);
+    }
+}
+
+async function openHistoryEpisodeDetail(episodeId, artworkUrl, podcastTitle) {
+    navStack.push('history');
+    showPage('episode-detail');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+    try {
+        const res = await fetch(`/api/episodes/${episodeId}`);
+        currentEpisodeDetail = await res.json();
+        currentEpisodeArtwork = artworkUrl || currentEpisodeDetail.artworkUrl || '';
+        currentEpisodePodcastTitle = podcastTitle || '';
+
+        // Try to get podcast detail
+        const podcastRes = await fetch(`/api/podcasts/${currentEpisodeDetail.podcastId}`);
+        if (podcastRes.ok) {
+            currentPodcastDetail = await podcastRes.json();
+            currentEpisodePodcastTitle = currentPodcastDetail.title;
+        }
+
+        document.getElementById('ep-detail-artwork').src = currentEpisodeArtwork;
+        document.getElementById('ep-detail-title').textContent = currentEpisodeDetail.title;
+        document.getElementById('ep-detail-podcast').textContent = currentEpisodePodcastTitle;
+        document.getElementById('ep-detail-date').textContent = currentEpisodeDetail.pubDateTimestamp > 0
+            ? new Date(currentEpisodeDetail.pubDateTimestamp).toLocaleDateString()
+            : currentEpisodeDetail.pubDate;
+        document.getElementById('ep-detail-description').innerHTML = sanitizeHtml(currentEpisodeDetail.description || '');
+
+        updateEpisodeDetailButtons();
+        loadBookmarks(currentEpisodeDetail.id);
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+function clearHistoryConfirm() {
+    document.getElementById('dialog-title').textContent = 'Effacer l\'historique';
+    document.getElementById('dialog-text').innerHTML = '<p>Voulez-vous vraiment effacer tout l\'historique d\'&eacute;coute ?</p>';
+    document.getElementById('dialog-confirm').textContent = 'Effacer';
+    document.getElementById('dialog-confirm').className = 'btn-danger';
+    document.getElementById('dialog-confirm').onclick = async () => {
+        closeDialog();
+        try {
+            await fetch('/api/history', { method: 'DELETE' });
+            showToast('Historique effac\u00e9');
+            loadHistory();
+        } catch (e) {
+            showToast('Erreur: ' + e.message);
+        }
+    };
+    document.getElementById('dialog-overlay').style.display = '';
+}
+
+// ========================
+// Audio Player
+// ========================
+async function playEpisode(episodeId, seekTo) {
+    try {
+        // Save position of currently playing episode before switching
+        await saveCurrentPosition();
+
+        const res = await fetch(`/api/episodes/${episodeId}`);
+        const episode = await res.json();
+
+        playerEpisode = episode;
+        playerArtwork = episode.artworkUrl || (currentPodcastDetail ? currentPodcastDetail.artworkUrl : '');
+        playerPodcastTitle = currentPodcastDetail ? currentPodcastDetail.title : '';
+
+        const audio = document.getElementById('audio-element');
+        audio.src = episode.audioUrl;
+        audio.playbackRate = playbackSpeed;
+
+        // Seek to saved position or specified position
+        const startPos = seekTo != null ? seekTo : (episode.playbackPosition > 0 ? episode.playbackPosition / 1000 : 0);
+        audio.currentTime = startPos;
+        audio.play();
+
+        showPlayerBar();
+        startPositionSync();
+        updatePlayerUI();
+        // Update episode lists if visible
+        renderEpisodes();
+        updateEpisodeDetailButtons();
+    } catch (e) {
+        showToast('Erreur lecture: ' + e.message);
+    }
+}
+
+async function playEpisodeFromPlaylist(episodeId, artworkUrl, podcastTitle) {
+    if (playerEpisode && playerEpisode.id === episodeId) {
+        playerTogglePlay();
+        return;
+    }
+    try {
+        await saveCurrentPosition();
+
+        const res = await fetch(`/api/episodes/${episodeId}`);
+        const episode = await res.json();
+
+        playerEpisode = episode;
+        playerArtwork = artworkUrl || episode.artworkUrl || '';
+        playerPodcastTitle = podcastTitle || '';
+
+        const audio = document.getElementById('audio-element');
+        audio.src = episode.audioUrl;
+        audio.playbackRate = playbackSpeed;
+
+        const startPos = episode.playbackPosition > 0 ? episode.playbackPosition / 1000 : 0;
+        audio.currentTime = startPos;
+        audio.play();
+
+        showPlayerBar();
+        startPositionSync();
+        updatePlayerUI();
+        loadPlaylist(); // refresh playlist indicators
+    } catch (e) {
+        showToast('Erreur lecture: ' + e.message);
+    }
+}
+
+function playerTogglePlay() {
+    const audio = document.getElementById('audio-element');
+    if (!playerEpisode) return;
+
+    if (audio.paused) {
+        audio.play();
+    } else {
+        audio.pause();
+        saveCurrentPosition();
+    }
+}
+
+function playerSeek(seconds) {
+    const audio = document.getElementById('audio-element');
+    if (!playerEpisode) return;
+    audio.currentTime = Math.max(0, Math.min(audio.duration || 0, audio.currentTime + seconds));
+}
+
+function playerCycleSpeed() {
+    const idx = SPEEDS.indexOf(playbackSpeed);
+    playbackSpeed = SPEEDS[(idx + 1) % SPEEDS.length];
+    const audio = document.getElementById('audio-element');
+    audio.playbackRate = playbackSpeed;
+    document.getElementById('player-speed-btn').textContent = playbackSpeed + 'x';
+}
+
+function showPlayerBar() {
+    document.getElementById('player-bar').style.display = '';
+    document.body.classList.add('player-visible');
+}
+
+function updatePlayerUI() {
+    if (!playerEpisode) return;
+    document.getElementById('player-title').textContent = playerEpisode.title;
+    document.getElementById('player-subtitle').textContent = playerPodcastTitle;
+    document.getElementById('player-artwork').src = playerArtwork;
+    document.getElementById('player-artwork').onerror = function() { this.src = placeholderImg(); };
+    updatePlayButton();
+}
+
+function updatePlayButton() {
+    const btn = document.getElementById('player-play-btn');
+    btn.innerHTML = `<span class="material-icons-round">${isPlaying ? 'pause' : 'play_arrow'}</span>`;
+}
+
+function onAudioTimeUpdate() {
+    const audio = document.getElementById('audio-element');
+    if (!audio.duration || isNaN(audio.duration)) return;
+
+    const pct = (audio.currentTime / audio.duration) * 100;
+    document.getElementById('player-progress-fill').style.width = pct + '%';
+    document.getElementById('player-progress-input').value = Math.round(pct * 10);
+    document.getElementById('player-current-time').textContent = formatTime(audio.currentTime);
+    document.getElementById('player-duration').textContent = formatTime(audio.duration);
+}
+
+function onAudioLoaded() {
+    const audio = document.getElementById('audio-element');
+    document.getElementById('player-duration').textContent = formatTime(audio.duration);
+
+    // Seek to saved position
+    if (playerEpisode && playerEpisode.playbackPosition > 0 && audio.currentTime < 1) {
+        audio.currentTime = playerEpisode.playbackPosition / 1000;
+    }
+}
+
+async function onAudioEnded() {
+    isPlaying = false;
+    updatePlayButton();
+    stopPositionSync();
+
+    if (!playerEpisode) return;
+
+    // Mark as played
+    try {
+        await fetch(`/api/episodes/${playerEpisode.id}/played`, { method: 'PUT' });
+        // Remove from playlist
+        await fetch(`/api/playlist/${playerEpisode.id}`, { method: 'DELETE' });
+    } catch (e) {
+        console.error('Failed to mark as played', e);
+    }
+
+    // Try to play next in playlist
+    try {
+        const res = await fetch('/api/playlist');
+        const items = await res.json();
+        if (items.length > 0) {
+            const next = items[0];
+            playEpisodeFromPlaylist(next.id, next.artworkUrl, next.podcastTitle);
+        } else {
+            showToast('Playlist termin\u00e9e');
+        }
+    } catch (e) {
+        console.error('Failed to auto-advance', e);
+    }
+}
+
+function onProgressSeek() {
+    const audio = document.getElementById('audio-element');
+    if (!audio.duration || isNaN(audio.duration)) return;
+    const value = parseInt(document.getElementById('player-progress-input').value);
+    audio.currentTime = (value / 1000) * audio.duration;
+}
+
+function openPlayerEpisodeDetail() {
+    if (!playerEpisode) return;
+    // Find the podcast for this episode
+    const podcast = allPodcasts.find(p => p.id === playerEpisode.podcastId);
+    if (podcast) {
+        currentPodcastDetail = podcast;
+        currentEpisodePodcastTitle = podcast.title;
+    }
+    currentEpisodeDetail = playerEpisode;
+    currentEpisodeArtwork = playerArtwork;
+
+    navStack.push(currentTab);
+    showPage('episode-detail');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+    document.getElementById('ep-detail-artwork').src = currentEpisodeArtwork;
+    document.getElementById('ep-detail-title').textContent = currentEpisodeDetail.title;
+    document.getElementById('ep-detail-podcast').textContent = currentEpisodePodcastTitle;
+    document.getElementById('ep-detail-date').textContent = currentEpisodeDetail.pubDateTimestamp > 0
+        ? new Date(currentEpisodeDetail.pubDateTimestamp).toLocaleDateString()
+        : currentEpisodeDetail.pubDate;
+    document.getElementById('ep-detail-description').innerHTML = sanitizeHtml(currentEpisodeDetail.description || '');
+
+    updateEpisodeDetailButtons();
+    loadBookmarks(currentEpisodeDetail.id);
+}
+
+// Position sync — save every 5 seconds while playing
+function startPositionSync() {
+    stopPositionSync();
+    positionSyncInterval = setInterval(async () => {
+        if (isPlaying && playerEpisode) {
+            await saveCurrentPosition();
+        }
+    }, 5000);
+}
+
+function stopPositionSync() {
+    if (positionSyncInterval) {
+        clearInterval(positionSyncInterval);
+        positionSyncInterval = null;
+    }
+}
+
+async function saveCurrentPosition() {
+    if (!playerEpisode) return;
+    const audio = document.getElementById('audio-element');
+    const posMs = Math.round(audio.currentTime * 1000);
+    if (posMs <= 0 && !isPlaying) return; // Don't overwrite with 0
+
+    try {
+        await fetch(`/api/episodes/${playerEpisode.id}/position`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ position: posMs }),
+        });
+    } catch (e) {
+        console.error('Position sync failed', e);
+    }
 }
 
 // ========================
 // Unsubscribe
 // ========================
 function confirmUnsubscribe(podcastId, title) {
-    document.getElementById('dialog-title').textContent = 'Se désabonner';
-    document.getElementById('dialog-text').textContent = `Voulez-vous vraiment vous désabonner de "${title}" ?`;
+    document.getElementById('dialog-title').textContent = 'Se d\u00e9sabonner';
+    document.getElementById('dialog-text').innerHTML = `<p>Voulez-vous vraiment vous d\u00e9sabonner de "${esc(title)}" ?</p>`;
     document.getElementById('dialog-confirm').textContent = 'Supprimer';
     document.getElementById('dialog-confirm').className = 'btn-danger';
-    document.getElementById('dialog-overlay').style.display = '';
-
-    dialogCallback = async () => {
+    document.getElementById('dialog-confirm').onclick = async () => {
         closeDialog();
         try {
             await fetch(`/api/podcasts/${podcastId}`, { method: 'DELETE' });
-            showToast('Désabonné de ' + title);
+            showToast('D\u00e9sabonn\u00e9 de ' + title);
             loadLibrary();
         } catch (e) {
             showToast('Erreur: ' + e.message);
         }
     };
-    document.getElementById('dialog-confirm').onclick = dialogCallback;
+    document.getElementById('dialog-overlay').style.display = '';
 }
 
 function closeDialog() {
@@ -182,22 +1340,20 @@ function closeDialog() {
 // Tag Assignment
 // ========================
 function showTagAssign(podcastId, title) {
-    // Build a dialog showing all tags with checkboxes
-    const dialog = document.querySelector('.dialog');
-    document.getElementById('dialog-title').textContent = 'Tags — ' + title;
-
     const podcast = allPodcasts.find(p => p.id === podcastId);
     const podcastTagIds = (podcast?.tags || []).map(t => t.id);
 
+    document.getElementById('dialog-title').textContent = 'Tags \u2014 ' + title;
+
     let html = '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:300px;overflow-y:auto">';
     if (allTags.length === 0) {
-        html += '<p style="color:var(--on-surface-variant)">Aucun tag. Créez-en depuis le bouton "Gérer" dans la barre de tags.</p>';
+        html += '<p style="color:var(--on-surface-variant)">Aucun tag. Cr\u00e9ez-en depuis "G\u00e9rer".</p>';
     } else {
         allTags.forEach(tag => {
             const checked = podcastTagIds.includes(tag.id) ? 'checked' : '';
             html += `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0">
                 <input type="checkbox" ${checked} onchange="toggleTag(${podcastId}, ${tag.id}, this.checked)" style="width:18px;height:18px;accent-color:var(--primary)">
-                <span>${escapeHtml(tag.name)}</span>
+                <span>${esc(tag.name)}</span>
             </label>`;
         });
     }
@@ -206,10 +1362,7 @@ function showTagAssign(podcastId, title) {
     document.getElementById('dialog-text').innerHTML = html;
     document.getElementById('dialog-confirm').textContent = 'Fermer';
     document.getElementById('dialog-confirm').className = 'btn-text';
-    document.getElementById('dialog-confirm').onclick = () => {
-        closeDialog();
-        loadLibrary(); // Refresh to show updated tags
-    };
+    document.getElementById('dialog-confirm').onclick = () => { closeDialog(); loadLibrary(); };
     document.getElementById('dialog-overlay').style.display = '';
 }
 
@@ -229,18 +1382,18 @@ async function toggleTag(podcastId, tagId, add) {
 // Tag Manager
 // ========================
 function openTagManager() {
-    document.getElementById('dialog-title').textContent = 'Gérer les tags';
+    document.getElementById('dialog-title').textContent = 'G\u00e9rer les tags';
 
     let html = '<div style="margin-bottom:16px">';
     html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
     html += '<input type="text" id="new-tag-input" placeholder="Nouveau tag..." style="flex:1;padding:8px 12px;border:1px solid var(--outline);border-radius:var(--radius-xs);font-family:inherit;font-size:14px;outline:none">';
-    html += '<button onclick="createNewTag()" style="padding:8px 16px;background:var(--primary);color:white;border:none;border-radius:var(--radius-xs);cursor:pointer;font-family:inherit;font-weight:500">Créer</button>';
+    html += '<button onclick="createNewTag()" style="padding:8px 16px;background:var(--primary);color:white;border:none;border-radius:var(--radius-xs);cursor:pointer;font-family:inherit;font-weight:500">Cr\u00e9er</button>';
     html += '</div>';
     html += '<div id="tag-manager-list" style="display:flex;flex-direction:column;gap:4px;max-height:250px;overflow-y:auto">';
     allTags.forEach(tag => {
         html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface-variant);border-radius:var(--radius-xs)">
-            <span>${escapeHtml(tag.name)}</span>
-            <button onclick="deleteTag(${tag.id}, '${escapeJs(tag.name)}')" style="background:none;border:none;cursor:pointer;color:var(--error);font-size:18px;display:flex">
+            <span>${esc(tag.name)}</span>
+            <button onclick="deleteTag(${tag.id}, '${escJs(tag.name)}')" style="background:none;border:none;cursor:pointer;color:var(--error);font-size:18px;display:flex">
                 <span class="material-icons-round" style="font-size:20px">close</span>
             </button>
         </div>`;
@@ -253,10 +1406,7 @@ function openTagManager() {
     document.getElementById('dialog-text').innerHTML = html;
     document.getElementById('dialog-confirm').textContent = 'Fermer';
     document.getElementById('dialog-confirm').className = 'btn-text';
-    document.getElementById('dialog-confirm').onclick = () => {
-        closeDialog();
-        loadLibrary();
-    };
+    document.getElementById('dialog-confirm').onclick = () => { closeDialog(); loadLibrary(); };
     document.getElementById('dialog-overlay').style.display = '';
 }
 
@@ -264,7 +1414,6 @@ async function createNewTag() {
     const input = document.getElementById('new-tag-input');
     const name = input.value.trim();
     if (!name) return;
-
     try {
         const res = await fetch('/api/tags', {
             method: 'POST',
@@ -273,11 +1422,10 @@ async function createNewTag() {
         });
         if (res.ok) {
             input.value = '';
-            // Reload tags and refresh manager
             const tagsRes = await fetch('/api/tags');
             allTags = await tagsRes.json();
-            openTagManager(); // Re-render the manager dialog
-            showToast('Tag "' + name + '" créé');
+            openTagManager();
+            showToast('Tag "' + name + '" cr\u00e9\u00e9');
         }
     } catch (e) {
         showToast('Erreur: ' + e.message);
@@ -289,8 +1437,8 @@ async function deleteTag(tagId, name) {
         await fetch(`/api/tags/${tagId}`, { method: 'DELETE' });
         const tagsRes = await fetch('/api/tags');
         allTags = await tagsRes.json();
-        openTagManager(); // Re-render
-        showToast('Tag "' + name + '" supprimé');
+        openTagManager();
+        showToast('Tag "' + name + '" supprim\u00e9');
     } catch (e) {
         showToast('Erreur: ' + e.message);
     }
@@ -315,34 +1463,30 @@ async function performSearch(query) {
 
         const res = await fetch(url);
         const data = await res.json();
-
         loading.style.display = 'none';
 
-        if (data.error) {
-            showToast(data.error);
-            return;
-        }
+        if (data.error) { showToast(data.error); return; }
 
         if (data.length === 0) {
             empty.style.display = '';
-            empty.querySelector('p').textContent = 'Aucun résultat pour "' + query + '"';
+            empty.querySelector('p').textContent = 'Aucun r\u00e9sultat pour "' + query + '"';
             return;
         }
 
         results.innerHTML = data.map(r => `
-            <div class="podcast-card">
-                ${r.alreadySubscribed ? '<div class="subscribed-badge"><span class="material-icons-round">check_circle</span> Abonné</div>' : ''}
+            <div class="podcast-card" onclick="openSearchPodcastDetail(${r.collectionId}, '${escJs(r.collectionName)}', '${escJs(r.artistName)}', '${escJs(r.artworkUrl600 || r.artworkUrl100 || '')}', '${escJs(r.feedUrl || '')}', ${r.alreadySubscribed})">
+                ${r.alreadySubscribed ? '<div class="subscribed-badge"><span class="material-icons-round">check_circle</span> Abonn\u00e9</div>' : ''}
                 <div class="card-content">
-                    <img class="artwork" src="${escapeHtml(r.artworkUrl600 || r.artworkUrl100 || '')}" alt="${escapeHtml(r.collectionName)}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 80 80%22><rect fill=%22%23E8DEF8%22 width=%2280%22 height=%2280%22/><text x=%2240%22 y=%2245%22 text-anchor=%22middle%22 font-size=%2230%22>🎙</text></svg>'">
+                    <img class="artwork" src="${esc(r.artworkUrl600 || r.artworkUrl100 || '')}" alt="${esc(r.collectionName)}" onerror="this.src='${placeholderImg()}'">
                     <div class="info">
-                        <div class="title">${escapeHtml(r.collectionName)}</div>
-                        <div class="author">${escapeHtml(r.artistName)}</div>
+                        <div class="title">${esc(r.collectionName)}</div>
+                        <div class="author">${esc(r.artistName)}</div>
                     </div>
                 </div>
                 <div class="card-actions">
                     ${r.alreadySubscribed
-                        ? `<button disabled style="opacity:0.5"><span class="material-icons-round" style="font-size:18px">check</span> Déjà abonné</button>`
-                        : `<button class="subscribe-btn" onclick="subscribePodcast(${r.collectionId}, '${escapeJs(r.collectionName)}', '${escapeJs(r.artistName)}', '${escapeJs(r.artworkUrl600 || r.artworkUrl100 || '')}', '${escapeJs(r.feedUrl || '')}', this)">
+                        ? `<button disabled style="opacity:0.5"><span class="material-icons-round" style="font-size:18px">check</span> D\u00e9j\u00e0 abonn\u00e9</button>`
+                        : `<button class="subscribe-btn" onclick="event.stopPropagation(); subscribePodcast(${r.collectionId}, '${escJs(r.collectionName)}', '${escJs(r.artistName)}', '${escJs(r.artworkUrl600 || r.artworkUrl100 || '')}', '${escJs(r.feedUrl || '')}', this)">
                             <span class="material-icons-round" style="font-size:18px">add_circle_outline</span>
                             S'abonner
                         </button>`
@@ -364,26 +1508,18 @@ async function subscribePodcast(collectionId, name, artist, artworkUrl, feedUrl,
         const res = await fetch('/api/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                collectionId,
-                collectionName: name,
-                artistName: artist,
-                artworkUrl,
-                feedUrl,
-            }),
+            body: JSON.stringify({ collectionId, collectionName: name, artistName: artist, artworkUrl, feedUrl }),
         });
 
         if (res.ok) {
-            btn.innerHTML = '<span class="material-icons-round" style="font-size:18px">check</span> Abonné';
+            btn.innerHTML = '<span class="material-icons-round" style="font-size:18px">check</span> Abonn\u00e9';
             btn.style.opacity = '0.5';
-            showToast('Abonné à ' + name);
-
-            // Add subscribed badge to the card
+            showToast('Abonn\u00e9 \u00e0 ' + name);
             const card = btn.closest('.podcast-card');
             if (card && !card.querySelector('.subscribed-badge')) {
                 const badge = document.createElement('div');
                 badge.className = 'subscribed-badge';
-                badge.innerHTML = '<span class="material-icons-round">check_circle</span> Abonné';
+                badge.innerHTML = '<span class="material-icons-round">check_circle</span> Abonn\u00e9';
                 card.prepend(badge);
             }
         } else {
@@ -392,7 +1528,7 @@ async function subscribePodcast(collectionId, name, artist, artworkUrl, feedUrl,
         }
     } catch (e) {
         btn.disabled = false;
-        btn.innerHTML = '<span class="material-icons-round" style="font-size:18px">add_circle_outline</span> Réessayer';
+        btn.innerHTML = '<span class="material-icons-round" style="font-size:18px">add_circle_outline</span> R\u00e9essayer';
         showToast('Erreur: ' + e.message);
     }
 }
@@ -417,31 +1553,18 @@ async function loadDiscovery() {
     try {
         const res = await fetch('/api/discover');
         const data = await res.json();
-
         loading.style.display = 'none';
         btn.disabled = false;
 
-        if (data.error) {
-            showToast(data.error);
-            empty.style.display = '';
-            return;
-        }
-
-        if (data.intro) {
-            intro.textContent = data.intro;
-            intro.style.display = '';
-        }
-
-        if (!data.suggestions || data.suggestions.length === 0) {
-            empty.style.display = '';
-            return;
-        }
+        if (data.error) { showToast(data.error); empty.style.display = ''; return; }
+        if (data.intro) { intro.textContent = data.intro; intro.style.display = ''; }
+        if (!data.suggestions || data.suggestions.length === 0) { empty.style.display = ''; return; }
 
         results.innerHTML = data.suggestions.map(s => `
             <div class="suggestion-card">
-                <div class="suggestion-name">${escapeHtml(s.name)}</div>
-                <div class="suggestion-reason">${escapeHtml(s.reason)}</div>
-                <button class="btn-search" onclick="searchFromSuggestion('${escapeJs(s.searchQuery)}')">
+                <div class="suggestion-name">${esc(s.name)}</div>
+                <div class="suggestion-reason">${esc(s.reason)}</div>
+                <button class="btn-search" onclick="searchFromSuggestion('${escJs(s.searchQuery)}')">
                     <span class="material-icons-round" style="font-size:18px">search</span>
                     Rechercher
                 </button>
@@ -461,7 +1584,7 @@ function searchFromSuggestion(query) {
 }
 
 // ========================
-// Toast
+// Toast & Dialog
 // ========================
 function showToast(message) {
     const toast = document.getElementById('toast');
@@ -473,14 +1596,53 @@ function showToast(message) {
 // ========================
 // Helpers
 // ========================
-function escapeHtml(str) {
+function esc(str) {
     if (!str) return '';
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
 }
 
-function escapeJs(str) {
+function escJs(str) {
     if (!str) return '';
     return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+
+function sanitizeHtml(html) {
+    // Use the browser's DOM parser for safe rendering
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    // Remove script tags and event handlers
+    doc.querySelectorAll('script, style, iframe, object, embed').forEach(el => el.remove());
+    doc.querySelectorAll('*').forEach(el => {
+        for (const attr of [...el.attributes]) {
+            if (attr.name.startsWith('on') || attr.value.trim().toLowerCase().startsWith('javascript:')) {
+                el.removeAttribute(attr.name);
+            }
+        }
+    });
+    return doc.body.innerHTML;
+}
+
+function formatTime(seconds) {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const s = Math.floor(seconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) {
+        return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+    }
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+function formatDuration(durationSec) {
+    if (!durationSec || durationSec <= 0) return '';
+    const h = Math.floor(durationSec / 3600);
+    const m = Math.floor((durationSec % 3600) / 60);
+    if (h > 0) return `${h}h${m > 0 ? m.toString().padStart(2, '0') : ''}`;
+    return `${m} min`;
+}
+
+function placeholderImg() {
+    return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Crect fill='%23E8DEF8' width='80' height='80'/%3E%3Ctext x='40' y='48' text-anchor='middle' font-size='30'%3E%F0%9F%8E%99%3C/text%3E%3C/svg%3E";
 }

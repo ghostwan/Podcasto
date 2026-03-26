@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -18,8 +20,12 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        // Gemini API key — set GEMINI_API_KEY in local.properties or environment
-        val geminiKey = project.findProperty("GEMINI_API_KEY") as? String
+        // Gemini API key — from local.properties, gradle.properties, or environment
+        val localProps = Properties()
+        val localPropsFile = rootProject.file("local.properties")
+        if (localPropsFile.exists()) localPropsFile.inputStream().use { localProps.load(it) }
+        val geminiKey = localProps.getProperty("GEMINI_API_KEY")
+            ?: project.findProperty("GEMINI_API_KEY") as? String
             ?: System.getenv("GEMINI_API_KEY") ?: ""
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
     }
@@ -103,7 +109,7 @@ dependencies {
     implementation("sh.calvin.reorderable:reorderable:2.4.2")
 
     // Ktor embedded server (for web management UI)
-    val ktorVersion = "3.0.3"
+    val ktorVersion = "2.3.12"
     implementation("io.ktor:ktor-server-core:$ktorVersion")
     implementation("io.ktor:ktor-server-cio:$ktorVersion")
     implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")

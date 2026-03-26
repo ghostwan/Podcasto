@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Podcasto - Gestion</title>
+    <title>Podcasto</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -17,7 +17,19 @@
         <div class="nav-tabs">
             <button class="tab active" data-tab="library">
                 <span class="material-icons-round">library_music</span>
-                Bibliothèque
+                Biblioth&egrave;que
+            </button>
+            <button class="tab" data-tab="new-episodes">
+                <span class="material-icons-round">fiber_new</span>
+                Nouveaut&eacute;s
+            </button>
+            <button class="tab" data-tab="playlist">
+                <span class="material-icons-round">queue_music</span>
+                Playlist
+            </button>
+            <button class="tab" data-tab="history">
+                <span class="material-icons-round">history</span>
+                Historique
             </button>
             <button class="tab" data-tab="search">
                 <span class="material-icons-round">search</span>
@@ -25,7 +37,7 @@
             </button>
             <button class="tab" data-tab="discover">
                 <span class="material-icons-round">auto_awesome</span>
-                Découvrir
+                D&eacute;couvrir
             </button>
         </div>
     </nav>
@@ -45,6 +57,147 @@
             </div>
         </section>
 
+        <!-- New Episodes -->
+        <section id="new-episodes" class="page">
+            <div class="page-header">
+                <h2>Nouveaut&eacute;s</h2>
+                <span id="new-episodes-count" class="badge">0</span>
+            </div>
+            <div id="new-episodes-tags" class="tags-bar"></div>
+            <div id="new-episodes-list" class="episodes-list"></div>
+            <div id="new-episodes-empty" class="empty-state" style="display:none">
+                <span class="material-icons-round">fiber_new</span>
+                <p>Aucun nouvel episode. Abonnez-vous &agrave; des podcasts pour voir leurs derniers episodes.</p>
+            </div>
+            <div id="new-episodes-loading" class="loading" style="display:none">
+                <div class="spinner"></div>
+                <p>Chargement des nouveaut&eacute;s...</p>
+            </div>
+        </section>
+
+        <!-- Podcast Detail (overlay over library) -->
+        <section id="podcast-detail" class="page">
+            <div class="detail-header">
+                <button class="btn-back" onclick="closePodcastDetail()">
+                    <span class="material-icons-round">arrow_back</span>
+                </button>
+                <div class="detail-info">
+                    <img id="detail-artwork" class="detail-artwork" src="" alt="">
+                    <div class="detail-meta">
+                        <h2 id="detail-title"></h2>
+                        <p id="detail-author" class="detail-author"></p>
+                        <div id="detail-subscribe-bar" style="display:none;margin:8px 0">
+                            <button id="detail-subscribe-btn" class="btn-primary" onclick="subscribeFromDetail()">
+                                <span class="material-icons-round">add_circle_outline</span>
+                                S'abonner
+                            </button>
+                        </div>
+                        <div id="detail-tags" class="detail-tags"></div>
+                        <p id="detail-description" class="detail-description"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="episodes-toolbar">
+                <h3>Episodes</h3>
+                <div class="episodes-filter">
+                    <button id="filter-all" class="filter-btn active" onclick="filterEpisodes('all')">Tous</button>
+                    <button id="filter-unplayed" class="filter-btn" onclick="filterEpisodes('unplayed')">Non lus</button>
+                </div>
+            </div>
+            <div id="episodes-list" class="episodes-list"></div>
+            <div id="episodes-loading" class="loading" style="display:none">
+                <div class="spinner"></div>
+            </div>
+        </section>
+
+        <!-- Episode Detail -->
+        <section id="episode-detail" class="page">
+            <div class="detail-header">
+                <button class="btn-back" onclick="closeEpisodeDetail()">
+                    <span class="material-icons-round">arrow_back</span>
+                </button>
+                <div class="detail-info">
+                    <img id="ep-detail-artwork" class="detail-artwork" src="" alt="">
+                    <div class="detail-meta">
+                        <h2 id="ep-detail-title"></h2>
+                        <p id="ep-detail-podcast" class="detail-author"></p>
+                        <p id="ep-detail-date" class="detail-date"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="ep-detail-actions">
+                <button id="ep-play-btn" class="btn-primary" onclick="playCurrentEpisode()">
+                    <span class="material-icons-round">play_arrow</span>
+                    Lire
+                </button>
+                <button id="ep-playlist-btn" class="btn-outline" onclick="togglePlaylistCurrentEpisode()">
+                    <span class="material-icons-round">playlist_add</span>
+                    Playlist
+                </button>
+                <button id="ep-played-btn" class="btn-outline" onclick="togglePlayedCurrentEpisode()">
+                    <span class="material-icons-round">check_circle_outline</span>
+                    Lu
+                </button>
+            </div>
+            <div id="ep-detail-description" class="ep-description"></div>
+            <div class="bookmarks-section">
+                <div class="bookmarks-header">
+                    <h3>Signets</h3>
+                    <button class="btn-outline btn-sm" onclick="addBookmarkDialog()">
+                        <span class="material-icons-round">bookmark_add</span>
+                        Ajouter
+                    </button>
+                </div>
+                <div id="bookmarks-list" class="bookmarks-list"></div>
+            </div>
+        </section>
+
+        <!-- Playlist -->
+        <section id="playlist" class="page">
+            <div class="page-header">
+                <h2>Playlist</h2>
+                <span id="playlist-count" class="badge">0</span>
+                <div class="playlist-actions">
+                    <button class="btn-outline btn-sm" onclick="autoAddPlaylist()">
+                        <span class="material-icons-round">auto_fix_high</span>
+                        Auto-ajout
+                    </button>
+                    <button class="btn-outline btn-sm danger" onclick="clearPlaylistConfirm()">
+                        <span class="material-icons-round">delete_sweep</span>
+                        Vider
+                    </button>
+                </div>
+            </div>
+            <div id="playlist-items" class="playlist-items"></div>
+            <div id="playlist-empty" class="empty-state" style="display:none">
+                <span class="material-icons-round">queue_music</span>
+                <p>Playlist vide. Ajoutez des episodes depuis les details d'un podcast.</p>
+            </div>
+        </section>
+
+        <!-- History -->
+        <section id="history" class="page">
+            <div class="page-header">
+                <h2>Historique</h2>
+                <span id="history-count" class="badge">0</span>
+                <div class="playlist-actions">
+                    <button class="btn-outline btn-sm danger" onclick="clearHistoryConfirm()">
+                        <span class="material-icons-round">delete_sweep</span>
+                        Effacer
+                    </button>
+                </div>
+            </div>
+            <div id="history-list" class="history-list"></div>
+            <div id="history-empty" class="empty-state" style="display:none">
+                <span class="material-icons-round">history</span>
+                <p>Aucun historique d'&eacute;coute.</p>
+            </div>
+            <div id="history-loading" class="loading" style="display:none">
+                <div class="spinner"></div>
+                <p>Chargement de l'historique...</p>
+            </div>
+        </section>
+
         <!-- Search -->
         <section id="search" class="page">
             <div class="search-bar">
@@ -58,7 +211,7 @@
                     <option value="DE">Allemagne</option>
                     <option value="ES">Espagne</option>
                     <option value="IT">Italie</option>
-                    <option value="BR">Brésil</option>
+                    <option value="BR">Br&eacute;sil</option>
                     <option value="JP">Japon</option>
                 </select>
             </div>
@@ -76,39 +229,76 @@
         <!-- Discover -->
         <section id="discover" class="page">
             <div class="page-header">
-                <h2>Découverte IA</h2>
+                <h2>D&eacute;couverte IA</h2>
                 <button id="discover-btn" class="btn-primary" onclick="loadDiscovery()">
                     <span class="material-icons-round">auto_awesome</span>
-                    Générer des suggestions
+                    G&eacute;n&eacute;rer des suggestions
                 </button>
             </div>
             <p id="ai-intro" class="ai-intro"></p>
             <div id="discover-results" class="suggestions-grid"></div>
             <div id="discover-empty" class="empty-state">
                 <span class="material-icons-round">auto_awesome</span>
-                <p>Cliquez sur le bouton pour obtenir des recommandations personnalisées basées sur votre bibliothèque</p>
+                <p>Cliquez sur le bouton pour obtenir des recommandations personnalis&eacute;es</p>
             </div>
             <div id="discover-loading" class="loading" style="display:none">
                 <div class="spinner"></div>
-                <p>Gemini analyse votre bibliothèque...</p>
+                <p>Gemini analyse votre biblioth&egrave;que...</p>
             </div>
         </section>
     </main>
 
+    <!-- Player bar (persistent bottom) -->
+    <div id="player-bar" class="player-bar" style="display:none">
+        <div class="player-progress-bar" id="player-progress-bar">
+            <div class="player-progress-fill" id="player-progress-fill"></div>
+            <input type="range" class="player-progress-input" id="player-progress-input" min="0" max="1000" value="0">
+        </div>
+        <div class="player-content">
+            <img id="player-artwork" class="player-artwork" src="" alt="">
+            <div class="player-info" onclick="openPlayerEpisodeDetail()">
+                <div class="player-title" id="player-title"></div>
+                <div class="player-subtitle" id="player-subtitle"></div>
+            </div>
+            <div class="player-time">
+                <span id="player-current-time">0:00</span>
+                <span>/</span>
+                <span id="player-duration">0:00</span>
+            </div>
+            <div class="player-controls">
+                <button class="player-btn" onclick="playerSeek(-10)">
+                    <span class="material-icons-round">replay_10</span>
+                </button>
+                <button class="player-btn player-btn-main" id="player-play-btn" onclick="playerTogglePlay()">
+                    <span class="material-icons-round">play_arrow</span>
+                </button>
+                <button class="player-btn" onclick="playerSeek(30)">
+                    <span class="material-icons-round">forward_30</span>
+                </button>
+                <button class="player-btn player-btn-speed" id="player-speed-btn" onclick="playerCycleSpeed()">
+                    1x
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div id="toast" class="toast"></div>
 
-    <!-- Unsubscribe confirm dialog -->
+    <!-- Dialog -->
     <div id="dialog-overlay" class="dialog-overlay" style="display:none">
         <div class="dialog">
             <h3 id="dialog-title">Confirmer</h3>
-            <p id="dialog-text"></p>
+            <div id="dialog-text"></div>
             <div class="dialog-actions">
                 <button class="btn-text" onclick="closeDialog()">Annuler</button>
                 <button class="btn-danger" id="dialog-confirm">Supprimer</button>
             </div>
         </div>
     </div>
+
+    <!-- HTML5 Audio element (hidden) -->
+    <audio id="audio-element" preload="auto"></audio>
 
     <script src="app.js"></script>
 </body>

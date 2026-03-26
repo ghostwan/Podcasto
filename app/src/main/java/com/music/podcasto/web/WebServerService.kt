@@ -38,7 +38,7 @@ class WebServerService : Service() {
 
     @Inject lateinit var repository: PodcastRepository
 
-    private var server: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
+    private var server: ApplicationEngine? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     companion object {
@@ -101,6 +101,7 @@ class WebServerService : Service() {
                 anyHost()
                 allowMethod(HttpMethod.Get)
                 allowMethod(HttpMethod.Post)
+                allowMethod(HttpMethod.Put)
                 allowMethod(HttpMethod.Delete)
                 allowMethod(HttpMethod.Options)
                 allowHeader(HttpHeaders.ContentType)

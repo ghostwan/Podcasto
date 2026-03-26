@@ -235,6 +235,8 @@ class PodcastRepository @Inject constructor(
 
     suspend fun deleteBookmark(bookmark: BookmarkEntity) = bookmarkDao.deleteBookmark(bookmark)
 
+    suspend fun deleteBookmarkById(id: Long) = bookmarkDao.deleteBookmarkById(id)
+
     // --- Download ---
     suspend fun downloadEpisode(episode: EpisodeEntity): Long = withContext(Dispatchers.IO) {
         val downloadDir = File(context.getExternalFilesDir(Environment.DIRECTORY_PODCASTS), "episodes")

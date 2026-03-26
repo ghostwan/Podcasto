@@ -17,11 +17,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import java.net.URL
-import java.net.URLEncoder
+import java.io.File
 
 @Serializable
 data class PodcastResponse(
@@ -33,6 +29,7 @@ data class PodcastResponse(
     val artworkUrl: String,
     val subscribed: Boolean,
     val tags: List<TagResponse> = emptyList(),
+    val latestEpisodeTimestamp: Long = 0,
 )
 
 @Serializable
@@ -62,6 +59,21 @@ data class SubscribeRequest(
 )
 
 @Serializable
+data class PreviewRequest(
+    val collectionId: Long,
+    val collectionName: String,
+    val artistName: String,
+    val artworkUrl: String,
+    val feedUrl: String,
+)
+
+@Serializable
+data class PreviewResponse(
+    val podcast: PodcastResponse,
+    val episodes: List<EpisodeResponse>,
+)
+
+@Serializable
 data class AiSuggestion(
     val name: String,
     val reason: String,
@@ -77,6 +89,75 @@ data class AiResponse(
 @Serializable
 data class ErrorResponse(
     val error: String,
+)
+
+@Serializable
+data class EpisodeResponse(
+    val id: Long,
+    val podcastId: Long,
+    val title: String,
+    val description: String,
+    val audioUrl: String,
+    val pubDate: String,
+    val pubDateTimestamp: Long,
+    val duration: Long,
+    val played: Boolean,
+    val playbackPosition: Long,
+    val downloadPath: String?,
+    val artworkUrl: String = "",
+)
+
+@Serializable
+data class PlaylistItemResponse(
+    val id: Long,
+    val podcastId: Long,
+    val title: String,
+    val description: String,
+    val audioUrl: String,
+    val pubDate: String,
+    val pubDateTimestamp: Long,
+    val duration: Long,
+    val played: Boolean,
+    val playbackPosition: Long,
+    val downloadPath: String?,
+    val artworkUrl: String,
+    val podcastTitle: String,
+)
+
+@Serializable
+data class BookmarkResponse(
+    val id: Long,
+    val episodeId: Long,
+    val positionMs: Long,
+    val comment: String,
+    val createdAt: Long,
+)
+
+@Serializable
+data class PositionUpdate(
+    val position: Long,
+)
+
+@Serializable
+data class BookmarkRequest(
+    val positionMs: Long,
+    val comment: String = "",
+)
+
+@Serializable
+data class HistoryResponse(
+    val id: Long,
+    val episodeId: Long,
+    val podcastId: Long,
+    val episodeTitle: String,
+    val podcastTitle: String,
+    val artworkUrl: String,
+    val listenedAt: Long,
+)
+
+@Serializable
+data class ReorderRequest(
+    val episodeIds: List<Long>,
 )
 
 fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.() -> Unit = {
@@ -101,6 +182,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
         // GET /api/podcasts — list subscribed podcasts (with tags)
         get("/podcasts") {
             val podcasts = repository.getSubscribedPodcasts().first()
+            val latestTimestamps = repository.getLatestEpisodeTimestampPerPodcast().first()
             val response = podcasts.map { p ->
                 val podcastTags = repository.getTagsForPodcast(p.id).first()
                 PodcastResponse(
@@ -112,9 +194,54 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                     artworkUrl = p.artworkUrl,
                     subscribed = p.subscribed,
                     tags = podcastTags.map { TagResponse(it.id, it.name) },
+                    latestEpisodeTimestamp = latestTimestamps[p.id] ?: 0L,
                 )
             }
             call.respond(response)
+        }
+
+        // GET /api/podcasts/:id — get podcast detail
+        get("/podcasts/{id}") {
+            val podcastId = call.parameters["id"]?.toLongOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid podcast ID"))
+            val podcast = repository.getPodcastById(podcastId)
+                ?: return@get call.respond(HttpStatusCode.NotFound, ErrorResponse("Podcast not found"))
+            val podcastTags = repository.getTagsForPodcast(podcastId).first()
+            call.respond(PodcastResponse(
+                id = podcast.id,
+                title = podcast.title,
+                author = podcast.author,
+                description = podcast.description,
+                feedUrl = podcast.feedUrl,
+                artworkUrl = podcast.artworkUrl,
+                subscribed = podcast.subscribed,
+                tags = podcastTags.map { TagResponse(it.id, it.name) },
+            ))
+        }
+
+        // GET /api/podcasts/:id/episodes — list episodes for a podcast
+        get("/podcasts/{id}/episodes") {
+            val podcastId = call.parameters["id"]?.toLongOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid podcast ID"))
+            val podcast = repository.getPodcastById(podcastId)
+                ?: return@get call.respond(HttpStatusCode.NotFound, ErrorResponse("Podcast not found"))
+            val episodes = repository.getEpisodesForPodcast(podcastId).first()
+            call.respond(episodes.map { e ->
+                EpisodeResponse(
+                    id = e.id,
+                    podcastId = e.podcastId,
+                    title = e.title,
+                    description = e.description,
+                    audioUrl = e.audioUrl,
+                    pubDate = e.pubDate,
+                    pubDateTimestamp = e.pubDateTimestamp,
+                    duration = e.duration,
+                    played = e.played,
+                    playbackPosition = e.playbackPosition,
+                    downloadPath = e.downloadPath,
+                    artworkUrl = podcast.artworkUrl,
+                )
+            })
         }
 
         // GET /api/podcasts/:id/tags — get tags for a podcast
@@ -154,6 +281,74 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
             }
         }
 
+        // POST /api/preview — fetch podcast detail + episodes from RSS (for non-subscribed podcasts)
+        post("/preview") {
+            try {
+                val request = call.receive<PreviewRequest>()
+                // First check if already in DB
+                val existing = repository.getPodcastById(request.collectionId)
+                if (existing != null && existing.subscribed) {
+                    // Already subscribed — return from DB
+                    val episodes = repository.getEpisodesForPodcast(existing.id).first()
+                    val podcastTags = repository.getTagsForPodcast(existing.id).first()
+                    call.respond(PreviewResponse(
+                        podcast = PodcastResponse(
+                            id = existing.id,
+                            title = existing.title,
+                            author = existing.author,
+                            description = existing.description,
+                            feedUrl = existing.feedUrl,
+                            artworkUrl = existing.artworkUrl,
+                            subscribed = true,
+                            tags = podcastTags.map { TagResponse(it.id, it.name) },
+                        ),
+                        episodes = episodes.map { e ->
+                            EpisodeResponse(
+                                id = e.id, podcastId = e.podcastId, title = e.title,
+                                description = e.description, audioUrl = e.audioUrl,
+                                pubDate = e.pubDate, pubDateTimestamp = e.pubDateTimestamp,
+                                duration = e.duration, played = e.played,
+                                playbackPosition = e.playbackPosition,
+                                downloadPath = e.downloadPath, artworkUrl = existing.artworkUrl,
+                            )
+                        },
+                    ))
+                    return@post
+                }
+                // Fetch from RSS
+                val (podcast, episodes) = repository.fetchPodcastPreview(
+                    feedUrl = request.feedUrl,
+                    collectionId = request.collectionId,
+                    artworkUrl = request.artworkUrl,
+                    collectionName = request.collectionName,
+                    artistName = request.artistName,
+                )
+                call.respond(PreviewResponse(
+                    podcast = PodcastResponse(
+                        id = podcast.id,
+                        title = podcast.title,
+                        author = podcast.author,
+                        description = podcast.description,
+                        feedUrl = podcast.feedUrl,
+                        artworkUrl = podcast.artworkUrl,
+                        subscribed = false,
+                    ),
+                    episodes = episodes.map { e ->
+                        EpisodeResponse(
+                            id = e.id, podcastId = e.podcastId, title = e.title,
+                            description = e.description, audioUrl = e.audioUrl,
+                            pubDate = e.pubDate, pubDateTimestamp = e.pubDateTimestamp,
+                            duration = e.duration, played = e.played,
+                            playbackPosition = e.playbackPosition,
+                            downloadPath = e.downloadPath, artworkUrl = podcast.artworkUrl,
+                        )
+                    },
+                ))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Preview failed"))
+            }
+        }
+
         // GET /api/search?q=...&country=... — search iTunes
         get("/search") {
             val query = call.request.queryParameters["q"]
@@ -178,6 +373,164 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                 call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Search failed"))
             }
         }
+
+        // === Episodes ===
+
+        // GET /api/episodes/:id — get single episode
+        get("/episodes/{id}") {
+            val episodeId = call.parameters["id"]?.toLongOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            val episode = repository.getEpisodeById(episodeId)
+                ?: return@get call.respond(HttpStatusCode.NotFound, ErrorResponse("Episode not found"))
+            val podcast = repository.getPodcastById(episode.podcastId)
+            call.respond(EpisodeResponse(
+                id = episode.id,
+                podcastId = episode.podcastId,
+                title = episode.title,
+                description = episode.description,
+                audioUrl = episode.audioUrl,
+                pubDate = episode.pubDate,
+                pubDateTimestamp = episode.pubDateTimestamp,
+                duration = episode.duration,
+                played = episode.played,
+                playbackPosition = episode.playbackPosition,
+                downloadPath = episode.downloadPath,
+                artworkUrl = podcast?.artworkUrl ?: "",
+            ))
+        }
+
+        // PUT /api/episodes/:id/position — update playback position
+        put("/episodes/{id}/position") {
+            val episodeId = call.parameters["id"]?.toLongOrNull()
+                ?: return@put call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            val body = call.receive<PositionUpdate>()
+            repository.updatePlaybackPosition(episodeId, body.position)
+            call.respond(HttpStatusCode.OK, mapOf("status" to "updated"))
+        }
+
+        // PUT /api/episodes/:id/played — mark as played
+        put("/episodes/{id}/played") {
+            val episodeId = call.parameters["id"]?.toLongOrNull()
+                ?: return@put call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            repository.markAsPlayed(episodeId)
+            call.respond(HttpStatusCode.OK, mapOf("status" to "played"))
+        }
+
+        // PUT /api/episodes/:id/unplayed — mark as unplayed
+        put("/episodes/{id}/unplayed") {
+            val episodeId = call.parameters["id"]?.toLongOrNull()
+                ?: return@put call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            repository.markAsUnplayed(episodeId)
+            call.respond(HttpStatusCode.OK, mapOf("status" to "unplayed"))
+        }
+
+        // GET /api/episodes/:id/stream — stream locally downloaded episode
+        get("/episodes/{id}/stream") {
+            val episodeId = call.parameters["id"]?.toLongOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            val episode = repository.getEpisodeById(episodeId)
+                ?: return@get call.respond(HttpStatusCode.NotFound, ErrorResponse("Episode not found"))
+            val path = episode.downloadPath
+            if (path.isNullOrEmpty()) {
+                return@get call.respond(HttpStatusCode.NotFound, ErrorResponse("Episode not downloaded locally"))
+            }
+            val file = File(path)
+            if (!file.exists()) {
+                return@get call.respond(HttpStatusCode.NotFound, ErrorResponse("Local file not found"))
+            }
+            call.respondFile(file)
+        }
+
+        // === Bookmarks ===
+
+        // GET /api/episodes/:id/bookmarks
+        get("/episodes/{id}/bookmarks") {
+            val episodeId = call.parameters["id"]?.toLongOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            val bookmarks = repository.getBookmarksForEpisode(episodeId).first()
+            call.respond(bookmarks.map {
+                BookmarkResponse(it.id, it.episodeId, it.positionMs, it.comment, it.createdAt)
+            })
+        }
+
+        // POST /api/episodes/:id/bookmarks
+        post("/episodes/{id}/bookmarks") {
+            val episodeId = call.parameters["id"]?.toLongOrNull()
+                ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            val body = call.receive<BookmarkRequest>()
+            val id = repository.addBookmark(episodeId, body.positionMs, body.comment)
+            call.respond(HttpStatusCode.Created, BookmarkResponse(id, episodeId, body.positionMs, body.comment, System.currentTimeMillis()))
+        }
+
+        // DELETE /api/bookmarks/:id
+        delete("/bookmarks/{id}") {
+            val bookmarkId = call.parameters["id"]?.toLongOrNull()
+                ?: return@delete call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid bookmark ID"))
+            repository.deleteBookmarkById(bookmarkId)
+            call.respond(HttpStatusCode.OK, mapOf("status" to "deleted"))
+        }
+
+        // === Playlist ===
+
+        // GET /api/playlist — get playlist with episode details and artwork
+        get("/playlist") {
+            val episodes = repository.getPlaylistEpisodesWithArtworkList()
+            call.respond(episodes.map { ewa ->
+                val podcast = repository.getPodcastById(ewa.episode.podcastId)
+                PlaylistItemResponse(
+                    id = ewa.episode.id,
+                    podcastId = ewa.episode.podcastId,
+                    title = ewa.episode.title,
+                    description = ewa.episode.description,
+                    audioUrl = ewa.episode.audioUrl,
+                    pubDate = ewa.episode.pubDate,
+                    pubDateTimestamp = ewa.episode.pubDateTimestamp,
+                    duration = ewa.episode.duration,
+                    played = ewa.episode.played,
+                    playbackPosition = ewa.episode.playbackPosition,
+                    downloadPath = ewa.episode.downloadPath,
+                    artworkUrl = ewa.artworkUrl,
+                    podcastTitle = podcast?.title ?: "",
+                )
+            })
+        }
+
+        // POST /api/playlist/:episodeId — add to playlist
+        post("/playlist/{episodeId}") {
+            val episodeId = call.parameters["episodeId"]?.toLongOrNull()
+                ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            repository.addToPlaylist(episodeId)
+            call.respond(HttpStatusCode.OK, mapOf("status" to "added"))
+        }
+
+        // DELETE /api/playlist/:episodeId — remove from playlist
+        delete("/playlist/{episodeId}") {
+            val episodeId = call.parameters["episodeId"]?.toLongOrNull()
+                ?: return@delete call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            repository.removeFromPlaylist(episodeId)
+            call.respond(HttpStatusCode.OK, mapOf("status" to "removed"))
+        }
+
+        // PUT /api/playlist/reorder — reorder playlist
+        put("/playlist/reorder") {
+            val body = call.receive<ReorderRequest>()
+            repository.updatePlaylistPositions(body.episodeIds)
+            call.respond(HttpStatusCode.OK, mapOf("status" to "reordered"))
+        }
+
+        // DELETE /api/playlist — clear entire playlist
+        delete("/playlist") {
+            repository.clearPlaylist()
+            call.respond(HttpStatusCode.OK, mapOf("status" to "cleared"))
+        }
+
+        // POST /api/playlist/auto-add — auto-add latest episodes
+        post("/playlist/auto-add") {
+            repository.autoAddLatestEpisodes()
+            call.respond(HttpStatusCode.OK, mapOf("status" to "auto-added"))
+        }
+
+        // === Tags ===
 
         // GET /api/tags — list all tags
         get("/tags") {
@@ -246,37 +599,102 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
 
                 val libraryDesc = podcasts.joinToString("\n") { "- ${it.title} by ${it.author}" }
 
-                val prompt = """You are a podcast recommendation expert. Based on the user's podcast library below, suggest 6 new podcasts they might enjoy. The suggestions should be diverse but related to their interests.
+                val prompt = """Tu es un expert en recommandation de podcasts. En te basant sur la bibliothèque de podcasts ci-dessous, suggère 6 nouveaux podcasts que l'utilisateur pourrait aimer. Les suggestions doivent être variées mais en lien avec ses centres d'intérêt. Réponds entièrement en français.
 
-User's library:
+Bibliothèque :
 $libraryDesc
 
-Respond ONLY with a valid JSON object in this exact format, no markdown, no code blocks:
-{"intro": "A short personalized intro sentence about their taste", "suggestions": [{"name": "Podcast Name", "reason": "Short reason why they'd like it", "searchQuery": "search query to find it on iTunes"}]}"""
+Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdown, sans blocs de code :
+{"intro": "Une courte phrase d'introduction personnalisée sur ses goûts", "suggestions": [{"name": "Nom du Podcast", "reason": "Courte raison pour laquelle il aimerait", "searchQuery": "requête de recherche pour le trouver sur iTunes"}]}"""
 
-                val model = GenerativeModel(
-                    modelName = "gemini-2.0-flash",
-                    apiKey = apiKey,
-                )
+                val (text, parsed) = withContext(Dispatchers.IO) {
+                    val model = GenerativeModel(
+                        modelName = "gemini-2.0-flash",
+                        apiKey = apiKey,
+                    )
 
-                val response = model.generateContent(prompt)
-                val text = response.text?.trim() ?: ""
+                    val response = model.generateContent(prompt)
+                    val rawText = response.text?.trim() ?: ""
 
-                // Parse the JSON response
-                val cleanJson = text
-                    .removePrefix("```json")
-                    .removePrefix("```")
-                    .removeSuffix("```")
-                    .trim()
+                    // Parse the JSON response
+                    val cleanJson = rawText
+                        .removePrefix("```json")
+                        .removePrefix("```")
+                        .removeSuffix("```")
+                        .trim()
 
-                val parsed = Json.decodeFromString<AiResponse>(cleanJson)
+                    Pair(rawText, Json.decodeFromString<AiResponse>(cleanJson))
+                }
+
                 call.respond(parsed)
             } catch (e: Exception) {
                 e.printStackTrace()
+                val errorMsg = "${e.javaClass.simpleName}: ${e.message ?: "unknown error"}"
                 call.respond(
                     HttpStatusCode.InternalServerError,
-                    ErrorResponse("AI discovery failed: ${e.message}"),
+                    ErrorResponse("AI discovery failed: $errorMsg"),
                 )
+            }
+        }
+
+        // GET /api/new-episodes — recent episodes from subscribed podcasts
+        get("/new-episodes") {
+            try {
+                val tagId = call.request.queryParameters["tagId"]?.toLongOrNull()
+                val episodes = if (tagId != null) {
+                    repository.getRecentEpisodesWithArtworkForTag(tagId).first()
+                } else {
+                    repository.getRecentEpisodesWithArtwork().first()
+                }
+                call.respond(episodes.map { ewa ->
+                    val podcast = repository.getPodcastById(ewa.episode.podcastId)
+                    EpisodeResponse(
+                        id = ewa.episode.id,
+                        podcastId = ewa.episode.podcastId,
+                        title = ewa.episode.title,
+                        description = ewa.episode.description,
+                        audioUrl = ewa.episode.audioUrl,
+                        pubDate = ewa.episode.pubDate,
+                        pubDateTimestamp = ewa.episode.pubDateTimestamp,
+                        duration = ewa.episode.duration,
+                        played = ewa.episode.played,
+                        playbackPosition = ewa.episode.playbackPosition,
+                        downloadPath = ewa.episode.downloadPath,
+                        artworkUrl = ewa.artworkUrl,
+                    )
+                })
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Failed to load new episodes"))
+            }
+        }
+
+        // GET /api/history — listening history
+        get("/history") {
+            try {
+                val history = repository.getHistoryWithDetails().first()
+                call.respond(history.map { h ->
+                    HistoryResponse(
+                        id = h.history.id,
+                        episodeId = h.history.episodeId,
+                        podcastId = h.history.podcastId,
+                        episodeTitle = h.episodeTitle,
+                        podcastTitle = h.podcastTitle,
+                        artworkUrl = h.artworkUrl,
+                        listenedAt = h.history.listenedAt,
+                    )
+                })
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Failed to load history"))
+            }
+        }
+
+        // DELETE /api/history — clear listening history
+        delete("/history") {
+            try {
+                repository.clearHistory()
+                call.respond(HttpStatusCode.OK, mapOf("status" to "cleared"))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Failed to clear history"))
             }
         }
     }
