@@ -6,6 +6,16 @@
     <string name="nav_library">Bibliothèque</string>
     <string name="nav_playlist">Playlist</string>
     <string name="nav_subscriptions">Abonnements</string>
+    <string name="nav_history">Historique</string>
+
+    <!-- New Episodes -->
+    <string name="nav_new_episodes">Nouveautés</string>
+    <string name="no_new_episodes">Aucun épisode.\nAbonnez-vous à des podcasts pour voir les nouveautés !</string>
+    <string name="add_to_playlist">Ajouter à la playlist</string>
+    <string name="already_in_playlist">Déjà dans la playlist</string>
+    <string name="remove_from_playlist">Retirer de la playlist</string>
+    <string name="not_in_playlist">Pas dans la playlist</string>
+    <string name="no_episodes_for_tag">Aucun épisode pour ce tag</string>
 
     <!-- Common -->
     <string name="back">Retour</string>
@@ -84,6 +94,11 @@
 
     <!-- Country filter -->
     <string name="country_all">Tous</string>
+
+    <!-- History -->
+    <string name="no_history">Aucun historique d\'écoute.\nCommencez à écouter un épisode !</string>
+    <string name="clear_history">Effacer l\'historique</string>
+    <string name="clear_history_confirm">Voulez-vous vraiment effacer tout votre historique d\'écoute ?</string>
     <string name="country_fr">France</string>
     <string name="country_us">USA</string>
     <string name="country_gb">Royaume-Uni</string>

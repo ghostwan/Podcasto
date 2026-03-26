@@ -141,6 +141,10 @@ class PlayerManager @Inject constructor(
         scope.launch {
             val freshEpisode = repository.getEpisodeById(episode.id) ?: episode
             currentEpisode = freshEpisode
+
+            // Record in listening history
+            repository.addHistoryEntry(freshEpisode.id, freshEpisode.podcastId)
+
             val audioUri = if (freshEpisode.downloadPath != null) {
                 Uri.parse(freshEpisode.downloadPath)
             } else {

@@ -51,6 +51,25 @@ interface EpisodeDao {
     suspend fun markAsPlayed(id: Long)
 
     @Query("""
+        SELECT e.*, p.artworkUrl FROM episodes e
+        INNER JOIN podcasts p ON e.podcastId = p.id
+        WHERE p.subscribed = 1
+        ORDER BY e.pubDateTimestamp DESC
+        LIMIT 100
+    """)
+    fun getRecentEpisodesWithArtwork(): Flow<List<EpisodeWithArtwork>>
+
+    @Query("""
+        SELECT e.*, p.artworkUrl FROM episodes e
+        INNER JOIN podcasts p ON e.podcastId = p.id
+        INNER JOIN podcast_tag_cross_ref ptc ON p.id = ptc.podcastId
+        WHERE p.subscribed = 1 AND ptc.tagId = :tagId
+        ORDER BY e.pubDateTimestamp DESC
+        LIMIT 100
+    """)
+    fun getRecentEpisodesWithArtworkForTag(tagId: Long): Flow<List<EpisodeWithArtwork>>
+
+    @Query("""
         SELECT e.* FROM episodes e
         INNER JOIN podcasts p ON e.podcastId = p.id
         WHERE p.subscribed = 1 AND e.played = 0
@@ -172,4 +191,22 @@ interface BookmarkDao {
 
     @Delete
     suspend fun deleteBookmark(bookmark: BookmarkEntity)
+}
+
+@Dao
+interface HistoryDao {
+    @Query("""
+        SELECT h.*, e.title AS episodeTitle, p.title AS podcastTitle, p.artworkUrl
+        FROM listening_history h
+        INNER JOIN episodes e ON h.episodeId = e.id
+        INNER JOIN podcasts p ON h.podcastId = p.id
+        ORDER BY h.listenedAt DESC
+    """)
+    fun getHistoryWithDetails(): Flow<List<HistoryWithDetails>>
+
+    @Insert
+    suspend fun insertHistoryEntry(entry: HistoryEntity)
+
+    @Query("DELETE FROM listening_history")
+    suspend fun clearHistory()
 }

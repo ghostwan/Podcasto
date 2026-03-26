@@ -3,6 +3,7 @@ package com.music.podcasto
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.FiberNew
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -86,6 +87,20 @@ fun PodcastoNavHost(
                                 }
                             },
                         )
+                        NavigationBarItem(
+                            icon = { Icon(Icons.Default.FiberNew, contentDescription = stringResource(R.string.nav_new_episodes)) },
+                            label = { Text(stringResource(R.string.nav_new_episodes)) },
+                            selected = currentRoute == "new_episodes",
+                            onClick = {
+                                navController.navigate("new_episodes") {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                        )
                     }
                 }
             },
@@ -134,6 +149,32 @@ fun PodcastoNavHost(
                                 launchSingleTop = true
                             }
                         },
+                    )
+                }
+
+                composable("new_episodes") {
+                    NewEpisodesScreen(
+                        onEpisodeClick = { episodeId ->
+                            navController.navigate("episode/$episodeId") {
+                                launchSingleTop = true
+                            }
+                        },
+                        onHistoryClick = {
+                            navController.navigate("history") {
+                                launchSingleTop = true
+                            }
+                        },
+                    )
+                }
+
+                composable("history") {
+                    HistoryScreen(
+                        onEpisodeClick = { episodeId ->
+                            navController.navigate("episode/$episodeId") {
+                                launchSingleTop = true
+                            }
+                        },
+                        onBack = { navController.popBackStack() },
                     )
                 }
 

@@ -28,6 +28,7 @@ class PodcastRepository @Inject constructor(
     private val playlistDao: PlaylistDao,
     private val tagDao: TagDao,
     private val bookmarkDao: BookmarkDao,
+    private val historyDao: HistoryDao,
     @ApplicationContext private val context: Context,
 ) {
 
@@ -137,6 +138,12 @@ class PodcastRepository @Inject constructor(
     fun getEpisodesForPodcast(podcastId: Long): Flow<List<EpisodeEntity>> =
         episodeDao.getEpisodesForPodcast(podcastId)
 
+    fun getRecentEpisodesWithArtwork(): Flow<List<EpisodeWithArtwork>> =
+        episodeDao.getRecentEpisodesWithArtwork()
+
+    fun getRecentEpisodesWithArtworkForTag(tagId: Long): Flow<List<EpisodeWithArtwork>> =
+        episodeDao.getRecentEpisodesWithArtworkForTag(tagId)
+
     fun getUnplayedEpisodesForPodcast(podcastId: Long): Flow<List<EpisodeEntity>> =
         episodeDao.getUnplayedEpisodesForPodcast(podcastId)
 
@@ -243,6 +250,15 @@ class PodcastRepository @Inject constructor(
     }
 
     fun getDownloadedEpisodes(): Flow<List<EpisodeEntity>> = episodeDao.getDownloadedEpisodes()
+
+    // --- History ---
+    fun getHistoryWithDetails(): Flow<List<HistoryWithDetails>> = historyDao.getHistoryWithDetails()
+
+    suspend fun addHistoryEntry(episodeId: Long, podcastId: Long) {
+        historyDao.insertHistoryEntry(HistoryEntity(episodeId = episodeId, podcastId = podcastId))
+    }
+
+    suspend fun clearHistory() = historyDao.clearHistory()
 
     private fun parseDuration(raw: String): Long {
         if (raw.isEmpty()) return 0

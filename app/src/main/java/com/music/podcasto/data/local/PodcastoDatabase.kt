@@ -11,8 +11,9 @@ import androidx.room.RoomDatabase
         TagEntity::class,
         PodcastTagCrossRef::class,
         BookmarkEntity::class,
+        HistoryEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class PodcastoDatabase : RoomDatabase() {
@@ -21,4 +22,5 @@ abstract class PodcastoDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
     abstract fun tagDao(): TagDao
     abstract fun bookmarkDao(): BookmarkDao
+    abstract fun historyDao(): HistoryDao
 }

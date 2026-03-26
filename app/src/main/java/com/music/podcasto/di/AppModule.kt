@@ -63,12 +63,25 @@ object AppModule {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS listening_history (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        episodeId INTEGER NOT NULL,
+                        podcastId INTEGER NOT NULL,
+                        listenedAt INTEGER NOT NULL
+                    )
+                """)
+            }
+        }
+
         return Room.databaseBuilder(
             context,
             PodcastoDatabase::class.java,
             "podcasto.db",
         )
-            .addMigrations(MIGRATION_2_3)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
     }
@@ -87,4 +100,7 @@ object AppModule {
 
     @Provides
     fun provideBookmarkDao(db: PodcastoDatabase): BookmarkDao = db.bookmarkDao()
+
+    @Provides
+    fun provideHistoryDao(db: PodcastoDatabase): HistoryDao = db.historyDao()
 }

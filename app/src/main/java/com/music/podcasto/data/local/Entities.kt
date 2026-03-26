@@ -62,3 +62,18 @@ data class BookmarkEntity(
     val comment: String,
     val createdAt: Long = System.currentTimeMillis(),
 )
+
+@Entity(tableName = "listening_history")
+data class HistoryEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val episodeId: Long,
+    val podcastId: Long,
+    val listenedAt: Long = System.currentTimeMillis(),
+)
+
+data class HistoryWithDetails(
+    @Embedded val history: HistoryEntity,
+    val episodeTitle: String,
+    val podcastTitle: String,
+    val artworkUrl: String,
+)
