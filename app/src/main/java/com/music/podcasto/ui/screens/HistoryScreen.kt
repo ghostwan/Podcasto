@@ -1,6 +1,7 @@
 package com.music.podcasto.ui.screens
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,6 +26,7 @@ import coil.compose.AsyncImage
 import com.music.podcasto.R
 import com.music.podcasto.data.local.HistoryWithDetails
 import com.music.podcasto.data.repository.PodcastRepository
+import com.music.podcasto.player.PlayerManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +40,7 @@ import javax.inject.Inject
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
     private val repository: PodcastRepository,
+    private val playerManager: PlayerManager,
 ) : ViewModel() {
 
     val history: StateFlow<List<HistoryWithDetails>> = repository.getHistoryWithDetails()
@@ -46,6 +49,13 @@ class HistoryViewModel @Inject constructor(
     fun clearHistory() {
         viewModelScope.launch {
             repository.clearHistory()
+        }
+    }
+
+    fun playEpisode(item: HistoryWithDetails) {
+        viewModelScope.launch {
+            val episode = repository.getEpisodeById(item.history.episodeId) ?: return@launch
+            playerManager.play(episode, item.artworkUrl)
         }
     }
 }
@@ -128,6 +138,7 @@ fun HistoryScreen(
                     HistoryItem(
                         item = item,
                         onClick = { onEpisodeClick(item.history.episodeId) },
+                        onLongClick = { viewModel.playEpisode(item) },
                     )
                 }
             }
@@ -135,10 +146,12 @@ fun HistoryScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HistoryItem(
     item: HistoryWithDetails,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
 ) {
     val dateFormat = remember {
         DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, Locale.getDefault())
@@ -147,7 +160,7 @@ private fun HistoryItem(
     ListItem(
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         leadingContent = {
             AsyncImage(
                 model = item.artworkUrl,
