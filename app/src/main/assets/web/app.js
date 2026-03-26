@@ -52,6 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 performSearch(query);
             } else {
                 document.getElementById('search-results').innerHTML = '';
+                document.getElementById('search-ai-results').style.display = 'none';
+                document.getElementById('search-itunes-header').style.display = 'none';
                 document.getElementById('search-empty').style.display = '';
                 document.getElementById('search-loading').style.display = 'none';
             }
@@ -1447,30 +1449,80 @@ async function deleteTag(tagId, name) {
 // ========================
 // Search
 // ========================
+let searchFromAiSuggestion = false;
+
 async function performSearch(query) {
     const country = document.getElementById('country-select').value;
     const results = document.getElementById('search-results');
     const empty = document.getElementById('search-empty');
     const loading = document.getElementById('search-loading');
+    const aiResults = document.getElementById('search-ai-results');
+    const aiGrid = document.getElementById('search-ai-grid');
+    const aiLoading = document.getElementById('search-ai-loading');
+    const itunesHeader = document.getElementById('search-itunes-header');
 
     empty.style.display = 'none';
     loading.style.display = '';
     results.innerHTML = '';
 
-    try {
-        let url = `/api/search?q=${encodeURIComponent(query)}`;
-        if (country) url += `&country=${country}`;
+    // Only show AI section if not triggered from an AI suggestion (avoid loops)
+    const doAiSearch = !searchFromAiSuggestion;
+    searchFromAiSuggestion = false; // Reset flag
 
-        const res = await fetch(url);
-        const data = await res.json();
+    if (doAiSearch) {
+        aiResults.style.display = '';
+        aiGrid.innerHTML = '';
+        aiLoading.style.display = '';
+    } else {
+        aiResults.style.display = 'none';
+    }
+    itunesHeader.style.display = 'none';
+
+    // Build iTunes URL
+    let url = `/api/search?q=${encodeURIComponent(query)}`;
+    if (country) url += `&country=${country}`;
+
+    // Run iTunes search and AI search in parallel
+    const itunesPromise = fetch(url).then(r => r.json());
+    const aiPromise = doAiSearch
+        ? fetch(`/api/search-ai?q=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => null)
+        : Promise.resolve(null);
+
+    try {
+        const [data, aiData] = await Promise.all([itunesPromise, aiPromise]);
         loading.style.display = 'none';
 
+        // Render AI suggestions
+        if (doAiSearch && aiData && !aiData.error && aiData.suggestions && aiData.suggestions.length > 0) {
+            aiLoading.style.display = 'none';
+            aiGrid.innerHTML = aiData.suggestions.map(s => `
+                <div class="suggestion-card">
+                    <div class="suggestion-name">${esc(s.name)}</div>
+                    <div class="suggestion-reason">${esc(s.reason)}</div>
+                    <button class="btn-search" onclick="searchFromAiSearchSuggestion('${escJs(s.searchQuery)}')">
+                        <span class="material-icons-round" style="font-size:18px">search</span>
+                        Rechercher
+                    </button>
+                </div>
+            `).join('');
+        } else if (doAiSearch) {
+            aiLoading.style.display = 'none';
+            if (!aiData || aiData.error || !aiData.suggestions || aiData.suggestions.length === 0) {
+                aiResults.style.display = 'none';
+            }
+        }
+
+        // Render iTunes results
         if (data.error) { showToast(data.error); return; }
 
-        if (data.length === 0) {
+        if (data.length === 0 && (!doAiSearch || !aiData || !aiData.suggestions || aiData.suggestions.length === 0)) {
             empty.style.display = '';
             empty.querySelector('p').textContent = 'Aucun r\u00e9sultat pour "' + query + '"';
             return;
+        }
+
+        if (data.length > 0 && doAiSearch && aiData && aiData.suggestions && aiData.suggestions.length > 0) {
+            itunesHeader.style.display = '';
         }
 
         results.innerHTML = data.map(r => `
@@ -1496,8 +1548,15 @@ async function performSearch(query) {
         `).join('');
     } catch (e) {
         loading.style.display = 'none';
+        aiLoading.style.display = 'none';
         showToast('Erreur de recherche: ' + e.message);
     }
+}
+
+function searchFromAiSearchSuggestion(query) {
+    searchFromAiSuggestion = true;
+    document.getElementById('search-input').value = query;
+    performSearch(query);
 }
 
 async function subscribePodcast(collectionId, name, artist, artworkUrl, feedUrl, btn) {
@@ -1578,6 +1637,7 @@ async function loadDiscovery() {
 }
 
 function searchFromSuggestion(query) {
+    searchFromAiSuggestion = true;
     switchTab('search');
     document.getElementById('search-input').value = query;
     performSearch(query);

@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -26,18 +27,38 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.compose.AsyncImage
+import com.google.ai.client.generativeai.GenerativeModel
+import com.music.podcasto.BuildConfig
 import com.music.podcasto.R
 import com.music.podcasto.data.remote.ITunesPodcast
 import com.music.podcasto.data.repository.PodcastRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
+
+@Serializable
+data class AiSuggestion(
+    val name: String,
+    val reason: String,
+    val searchQuery: String,
+)
+
+@Serializable
+data class AiDiscoverResponse(
+    val suggestions: List<AiSuggestion> = emptyList(),
+    val intro: String = "",
+)
 
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
@@ -74,13 +95,34 @@ class DiscoverViewModel @Inject constructor(
         .map { podcasts -> podcasts.map { it.id }.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
+    // AI Discovery state (for empty screen suggestions based on library)
+    private val _aiSuggestions = MutableStateFlow<List<AiSuggestion>>(emptyList())
+    val aiSuggestions: StateFlow<List<AiSuggestion>> = _aiSuggestions.asStateFlow()
+
+    private val _aiIntro = MutableStateFlow("")
+    val aiIntro: StateFlow<String> = _aiIntro.asStateFlow()
+
+    private val _aiLoading = MutableStateFlow(false)
+    val aiLoading: StateFlow<Boolean> = _aiLoading.asStateFlow()
+
+    private val _aiError = MutableStateFlow<String?>(null)
+    val aiError: StateFlow<String?> = _aiError.asStateFlow()
+
+    // AI Search state (suggestions based on search query)
+    private val _aiSearchSuggestions = MutableStateFlow<List<AiSuggestion>>(emptyList())
+    val aiSearchSuggestions: StateFlow<List<AiSuggestion>> = _aiSearchSuggestions.asStateFlow()
+
+    private val _aiSearchLoading = MutableStateFlow(false)
+    val aiSearchLoading: StateFlow<Boolean> = _aiSearchLoading.asStateFlow()
+
+    private val jsonParser = Json { ignoreUnknownKeys = true }
+
     fun onQueryChange(query: String) {
         _searchQuery.value = query
     }
 
     fun onCountryChange(country: String?) {
         _selectedCountry.value = country
-        // Re-search automatically if there are existing results
         if (_searchQuery.value.isNotBlank()) {
             search()
         }
@@ -89,6 +131,8 @@ class DiscoverViewModel @Inject constructor(
     fun search() {
         val query = _searchQuery.value.trim()
         if (query.isEmpty()) return
+
+        // iTunes search
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -98,6 +142,120 @@ class DiscoverViewModel @Inject constructor(
                 _results.value = emptyList()
             }
             _isLoading.value = false
+        }
+
+        // AI search in parallel
+        searchWithAi(query)
+    }
+
+    private fun searchWithAi(query: String) {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        if (apiKey.isEmpty()) return
+
+        viewModelScope.launch {
+            _aiSearchLoading.value = true
+            _aiSearchSuggestions.value = emptyList()
+            try {
+                val prompt = """Tu es un expert en podcasts. L'utilisateur cherche des podcasts en rapport avec : "$query"
+
+Suggère 4 podcasts qui correspondent à cette recherche. Inclus des podcasts connus et de qualité, en français et en anglais. Réponds entièrement en français.
+
+Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdown, sans blocs de code :
+{"intro": "", "suggestions": [{"name": "Nom du Podcast", "reason": "Courte raison de la pertinence", "searchQuery": "requête exacte pour le trouver sur iTunes"}]}"""
+
+                val response = withContext(Dispatchers.IO) {
+                    val model = GenerativeModel(
+                        modelName = "gemini-2.0-flash",
+                        apiKey = apiKey,
+                    )
+                    model.generateContent(prompt)
+                }
+
+                val rawText = response.text?.trim() ?: ""
+                val cleanJson = rawText
+                    .removePrefix("```json")
+                    .removePrefix("```")
+                    .removeSuffix("```")
+                    .trim()
+
+                val parsed = jsonParser.decodeFromString<AiDiscoverResponse>(cleanJson)
+                _aiSearchSuggestions.value = parsed.suggestions
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _aiSearchSuggestions.value = emptyList()
+            }
+            _aiSearchLoading.value = false
+        }
+    }
+
+    fun searchFromSuggestion(suggestion: AiSuggestion) {
+        _searchQuery.value = suggestion.searchQuery
+        // Only do iTunes search (not another AI search to avoid loops)
+        viewModelScope.launch {
+            _isLoading.value = true
+            _aiSearchSuggestions.value = emptyList()
+            _aiSearchLoading.value = false
+            try {
+                _results.value = repository.searchPodcasts(suggestion.searchQuery, _selectedCountry.value)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _results.value = emptyList()
+            }
+            _isLoading.value = false
+        }
+    }
+
+    fun loadAiSuggestions() {
+        val apiKey = BuildConfig.GEMINI_API_KEY
+        if (apiKey.isEmpty()) {
+            _aiError.value = "no_api_key"
+            return
+        }
+
+        viewModelScope.launch {
+            _aiLoading.value = true
+            _aiError.value = null
+            try {
+                val podcasts = repository.getSubscribedPodcasts().first()
+                if (podcasts.isEmpty()) {
+                    _aiError.value = "no_subscriptions"
+                    _aiLoading.value = false
+                    return@launch
+                }
+
+                val libraryDesc = podcasts.joinToString("\n") { "- ${it.title} by ${it.author}" }
+
+                val prompt = """Tu es un expert en recommandation de podcasts. En te basant sur la bibliothèque de podcasts ci-dessous, suggère 6 nouveaux podcasts que l'utilisateur pourrait aimer. Les suggestions doivent être variées mais en lien avec ses centres d'intérêt. Réponds entièrement en français.
+
+Bibliothèque :
+$libraryDesc
+
+Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdown, sans blocs de code :
+{"intro": "Une courte phrase d'introduction personnalisée sur ses goûts", "suggestions": [{"name": "Nom du Podcast", "reason": "Courte raison pour laquelle il aimerait", "searchQuery": "requête de recherche pour le trouver sur iTunes"}]}"""
+
+                val response = withContext(Dispatchers.IO) {
+                    val model = GenerativeModel(
+                        modelName = "gemini-2.0-flash",
+                        apiKey = apiKey,
+                    )
+                    model.generateContent(prompt)
+                }
+
+                val rawText = response.text?.trim() ?: ""
+                val cleanJson = rawText
+                    .removePrefix("```json")
+                    .removePrefix("```")
+                    .removeSuffix("```")
+                    .trim()
+
+                val parsed = jsonParser.decodeFromString<AiDiscoverResponse>(cleanJson)
+                _aiIntro.value = parsed.intro
+                _aiSuggestions.value = parsed.suggestions
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _aiError.value = e.message ?: "Unknown error"
+            }
+            _aiLoading.value = false
         }
     }
 }
@@ -114,6 +272,18 @@ fun DiscoverScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val subscribedIds by viewModel.subscribedIds.collectAsState()
     val selectedCountry by viewModel.selectedCountry.collectAsState()
+
+    // AI library-based state
+    val aiSuggestions by viewModel.aiSuggestions.collectAsState()
+    val aiIntro by viewModel.aiIntro.collectAsState()
+    val aiLoading by viewModel.aiLoading.collectAsState()
+    val aiError by viewModel.aiError.collectAsState()
+
+    // AI search-based state
+    val aiSearchSuggestions by viewModel.aiSearchSuggestions.collectAsState()
+    val aiSearchLoading by viewModel.aiSearchLoading.collectAsState()
+
+    val showAiSection = query.isBlank() && results.isEmpty()
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
@@ -173,12 +343,86 @@ fun DiscoverScreen(
             ) {
                 CircularProgressIndicator()
             }
+        } else if (showAiSection) {
+            // AI Discovery section (library-based, when no search query)
+            AiDiscoverySection(
+                suggestions = aiSuggestions,
+                intro = aiIntro,
+                isLoading = aiLoading,
+                error = aiError,
+                onGenerate = viewModel::loadAiSuggestions,
+                onSearchSuggestion = viewModel::searchFromSuggestion,
+            )
         } else {
+            // Search results + AI search suggestions
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                // AI search suggestions header
+                if (aiSearchLoading || aiSearchSuggestions.isNotEmpty()) {
+                    item {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 4.dp),
+                        ) {
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.ai_search_title),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.tertiary,
+                            )
+                        }
+                    }
+                }
+
+                if (aiSearchLoading) {
+                    item {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 8.dp),
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.ai_search_loading),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
+                if (aiSearchSuggestions.isNotEmpty()) {
+                    items(aiSearchSuggestions) { suggestion ->
+                        AiSuggestionCard(
+                            suggestion = suggestion,
+                            onSearch = { viewModel.searchFromSuggestion(suggestion) },
+                        )
+                    }
+                }
+
+                // iTunes results header
+                if (results.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = stringResource(R.string.itunes_results_title, results.size),
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(vertical = 4.dp),
+                        )
+                    }
+                }
+
                 items(results) { podcast ->
                     PodcastSearchItem(
                         podcast = podcast,
@@ -186,6 +430,153 @@ fun DiscoverScreen(
                         onClick = { onPodcastClick(podcast) },
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun AiDiscoverySection(
+    suggestions: List<AiSuggestion>,
+    intro: String,
+    isLoading: Boolean,
+    error: String?,
+    onGenerate: () -> Unit,
+    onSearchSuggestion: (AiSuggestion) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Generate button
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = onGenerate,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                ),
+            ) {
+                Icon(
+                    Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.ai_generate_suggestions))
+            }
+        }
+
+        // Loading
+        if (isLoading) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = stringResource(R.string.ai_loading),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
+        // Error
+        if (error != null && !isLoading) {
+            item {
+                val errorText = when (error) {
+                    "no_api_key" -> stringResource(R.string.ai_no_api_key)
+                    "no_subscriptions" -> stringResource(R.string.ai_no_subscriptions)
+                    else -> stringResource(R.string.ai_error, error)
+                }
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                ) {
+                    Text(
+                        text = errorText,
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        }
+
+        // Intro text
+        if (intro.isNotBlank() && !isLoading) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    ),
+                ) {
+                    Text(
+                        text = intro,
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+        }
+
+        // Suggestion cards
+        if (suggestions.isNotEmpty() && !isLoading) {
+            items(suggestions) { suggestion ->
+                AiSuggestionCard(
+                    suggestion = suggestion,
+                    onSearch = { onSearchSuggestion(suggestion) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AiSuggestionCard(
+    suggestion: AiSuggestion,
+    onSearch: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+        ) {
+            Text(
+                text = suggestion.name,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = suggestion.reason,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = onSearch,
+            ) {
+                Icon(
+                    Icons.Default.Search,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(stringResource(R.string.ai_search_suggestion))
             }
         }
     }

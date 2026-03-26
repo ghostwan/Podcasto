@@ -34,6 +34,15 @@
     <string name="discover">Découvrir</string>
     <string name="discover_podcasts">Découvrir des podcasts</string>
     <string name="search_podcasts_hint">Rechercher des podcasts…</string>
+    <string name="ai_generate_suggestions">Générer des suggestions IA</string>
+    <string name="ai_loading">Génération des suggestions…</string>
+    <string name="ai_error">Échec de la découverte IA : %1$s</string>
+    <string name="ai_no_subscriptions">Abonnez-vous à des podcasts pour que l\'IA puisse en recommander !</string>
+    <string name="ai_search_suggestion">Rechercher</string>
+    <string name="ai_no_api_key">Clé API Gemini non configurée</string>
+    <string name="ai_search_title">Suggestions IA</string>
+    <string name="ai_search_loading">Recherche IA en cours…</string>
+    <string name="itunes_results_title">Résultats iTunes (%d)</string>
 
     <!-- Subscriptions -->
     <string name="no_subscriptions">Aucun abonnement.\nDécouvrez des podcasts pour vous abonner !</string>

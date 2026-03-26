@@ -374,6 +374,56 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
             }
         }
 
+        // GET /api/search-ai?q=... — AI-powered search suggestions
+        get("/search-ai") {
+            val query = call.request.queryParameters["q"]
+                ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing query parameter 'q'"))
+
+            val apiKey = BuildConfig.GEMINI_API_KEY
+            if (apiKey.isEmpty()) {
+                return@get call.respond(
+                    HttpStatusCode.ServiceUnavailable,
+                    ErrorResponse("Gemini API key not configured"),
+                )
+            }
+
+            try {
+                val prompt = """Tu es un expert en podcasts. L'utilisateur recherche : "$query"
+
+Suggère 4 podcasts qui correspondent à cette recherche. Les suggestions doivent être des podcasts réels et populaires, en lien direct avec la requête. Privilégie les podcasts en français si la requête est en français, sinon en anglais. Réponds entièrement en français.
+
+Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdown, sans blocs de code :
+{"intro": "Une courte phrase expliquant tes suggestions par rapport à la recherche", "suggestions": [{"name": "Nom du Podcast", "reason": "Courte raison pour laquelle il correspond à la recherche", "searchQuery": "requête de recherche pour le trouver sur iTunes"}]}"""
+
+                val (text, parsed) = withContext(Dispatchers.IO) {
+                    val model = GenerativeModel(
+                        modelName = "gemini-2.0-flash",
+                        apiKey = apiKey,
+                    )
+
+                    val response = model.generateContent(prompt)
+                    val rawText = response.text?.trim() ?: ""
+
+                    val cleanJson = rawText
+                        .removePrefix("```json")
+                        .removePrefix("```")
+                        .removeSuffix("```")
+                        .trim()
+
+                    Pair(rawText, Json.decodeFromString<AiResponse>(cleanJson))
+                }
+
+                call.respond(parsed)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                val errorMsg = "${e.javaClass.simpleName}: ${e.message ?: "unknown error"}"
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    ErrorResponse("AI search failed: $errorMsg"),
+                )
+            }
+        }
+
         // === Episodes ===
 
         // GET /api/episodes/:id — get single episode

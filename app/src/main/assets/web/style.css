@@ -1359,3 +1359,30 @@ body.player-visible .toast {
     .player-artwork { width: 44px; height: 44px; }
     .player-btn-speed { display: none; }
 }
+
+/* Search AI & iTunes headers */
+.search-ai-header,
+.search-itunes-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: var(--primary);
+}
+
+.search-ai-header h3,
+.search-itunes-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.search-ai-header .material-icons-round,
+.search-itunes-header .material-icons-round {
+    font-size: 22px;
+}
+
+.search-itunes-header {
+    margin-top: 24px;
+    color: var(--on-surface);
+}
