@@ -13,6 +13,7 @@
     <string name="no_new_episodes">Aucun épisode.\nAbonnez-vous à des podcasts pour voir les nouveautés !</string>
     <string name="add_to_playlist">Ajouter à la playlist</string>
     <string name="already_in_playlist">Déjà dans la playlist</string>
+    <string name="in_playlist">Dans la playlist</string>
     <string name="remove_from_playlist">Retirer de la playlist</string>
     <string name="not_in_playlist">Pas dans la playlist</string>
     <string name="no_episodes_for_tag">Aucun épisode pour ce tag</string>

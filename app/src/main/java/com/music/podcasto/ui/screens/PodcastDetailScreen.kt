@@ -536,6 +536,15 @@ fun EpisodeListItem(
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
                             }
+                            if (isInPlaylist) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    Icons.AutoMirrored.Filled.QueueMusic,
+                                    contentDescription = stringResource(R.string.in_playlist),
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
                     }
                 }

@@ -13,6 +13,7 @@
     <string name="no_new_episodes">No episodes yet.\nSubscribe to podcasts to see new episodes!</string>
     <string name="add_to_playlist">Add to playlist</string>
     <string name="already_in_playlist">Already in playlist</string>
+    <string name="in_playlist">In playlist</string>
     <string name="remove_from_playlist">Remove from playlist</string>
     <string name="not_in_playlist">Not in playlist</string>
     <string name="no_episodes_for_tag">No episodes for this tag</string>

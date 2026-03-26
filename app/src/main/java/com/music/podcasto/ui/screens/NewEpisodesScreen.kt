@@ -381,12 +381,23 @@ private fun NewEpisodeRow(
                     }
                 },
                 trailingContent = {
-                    if (item.episode.played) {
-                        Text(
-                            text = stringResource(R.string.played),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isInPlaylist) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.QueueMusic,
+                                contentDescription = stringResource(R.string.in_playlist),
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        if (item.episode.played) {
+                            if (isInPlaylist) Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.played),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 },
             )
