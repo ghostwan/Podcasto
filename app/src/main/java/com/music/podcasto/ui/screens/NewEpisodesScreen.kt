@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.FiberNew
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlaylistRemove
@@ -60,15 +61,23 @@ class NewEpisodesViewModel @Inject constructor(
     private val _selectedTagId = MutableStateFlow<Long?>(null)
     val selectedTagId: StateFlow<Long?> = _selectedTagId.asStateFlow()
 
-    val episodes: StateFlow<List<EpisodeWithArtwork>> = _selectedTagId
-        .flatMapLatest { tagId ->
-            if (tagId == null) {
-                repository.getRecentEpisodesWithArtwork()
-            } else {
-                repository.getRecentEpisodesWithArtworkForTag(tagId)
-            }
+    private val _hidePlayed = MutableStateFlow(false)
+    val hidePlayed: StateFlow<Boolean> = _hidePlayed.asStateFlow()
+
+    val episodes: StateFlow<List<EpisodeWithArtwork>> = combine(_selectedTagId, _hidePlayed) { tagId, hide ->
+        Pair(tagId, hide)
+    }.flatMapLatest { (tagId, hide) ->
+        val flow = if (tagId == null) {
+            repository.getRecentEpisodesWithArtwork()
+        } else {
+            repository.getRecentEpisodesWithArtworkForTag(tagId)
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        if (hide) {
+            flow.map { list -> list.filter { !it.episode.played } }
+        } else {
+            flow
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val playlistEpisodeIds: StateFlow<Set<Long>> = repository.getPlaylistEpisodes()
         .map { list -> list.map { it.id }.toSet() }
@@ -83,6 +92,10 @@ class NewEpisodesViewModel @Inject constructor(
 
     fun selectTag(tagId: Long?) {
         _selectedTagId.value = tagId
+    }
+
+    fun toggleHidePlayed() {
+        _hidePlayed.value = !_hidePlayed.value
     }
 
     fun togglePlaylist(episodeId: Long) {
@@ -126,6 +139,7 @@ fun NewEpisodesScreen(
     val nowPlayingId by viewModel.nowPlayingEpisodeId.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
     val selectedTagId by viewModel.selectedTagId.collectAsState()
+    val hidePlayed by viewModel.hidePlayed.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     val pullRefreshState = rememberPullRefreshState(
@@ -137,6 +151,14 @@ fun NewEpisodesScreen(
         TopAppBar(
             title = { Text(stringResource(R.string.nav_new_episodes)) },
             actions = {
+                IconButton(onClick = viewModel::toggleHidePlayed) {
+                    Icon(
+                        Icons.Default.FilterList,
+                        contentDescription = stringResource(R.string.filter_played),
+                        tint = if (hidePlayed) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 IconButton(onClick = onHistoryClick) {
                     Icon(Icons.Default.History, contentDescription = stringResource(R.string.nav_history))
                 }
