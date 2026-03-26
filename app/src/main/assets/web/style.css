@@ -1295,8 +1295,10 @@ main {
     font-size: 14px;
     font-weight: 500;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s ease, opacity 0.3s ease;
     z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
 }
 
 body.player-visible .toast {
@@ -1305,6 +1307,8 @@ body.player-visible .toast {
 
 .toast.show {
     transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    pointer-events: auto;
 }
 
 /* Dialog */
