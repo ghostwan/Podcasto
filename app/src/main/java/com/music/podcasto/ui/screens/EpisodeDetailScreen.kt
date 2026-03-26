@@ -174,6 +174,7 @@ class EpisodeDetailViewModel @Inject constructor(
 @Composable
 fun EpisodeDetailScreen(
     onBack: () -> Unit,
+    onPodcastClick: (Long) -> Unit = {},
     viewModel: EpisodeDetailViewModel = hiltViewModel(),
 ) {
     val episode by viewModel.episode.collectAsState()
@@ -220,10 +221,11 @@ fun EpisodeDetailScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AsyncImage(
                     model = podcast?.artworkUrl,
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.go_to_podcast),
                     modifier = Modifier
                         .size(80.dp)
-                        .clip(RoundedCornerShape(8.dp)),
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { podcast?.let { onPodcastClick(it.id) } },
                     contentScale = ContentScale.Crop,
                 )
                 Spacer(modifier = Modifier.width(12.dp))

@@ -87,6 +87,7 @@
     <string name="previous_episode">Épisode précédent</string>
     <string name="next_episode">Épisode suivant</string>
     <string name="go_to_playlist">Aller à la playlist</string>
+    <string name="go_to_podcast">Aller au podcast</string>
 
     <!-- Playlist -->
     <string name="play_all">Tout lire</string>

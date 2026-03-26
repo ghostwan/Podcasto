@@ -7,68 +7,20 @@
 
     <!-- Headphone band (arc on top) -->
     <path
-        android:pathData="M36,52 A18,18 0,0 1,72,52"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="3.5"
+        android:pathData="M33,54 A21,21 0,0 1,75,54"
+        android:strokeColor="#6750A4"
+        android:strokeWidth="4"
         android:fillColor="#00000000"
         android:strokeLineCap="round"/>
 
     <!-- Left ear cup -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M32,50 A4,4 0,0 0,28,54 L28,62 A4,4 0,0 0,32,66 L36,66 L36,50 Z"/>
+        android:fillColor="#6750A4"
+        android:pathData="M29,50 A5,5 0,0 0,24,55 L24,65 A5,5 0,0 0,29,70 L34,70 L34,50 Z"/>
 
     <!-- Right ear cup -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M76,50 A4,4 0,0 1,80,54 L80,62 A4,4 0,0 1,76,66 L72,66 L72,50 Z"/>
-
-    <!-- Microphone stem -->
-    <path
-        android:pathData="M54,62 L54,74"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2.5"
-        android:strokeLineCap="round"/>
-
-    <!-- Microphone base -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M47,74 A1.5,1.5 0,0 0,47,77 L61,77 A1.5,1.5 0,0 0,61,74 Z"/>
-
-    <!-- Left sound wave - inner -->
-    <path
-        android:pathData="M22,50 A6,8 0,0 0,22,66"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
-        android:fillColor="#00000000"
-        android:strokeLineCap="round"
-        android:strokeAlpha="0.7"/>
-
-    <!-- Left sound wave - outer -->
-    <path
-        android:pathData="M16,46 A10,14 0,0 0,16,70"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
-        android:fillColor="#00000000"
-        android:strokeLineCap="round"
-        android:strokeAlpha="0.4"/>
-
-    <!-- Right sound wave - inner -->
-    <path
-        android:pathData="M86,50 A6,8 0,0 1,86,66"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
-        android:fillColor="#00000000"
-        android:strokeLineCap="round"
-        android:strokeAlpha="0.7"/>
-
-    <!-- Right sound wave - outer -->
-    <path
-        android:pathData="M92,46 A10,14 0,0 1,92,70"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="2"
-        android:fillColor="#00000000"
-        android:strokeLineCap="round"
-        android:strokeAlpha="0.4"/>
+        android:fillColor="#6750A4"
+        android:pathData="M79,50 A5,5 0,0 1,84,55 L84,65 A5,5 0,0 1,79,70 L74,70 L74,50 Z"/>
 
 </vector>

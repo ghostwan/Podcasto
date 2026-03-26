@@ -203,11 +203,18 @@ async function openPodcastDetail(podcastId) {
     // Remove active tab highlight
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 
+    preparePodcastDetailUI();
+    await loadPodcastDetailData(podcastId);
+}
+
+function preparePodcastDetailUI() {
     document.getElementById('episodes-list').innerHTML = '';
     document.getElementById('episodes-loading').style.display = '';
     document.getElementById('detail-subscribe-bar').style.display = 'none';
     document.getElementById('detail-tags').innerHTML = '';
+}
 
+async function loadPodcastDetailData(podcastId) {
     try {
         const [podcastRes, episodesRes] = await Promise.all([
             fetch(`/api/podcasts/${podcastId}`),
@@ -337,7 +344,11 @@ async function subscribeFromDetail() {
 
 function closePodcastDetail() {
     const prev = navStack.pop() || 'library';
-    switchTab(prev);
+    if (prev === 'episode-detail') {
+        showPage('episode-detail');
+    } else {
+        switchTab(prev);
+    }
 }
 
 function renderDetailTags(podcast) {
@@ -559,6 +570,17 @@ function closeEpisodeDetail() {
     }
 }
 
+function goToPodcastFromEpisode() {
+    if (!currentEpisodeDetail || !currentEpisodeDetail.podcastId) return;
+    // Push episode-detail so closePodcastDetail can return here
+    navStack.push('episode-detail');
+    showPage('podcast-detail');
+    previewSearchInfo = null;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    preparePodcastDetailUI();
+    loadPodcastDetailData(currentEpisodeDetail.podcastId);
+}
+
 function updateEpisodeDetailButtons() {
     if (!currentEpisodeDetail) return;
     const e = currentEpisodeDetail;
@@ -719,7 +741,8 @@ async function loadPlaylist() {
             const progressPct = item.duration > 0 ? Math.round((item.playbackPosition / (item.duration * 1000)) * 100) : 0;
 
             return `
-            <div class="playlist-item ${isNowPlaying ? 'now-playing' : ''}">
+            <div class="playlist-item ${isNowPlaying ? 'now-playing' : ''}" draggable="true" data-episode-id="${item.id}">
+                <span class="drag-handle material-icons-round">drag_indicator</span>
                 <img class="playlist-item-artwork" src="${esc(item.artworkUrl)}" alt="" onclick="openPlaylistEpisodeDetail(${item.id}, '${escJs(item.artworkUrl)}', '${escJs(item.podcastTitle)}')" style="cursor:pointer" onerror="this.src='${placeholderImg()}'">
                 <div class="playlist-item-info" onclick="openPlaylistEpisodeDetail(${item.id}, '${escJs(item.artworkUrl)}', '${escJs(item.podcastTitle)}')" style="cursor:pointer">
                     <div class="playlist-item-title">${esc(item.title)}</div>
@@ -740,8 +763,91 @@ async function loadPlaylist() {
                 </div>
             </div>`;
         }).join('');
+
+        initPlaylistDragDrop();
     } catch (e) {
         showToast('Erreur playlist: ' + e.message);
+    }
+}
+
+// ========================
+// Playlist Drag & Drop
+// ========================
+let draggedItem = null;
+
+function initPlaylistDragDrop() {
+    const container = document.getElementById('playlist-items');
+    const items = container.querySelectorAll('.playlist-item[draggable]');
+
+    items.forEach(item => {
+        item.addEventListener('dragstart', onDragStart);
+        item.addEventListener('dragend', onDragEnd);
+        item.addEventListener('dragover', onDragOver);
+        item.addEventListener('dragenter', onDragEnter);
+        item.addEventListener('dragleave', onDragLeave);
+        item.addEventListener('drop', onDrop);
+    });
+}
+
+function onDragStart(e) {
+    draggedItem = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', this.dataset.episodeId);
+}
+
+function onDragEnd(e) {
+    this.classList.remove('dragging');
+    document.querySelectorAll('.playlist-item.drag-over').forEach(el => el.classList.remove('drag-over'));
+    draggedItem = null;
+}
+
+function onDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function onDragEnter(e) {
+    e.preventDefault();
+    if (this !== draggedItem) {
+        this.classList.add('drag-over');
+    }
+}
+
+function onDragLeave(e) {
+    this.classList.remove('drag-over');
+}
+
+async function onDrop(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over');
+    if (!draggedItem || this === draggedItem) return;
+
+    const container = document.getElementById('playlist-items');
+    const allItems = [...container.querySelectorAll('.playlist-item[draggable]')];
+    const fromIndex = allItems.indexOf(draggedItem);
+    const toIndex = allItems.indexOf(this);
+
+    // Move the dragged element in the DOM
+    if (fromIndex < toIndex) {
+        container.insertBefore(draggedItem, this.nextSibling);
+    } else {
+        container.insertBefore(draggedItem, this);
+    }
+
+    // Collect new order and save
+    const newOrder = [...container.querySelectorAll('.playlist-item[draggable]')].map(
+        el => parseInt(el.dataset.episodeId)
+    );
+    try {
+        await fetch('/api/playlist/reorder', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ episodeIds: newOrder }),
+        });
+    } catch (err) {
+        showToast('Erreur réorganisation: ' + err.message);
+        loadPlaylist(); // reload on error
     }
 }
 

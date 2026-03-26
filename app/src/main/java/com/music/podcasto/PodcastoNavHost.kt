@@ -215,6 +215,11 @@ fun PodcastoNavHost(
                 ) {
                     EpisodeDetailScreen(
                         onBack = { navController.popBackStack() },
+                        onPodcastClick = { podcastId ->
+                            navController.navigate("podcast/$podcastId") {
+                                launchSingleTop = true
+                            }
+                        },
                     )
                 }
             }
