@@ -62,8 +62,16 @@ data class AiDiscoverResponse(
 
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context,
     private val repository: PodcastRepository,
 ) : ViewModel() {
+
+    private fun getGeminiApiKey(): String {
+        val prefs = appContext.getSharedPreferences("app_settings", android.content.Context.MODE_PRIVATE)
+        val key = prefs.getString("gemini_api_key", null)
+        if (!key.isNullOrBlank()) return key
+        return BuildConfig.GEMINI_API_KEY
+    }
 
     data class CountryOption(val code: String?, val labelResId: Int)
 
@@ -161,7 +169,7 @@ class DiscoverViewModel @Inject constructor(
     }
 
     private fun searchWithAi(query: String) {
-        val apiKey = BuildConfig.GEMINI_API_KEY
+        val apiKey = getGeminiApiKey()
         if (apiKey.isEmpty()) return
 
         viewModelScope.launch {
@@ -218,7 +226,7 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
     }
 
     fun loadAiSuggestions() {
-        val apiKey = BuildConfig.GEMINI_API_KEY
+        val apiKey = getGeminiApiKey()
         if (apiKey.isEmpty()) {
             _aiError.value = "no_api_key"
             return

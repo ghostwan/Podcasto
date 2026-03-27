@@ -13,7 +13,7 @@ import androidx.room.RoomDatabase
         BookmarkEntity::class,
         HistoryEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class PodcastoDatabase : RoomDatabase() {

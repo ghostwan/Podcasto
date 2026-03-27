@@ -120,6 +120,31 @@
     <string name="country_br">Brazil</string>
     <string name="country_jp">Japan</string>
 
+    <!-- Hidden Podcasts -->
+    <string name="settings">Settings</string>
+    <string name="show_hidden_podcasts">Show hidden podcasts</string>
+    <string name="podcast_hidden">Hidden</string>
+    <string name="hide_podcast">Hide podcast</string>
+    <string name="unhide_podcast">Unhide podcast</string>
+
+    <!-- Volume Normalization -->
+    <string name="volume_normalization">Volume normalization</string>
+    <string name="volume_normalization_on">Volume normalization enabled</string>
+    <string name="volume_normalization_off">Volume normalization disabled</string>
+
+    <!-- Settings / Gemini -->
+    <string name="gemini_api_key">Gemini API Key</string>
+    <string name="gemini_api_key_hint">Enter your Gemini API key</string>
+    <string name="gemini_api_key_saved">API key saved</string>
+    <string name="gemini_api_key_cleared">API key cleared</string>
+    <string name="gemini_guide_title">How to get a Gemini API key</string>
+    <string name="gemini_guide_step1">1. Go to Google AI Studio</string>
+    <string name="gemini_guide_step2">2. Sign in with your Google account</string>
+    <string name="gemini_guide_step3">3. Click \"Create API key\"</string>
+    <string name="gemini_guide_step4">4. Copy the key and paste it above</string>
+    <string name="gemini_guide_link">Open Google AI Studio</string>
+    <string name="gemini_guide_url">https://aistudio.google.com/apikey</string>
+
     <!-- Web Server -->
     <string name="web_server_channel">Web Server</string>
     <string name="web_server_channel_desc">Notification for the embedded web server</string>

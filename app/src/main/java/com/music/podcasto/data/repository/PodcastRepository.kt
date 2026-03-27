@@ -73,6 +73,10 @@ class PodcastRepository @Inject constructor(
         podcastDao.updateSubscription(podcastId, false)
     }
 
+    suspend fun setHidden(podcastId: Long, hidden: Boolean) {
+        podcastDao.updateHidden(podcastId, hidden)
+    }
+
     suspend fun refreshPodcastEpisodes(podcast: PodcastEntity) = withContext(Dispatchers.IO) {
         try {
             val feed = rssParser.parseFeed(podcast.feedUrl)

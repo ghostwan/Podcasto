@@ -4,10 +4,12 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
+import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
@@ -32,6 +34,7 @@ data class PlayerState(
     val currentPosition: Long = 0,
     val duration: Long = 0,
     val podcastArtworkUrl: String = "",
+    val volumeNormEnabled: Boolean = false,
 )
 
 @Singleton
@@ -49,6 +52,7 @@ class PlayerManager @Inject constructor(
     private var currentEpisode: EpisodeEntity? = null
     private var currentArtworkUrl: String = ""
     private var positionPollingJob: Job? = null
+    private var volumeNormEnabled: Boolean = false
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("player_prefs", Context.MODE_PRIVATE)
@@ -75,6 +79,9 @@ class PlayerManager @Inject constructor(
     fun initialize() {
         if (controller != null) return
 
+        // Load volume normalization preference
+        volumeNormEnabled = prefs.getBoolean("volume_normalization", false)
+
         // Restore last episode from SharedPreferences (show in mini-player, paused)
         val lastEpisodeId = prefs.getLong("last_episode_id", -1)
         if (lastEpisodeId != -1L && currentEpisode == null) {
@@ -90,6 +97,7 @@ class PlayerManager @Inject constructor(
                         currentPosition = episode.playbackPosition,
                         duration = 0,
                         podcastArtworkUrl = lastArtwork,
+                        volumeNormEnabled = volumeNormEnabled,
                     )
                 }
             }
@@ -162,6 +170,15 @@ class PlayerManager @Inject constructor(
                 .build()
             // Use setMediaItem with startPositionMs so the player seeks after prepare
             val startPos = if (freshEpisode.playbackPosition > 0) freshEpisode.playbackPosition else 0L
+            // Emit clean state immediately to avoid stale position from previous episode
+            _playerState.value = PlayerState(
+                currentEpisode = freshEpisode,
+                isPlaying = false,
+                currentPosition = startPos,
+                duration = 0,
+                podcastArtworkUrl = currentArtworkUrl,
+                volumeNormEnabled = volumeNormEnabled,
+            )
             controller?.setMediaItem(mediaItem, startPos)
             controller?.prepare()
             controller?.play()
@@ -184,6 +201,17 @@ class PlayerManager @Inject constructor(
             }
             currentEpisode = freshEpisodes[startIndex]
 
+            // Emit clean state immediately to avoid stale position from previous episode
+            val startPosition = freshEpisodes[startIndex].playbackPosition
+            _playerState.value = PlayerState(
+                currentEpisode = freshEpisodes[startIndex],
+                isPlaying = false,
+                currentPosition = startPosition,
+                duration = 0,
+                podcastArtworkUrl = currentArtworkUrl,
+                volumeNormEnabled = volumeNormEnabled,
+            )
+
             val mediaItems = freshEpisodes.map { episode ->
                 val audioUri = if (episode.downloadPath != null) {
                     Uri.parse(episode.downloadPath)
@@ -200,7 +228,6 @@ class PlayerManager @Inject constructor(
                     )
                     .build()
             }
-            val startPosition = freshEpisodes[startIndex].playbackPosition
             controller?.setMediaItems(mediaItems, startIndex, startPosition)
             controller?.prepare()
             controller?.play()
@@ -276,6 +303,18 @@ class PlayerManager @Inject constructor(
 
     fun getCurrentPositionMs(): Long = controller?.currentPosition ?: 0
 
+    fun toggleVolumeNormalization() {
+        volumeNormEnabled = !volumeNormEnabled
+        prefs.edit().putBoolean("volume_normalization", volumeNormEnabled).apply()
+        // Send custom command to PlaybackService to toggle LoudnessEnhancer
+        val args = Bundle().apply { putBoolean("enabled", volumeNormEnabled) }
+        controller?.sendCustomCommand(
+            SessionCommand("VOLUME_NORM_TOGGLE", Bundle.EMPTY),
+            args,
+        )
+        updateState()
+    }
+
     fun updateState() {
         _playerState.value = PlayerState(
             currentEpisode = currentEpisode,
@@ -283,6 +322,7 @@ class PlayerManager @Inject constructor(
             currentPosition = controller?.currentPosition ?: 0,
             duration = controller?.duration?.takeIf { it > 0 } ?: 0,
             podcastArtworkUrl = currentArtworkUrl,
+            volumeNormEnabled = volumeNormEnabled,
         )
     }
 

@@ -1,6 +1,8 @@
 package com.music.podcasto.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +15,10 @@ import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -64,7 +70,20 @@ class SubscriptionsViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private val _showHidden = MutableStateFlow(false)
+    val showHidden: StateFlow<Boolean> = _showHidden.asStateFlow()
+
     private var tagFilterJob: kotlinx.coroutines.Job? = null
+
+    fun toggleShowHidden() {
+        _showHidden.value = !_showHidden.value
+    }
+
+    fun toggleHidden(podcastId: Long, currentlyHidden: Boolean) {
+        viewModelScope.launch {
+            repository.setHidden(podcastId, !currentlyHidden)
+        }
+    }
 
     fun selectTag(tagId: Long?) {
         _selectedTagId.value = tagId
@@ -94,11 +113,12 @@ class SubscriptionsViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun SubscriptionsScreen(
     onPodcastClick: (Long) -> Unit,
     onDiscoverClick: () -> Unit,
+    onSettingsClick: () -> Unit = {},
     pendingTagId: Long? = null,
     onPendingTagConsumed: () -> Unit = {},
     viewModel: SubscriptionsViewModel = hiltViewModel(),
@@ -109,6 +129,7 @@ fun SubscriptionsScreen(
     val filteredPodcasts by viewModel.filteredPodcasts.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val latestTimestamps by viewModel.latestTimestamps.collectAsState()
+    val showHidden by viewModel.showHidden.collectAsState()
     val threeMonthsAgo = remember { System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000 }
 
     // Apply tag filter when navigating from PodcastDetailScreen
@@ -119,12 +140,16 @@ fun SubscriptionsScreen(
         }
     }
 
-    val displayPodcasts = filteredPodcasts ?: allPodcasts
+    // Filter: apply tag filter, then hide hidden podcasts unless showHidden is enabled
+    val tagFiltered = filteredPodcasts ?: allPodcasts
+    val displayPodcasts = if (showHidden) tagFiltered else tagFiltered.filter { !it.hidden }
+    val hiddenCount = tagFiltered.count { it.hidden }
 
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val webServerRunning by WebServerService.isRunning.collectAsState()
     val webServerUrl by WebServerService.serverUrl.collectAsState()
+    var showOverflowMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -161,6 +186,37 @@ fun SubscriptionsScreen(
                             contentDescription = if (webServerRunning) stringResource(R.string.web_server_stop) else stringResource(R.string.web_server_start),
                             tint = if (webServerRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                    // Show/hide hidden podcasts toggle
+                    if (hiddenCount > 0) {
+                        IconButton(onClick = { viewModel.toggleShowHidden() }) {
+                            Icon(
+                                imageVector = if (showHidden) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = stringResource(R.string.show_hidden_podcasts),
+                                tint = if (showHidden) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    // Overflow menu
+                    Box {
+                        IconButton(onClick = { showOverflowMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = null)
+                        }
+                        DropdownMenu(
+                            expanded = showOverflowMenu,
+                            onDismissRequest = { showOverflowMenu = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.settings)) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    onSettingsClick()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Settings, contentDescription = null)
+                                },
+                            )
+                        }
                     }
                 },
             )
@@ -233,7 +289,9 @@ fun SubscriptionsScreen(
                     SubscriptionItem(
                         podcast = podcast,
                         isStale = isStale,
+                        showHiddenIndicator = showHidden && podcast.hidden,
                         onClick = { onPodcastClick(podcast.id) },
+                        onLongClick = { viewModel.toggleHidden(podcast.id, podcast.hidden) },
                     )
                 }
             }
@@ -249,17 +307,23 @@ fun SubscriptionsScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SubscriptionItem(
     podcast: PodcastEntity,
     isStale: Boolean = false,
+    showHiddenIndicator: Boolean = false,
     onClick: () -> Unit,
+    onLongClick: () -> Unit = {},
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (isStale) Modifier.alpha(0.45f) else Modifier)
-            .clickable(onClick = onClick),
+            .then(if (isStale || showHiddenIndicator) Modifier.alpha(0.45f) else Modifier)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -287,6 +351,14 @@ fun SubscriptionItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (showHiddenIndicator) {
+                Icon(
+                    imageVector = Icons.Default.VisibilityOff,
+                    contentDescription = stringResource(R.string.podcast_hidden),
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

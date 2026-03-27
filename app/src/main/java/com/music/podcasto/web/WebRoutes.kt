@@ -30,6 +30,7 @@ data class PodcastResponse(
     val subscribed: Boolean,
     val tags: List<TagResponse> = emptyList(),
     val latestEpisodeTimestamp: Long = 0,
+    val hidden: Boolean = false,
 )
 
 @Serializable
@@ -162,6 +163,13 @@ data class ReorderRequest(
 
 fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.() -> Unit = {
 
+    fun getGeminiApiKey(): String {
+        val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        val key = prefs.getString("gemini_api_key", null)
+        if (!key.isNullOrBlank()) return key
+        return BuildConfig.GEMINI_API_KEY
+    }
+
     // Serve the web UI
     get("/") {
         val html = context.assets.open("web/index.html").bufferedReader().readText()
@@ -195,6 +203,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                     subscribed = p.subscribed,
                     tags = podcastTags.map { TagResponse(it.id, it.name) },
                     latestEpisodeTimestamp = latestTimestamps[p.id] ?: 0L,
+                    hidden = p.hidden,
                 )
             }
             call.respond(response)
@@ -216,6 +225,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                 artworkUrl = podcast.artworkUrl,
                 subscribed = podcast.subscribed,
                 tags = podcastTags.map { TagResponse(it.id, it.name) },
+                hidden = podcast.hidden,
             ))
         }
 
@@ -260,6 +270,16 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
             call.respond(HttpStatusCode.OK, mapOf("status" to "unsubscribed"))
         }
 
+        // PUT /api/podcasts/:id/hidden — toggle hidden state
+        put("/podcasts/{id}/hidden") {
+            val podcastId = call.parameters["id"]?.toLongOrNull()
+                ?: return@put call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid podcast ID"))
+            val body = call.receive<Map<String, Boolean>>()
+            val hidden = body["hidden"] ?: false
+            repository.setHidden(podcastId, hidden)
+            call.respond(HttpStatusCode.OK, mapOf("status" to if (hidden) "hidden" else "visible"))
+        }
+
         // POST /api/subscribe — subscribe to a podcast
         post("/subscribe") {
             try {
@@ -301,6 +321,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                             artworkUrl = existing.artworkUrl,
                             subscribed = true,
                             tags = podcastTags.map { TagResponse(it.id, it.name) },
+                            hidden = existing.hidden,
                         ),
                         episodes = episodes.map { e ->
                             EpisodeResponse(
@@ -379,7 +400,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
             val query = call.request.queryParameters["q"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing query parameter 'q'"))
 
-            val apiKey = BuildConfig.GEMINI_API_KEY
+            val apiKey = getGeminiApiKey()
             if (apiKey.isEmpty()) {
                 return@get call.respond(
                     HttpStatusCode.ServiceUnavailable,
@@ -635,11 +656,11 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
 
         // GET /api/discover — AI-powered podcast discovery
         get("/discover") {
-            val apiKey = BuildConfig.GEMINI_API_KEY
+            val apiKey = getGeminiApiKey()
             if (apiKey.isEmpty()) {
                 return@get call.respond(
                     HttpStatusCode.ServiceUnavailable,
-                    ErrorResponse("Gemini API key not configured. Set GEMINI_API_KEY in local.properties"),
+                    ErrorResponse("Gemini API key not configured. Configure it in Settings."),
                 )
             }
 
@@ -764,6 +785,39 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                 call.respond(HttpStatusCode.OK, mapOf("status" to "added"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Failed to add history"))
+            }
+        }
+
+        // === Settings ===
+
+        // GET /api/settings/gemini-key — check if Gemini key is configured
+        get("/settings/gemini-key") {
+            val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+            val key = prefs.getString("gemini_api_key", null)
+            val hasUserKey = !key.isNullOrBlank()
+            val hasBuildConfigKey = try { BuildConfig.GEMINI_API_KEY.isNotEmpty() } catch (_: Exception) { false }
+            call.respond(mapOf(
+                "configured" to (hasUserKey || hasBuildConfigKey),
+                "source" to if (hasUserKey) "user" else if (hasBuildConfigKey) "builtin" else "none",
+            ))
+        }
+
+        // PUT /api/settings/gemini-key — set Gemini API key
+        put("/settings/gemini-key") {
+            try {
+                val body = call.receiveText()
+                val json = Json.decodeFromString<Map<String, String>>(body)
+                val newKey = json["key"] ?: ""
+                val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+                if (newKey.isBlank()) {
+                    prefs.edit().remove("gemini_api_key").apply()
+                    call.respond(HttpStatusCode.OK, mapOf("status" to "cleared"))
+                } else {
+                    prefs.edit().putString("gemini_api_key", newKey).apply()
+                    call.respond(HttpStatusCode.OK, mapOf("status" to "saved"))
+                }
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse(e.message ?: "Invalid request"))
             }
         }
     }

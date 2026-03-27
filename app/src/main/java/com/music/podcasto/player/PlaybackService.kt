@@ -1,7 +1,11 @@
 package com.music.podcasto.player
 
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
+import android.media.audiofx.LoudnessEnhancer
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
@@ -16,15 +20,32 @@ import com.music.podcasto.R
 
 class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
+    private var loudnessEnhancer: LoudnessEnhancer? = null
 
     companion object {
         private val SEEK_BACKWARD_COMMAND = SessionCommand("SEEK_BACKWARD_10", android.os.Bundle.EMPTY)
         private val SEEK_FORWARD_COMMAND = SessionCommand("SEEK_FORWARD_30", android.os.Bundle.EMPTY)
+        private val VOLUME_NORM_TOGGLE_COMMAND = SessionCommand("VOLUME_NORM_TOGGLE", android.os.Bundle.EMPTY)
     }
 
     override fun onCreate() {
         super.onCreate()
-        val player = ExoPlayer.Builder(this).build()
+
+        val audioAttributes = AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
+            .setUsage(C.USAGE_MEDIA)
+            .build()
+
+        val player = ExoPlayer.Builder(this)
+            .setAudioAttributes(audioAttributes, /* handleAudioFocus= */ true)
+            .build()
+
+        // Attach LoudnessEnhancer after player is created
+        player.addListener(object : Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                setupLoudnessEnhancer(audioSessionId)
+            }
+        })
 
         val sessionActivityIntent = Intent(this, MainActivity::class.java).apply {
             putExtra("OPEN_PLAYER", true)
@@ -55,6 +76,7 @@ class PlaybackService : MediaSessionService() {
                     val sessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
                         .add(SEEK_BACKWARD_COMMAND)
                         .add(SEEK_FORWARD_COMMAND)
+                        .add(VOLUME_NORM_TOGGLE_COMMAND)
                         .build()
                     return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                         .setAvailableSessionCommands(sessionCommands)
@@ -77,11 +99,43 @@ class PlaybackService : MediaSessionService() {
                             val p = session.player
                             p.seekTo(maxOf(p.currentPosition - 10_000, 0))
                         }
+                        "VOLUME_NORM_TOGGLE" -> {
+                            val enabled = args.getBoolean("enabled", false)
+                            setVolumeNormalization(enabled)
+                        }
                     }
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
             })
             .build()
+    }
+
+    private fun setupLoudnessEnhancer(audioSessionId: Int) {
+        try {
+            loudnessEnhancer?.release()
+            loudnessEnhancer = LoudnessEnhancer(audioSessionId).apply {
+                // Read saved preference
+                val prefs = getSharedPreferences("player_prefs", Context.MODE_PRIVATE)
+                val normEnabled = prefs.getBoolean("volume_normalization", false)
+                setTargetGain(600) // +6dB target gain for speech normalization
+                enabled = normEnabled
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            loudnessEnhancer = null
+        }
+    }
+
+    private fun setVolumeNormalization(enabled: Boolean) {
+        try {
+            loudnessEnhancer?.enabled = enabled
+            getSharedPreferences("player_prefs", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("volume_normalization", enabled)
+                .apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -96,6 +150,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        loudnessEnhancer?.release()
+        loudnessEnhancer = null
         mediaSession?.run {
             player.release()
             release()

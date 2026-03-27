@@ -1,7 +1,85 @@
 // Podcasto Web UI — Full Player & Library Management
 
 // ========================
-// State
+// Settings
+// ========================
+async function loadSettings() {
+    try {
+        const res = await fetch('/api/settings/gemini-key');
+        const data = await res.json();
+        const status = document.getElementById('settings-key-status');
+        if (data.configured) {
+            if (data.source === 'user') {
+                status.innerHTML = '<span class="material-icons-round" style="color:var(--primary);vertical-align:middle;margin-right:4px">check_circle</span>Cl\u00e9 configur\u00e9e (personnalis\u00e9e)';
+            } else {
+                status.innerHTML = '<span class="material-icons-round" style="color:var(--primary);vertical-align:middle;margin-right:4px">check_circle</span>Cl\u00e9 configur\u00e9e (int\u00e9gr\u00e9e)';
+            }
+            status.className = 'settings-status settings-status-ok';
+        } else {
+            status.innerHTML = '<span class="material-icons-round" style="color:var(--error);vertical-align:middle;margin-right:4px">warning</span>Aucune cl\u00e9 configur\u00e9e. Les fonctionnalit\u00e9s IA sont d\u00e9sactiv\u00e9es.';
+            status.className = 'settings-status settings-status-warn';
+        }
+    } catch (e) {
+        console.error('Failed to load settings', e);
+    }
+}
+
+async function saveGeminiKey() {
+    const input = document.getElementById('settings-gemini-key');
+    const key = input.value.trim();
+    if (!key) {
+        showToast('Veuillez entrer une cl\u00e9 API');
+        return;
+    }
+    try {
+        const res = await fetch('/api/settings/gemini-key', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key }),
+        });
+        if (res.ok) {
+            input.value = '';
+            showToast('Cl\u00e9 API enregistr\u00e9e');
+            loadSettings();
+        } else {
+            showToast('Erreur lors de l\'enregistrement');
+        }
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+async function clearGeminiKey() {
+    try {
+        const res = await fetch('/api/settings/gemini-key', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: '' }),
+        });
+        if (res.ok) {
+            document.getElementById('settings-gemini-key').value = '';
+            showToast('Cl\u00e9 API effac\u00e9e');
+            loadSettings();
+        }
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+function toggleGeminiKeyVisibility() {
+    const input = document.getElementById('settings-gemini-key');
+    const icon = document.getElementById('settings-vis-icon');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.textContent = 'visibility_off';
+    } else {
+        input.type = 'password';
+        icon.textContent = 'visibility';
+    }
+}
+
+// ========================
+// Utility
 // ========================
 let currentTab = 'library';
 let allTags = [];
@@ -9,6 +87,7 @@ let selectedTagId = null;
 let allPodcasts = [];
 let searchDebounceTimer = null;
 let dialogCallback = null;
+let showHidden = false;
 
 // Podcast/Episode detail state
 let currentPodcastDetail = null;
@@ -29,6 +108,13 @@ let isPlaying = false;
 let playbackSpeed = 1.0;
 let positionSyncInterval = null;
 const SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+
+// Volume normalization (Web Audio API)
+let volumeNormEnabled = localStorage.getItem('volumeNormEnabled') === 'true';
+let audioContext = null;
+let sourceNode = null;
+let compressorNode = null;
+let gainNode = null;
 
 // Navigation stack for back navigation
 let navStack = [];
@@ -99,6 +185,7 @@ function switchTab(tabName) {
     if (tabName === 'new-episodes') loadNewEpisodes();
     if (tabName === 'playlist') loadPlaylist();
     if (tabName === 'history') loadHistory();
+    if (tabName === 'settings') loadSettings();
 }
 
 function showPage(pageId) {
@@ -147,23 +234,71 @@ function filterByTag(tagId) {
     }
 }
 
+function toggleShowHidden() {
+    showHidden = !showHidden;
+    if (selectedTagId === null) {
+        renderLibrary(allPodcasts);
+    } else {
+        renderLibrary(allPodcasts.filter(p => p.tags && p.tags.some(t => t.id === selectedTagId)));
+    }
+}
+
+async function toggleHidden(podcastId, hidden, title) {
+    try {
+        await fetch(`/api/podcasts/${podcastId}/hidden`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hidden }),
+        });
+        // Update local state
+        const p = allPodcasts.find(p => p.id === podcastId);
+        if (p) p.hidden = hidden;
+        showToast(hidden ? `"${title}" cach\u00e9` : `"${title}" affich\u00e9`);
+        if (selectedTagId === null) {
+            renderLibrary(allPodcasts);
+        } else {
+            renderLibrary(allPodcasts.filter(p => p.tags && p.tags.some(t => t.id === selectedTagId)));
+        }
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
 function renderLibrary(podcasts) {
     const grid = document.getElementById('podcasts-grid');
     const empty = document.getElementById('library-empty');
-    document.getElementById('podcast-count').textContent = podcasts.length;
+    const hiddenToggle = document.getElementById('hidden-toggle');
 
-    if (podcasts.length === 0) {
+    // Count hidden podcasts
+    const hiddenCount = podcasts.filter(p => p.hidden).length;
+
+    // Show/hide eye toggle button
+    if (hiddenCount > 0) {
+        hiddenToggle.style.display = '';
+        hiddenToggle.querySelector('.material-icons-round').textContent = showHidden ? 'visibility' : 'visibility_off';
+        hiddenToggle.title = showHidden ? 'Masquer les podcasts cach\u00e9s' : 'Afficher les podcasts cach\u00e9s';
+    } else {
+        hiddenToggle.style.display = 'none';
+    }
+
+    // Filter hidden unless showHidden is true
+    const displayPodcasts = showHidden ? podcasts : podcasts.filter(p => !p.hidden);
+    document.getElementById('podcast-count').textContent = displayPodcasts.length;
+
+    if (displayPodcasts.length === 0) {
         grid.innerHTML = '';
         empty.style.display = '';
         return;
     }
     empty.style.display = 'none';
 
-    grid.innerHTML = podcasts.map(p => {
+    grid.innerHTML = displayPodcasts.map(p => {
         const threeMonthsAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
         const isStale = p.latestEpisodeTimestamp > 0 && p.latestEpisodeTimestamp < threeMonthsAgo;
+        const hiddenClass = p.hidden ? ' hidden' : '';
         return `
-        <div class="podcast-card ${isStale ? 'stale' : ''}" onclick="openPodcastDetail(${p.id})">
+        <div class="podcast-card ${isStale ? 'stale' : ''}${hiddenClass}" onclick="openPodcastDetail(${p.id})">
+            ${p.hidden ? '<div class="hidden-badge"><span class="material-icons-round">visibility_off</span></div>' : ''}
             <div class="card-content">
                 <img class="artwork" src="${esc(p.artworkUrl)}" alt="${esc(p.title)}" onerror="this.src='${placeholderImg()}'">
                 <div class="info">
@@ -175,6 +310,10 @@ function renderLibrary(podcasts) {
                 </div>
             </div>
             <div class="card-actions">
+                <button onclick="event.stopPropagation(); toggleHidden(${p.id}, ${!p.hidden}, '${escJs(p.title)}')">
+                    <span class="material-icons-round" style="font-size:18px">${p.hidden ? 'visibility' : 'visibility_off'}</span>
+                    ${p.hidden ? 'Afficher' : 'Cacher'}
+                </button>
                 <button onclick="event.stopPropagation(); showTagAssign(${p.id}, '${escJs(p.title)}')">
                     <span class="material-icons-round" style="font-size:18px">label</span>
                     Tags
@@ -1360,9 +1499,64 @@ function playerCycleSpeed() {
     document.getElementById('player-speed-btn').textContent = playbackSpeed + 'x';
 }
 
+function setupAudioPipeline() {
+    if (audioContext) return; // Already set up
+    const audio = document.getElementById('audio-element');
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    sourceNode = audioContext.createMediaElementSource(audio);
+
+    // DynamicsCompressor for volume normalization
+    compressorNode = audioContext.createDynamicsCompressor();
+    compressorNode.threshold.setValueAtTime(-24, audioContext.currentTime);
+    compressorNode.knee.setValueAtTime(30, audioContext.currentTime);
+    compressorNode.ratio.setValueAtTime(12, audioContext.currentTime);
+    compressorNode.attack.setValueAtTime(0.003, audioContext.currentTime);
+    compressorNode.release.setValueAtTime(0.25, audioContext.currentTime);
+
+    // Makeup gain to compensate for compression
+    gainNode = audioContext.createGain();
+    gainNode.gain.setValueAtTime(1.5, audioContext.currentTime);
+
+    updateAudioPipeline();
+}
+
+function updateAudioPipeline() {
+    if (!audioContext || !sourceNode) return;
+    // Disconnect everything first
+    sourceNode.disconnect();
+    if (compressorNode) compressorNode.disconnect();
+    if (gainNode) gainNode.disconnect();
+
+    if (volumeNormEnabled) {
+        sourceNode.connect(compressorNode);
+        compressorNode.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+    } else {
+        sourceNode.connect(audioContext.destination);
+    }
+}
+
+function toggleVolumeNorm() {
+    volumeNormEnabled = !volumeNormEnabled;
+    localStorage.setItem('volumeNormEnabled', volumeNormEnabled);
+    updateAudioPipeline();
+    updateVolumeNormButton();
+    showToast(volumeNormEnabled ? 'Normalisation du volume activ\u00e9e' : 'Normalisation du volume d\u00e9sactiv\u00e9e');
+}
+
+function updateVolumeNormButton() {
+    const btn = document.getElementById('player-norm-btn');
+    if (btn) {
+        btn.classList.toggle('active', volumeNormEnabled);
+        btn.title = volumeNormEnabled ? 'Normalisation: ON' : 'Normalisation: OFF';
+    }
+}
+
 function showPlayerBar() {
     document.getElementById('player-bar').style.display = '';
     document.body.classList.add('player-visible');
+    setupAudioPipeline();
+    updateVolumeNormButton();
 }
 
 function updatePlayerUI() {

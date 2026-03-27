@@ -39,6 +39,10 @@
                 <span class="material-icons-round">auto_awesome</span>
                 D&eacute;couvrir
             </button>
+            <button class="tab" data-tab="settings">
+                <span class="material-icons-round">settings</span>
+                Param&egrave;tres
+            </button>
         </div>
     </nav>
 
@@ -48,6 +52,9 @@
             <div class="page-header">
                 <h2>Mes abonnements</h2>
                 <span id="podcast-count" class="badge">0</span>
+                <button id="hidden-toggle" class="btn-icon" onclick="toggleShowHidden()" style="display:none" title="Afficher/masquer les podcasts cach\u00e9s">
+                    <span class="material-icons-round">visibility_off</span>
+                </button>
             </div>
             <div id="tags-filter" class="tags-bar"></div>
             <div id="podcasts-grid" class="podcasts-grid"></div>
@@ -259,6 +266,47 @@
                 <p>Gemini analyse votre biblioth&egrave;que...</p>
             </div>
         </section>
+
+        <!-- Settings -->
+        <section id="settings" class="page">
+            <div class="page-header">
+                <h2>Param&egrave;tres</h2>
+            </div>
+            <div class="settings-content">
+                <div class="settings-section">
+                    <h3><span class="material-icons-round" style="vertical-align:middle;margin-right:8px">auto_awesome</span>Cl&eacute; API Gemini</h3>
+                    <p class="settings-description">N&eacute;cessaire pour la d&eacute;couverte IA et les suggestions de recherche IA. Obtenez une cl&eacute; gratuite depuis Google AI Studio.</p>
+                    <div class="settings-key-row">
+                        <div class="settings-input-wrapper">
+                            <input type="password" id="settings-gemini-key" class="settings-input" placeholder="Collez votre cl&eacute; API Gemini ici...">
+                            <button class="btn-icon settings-toggle-vis" onclick="toggleGeminiKeyVisibility()" title="Afficher/masquer la cl&eacute;">
+                                <span class="material-icons-round" id="settings-vis-icon">visibility</span>
+                            </button>
+                        </div>
+                        <button class="btn-primary" onclick="saveGeminiKey()">
+                            <span class="material-icons-round">save</span>
+                            Enregistrer
+                        </button>
+                        <button class="btn-outline btn-sm danger" onclick="clearGeminiKey()">
+                            <span class="material-icons-round">delete</span>
+                            Effacer
+                        </button>
+                    </div>
+                    <div id="settings-key-status" class="settings-status"></div>
+                </div>
+                <div class="settings-section">
+                    <h3>Comment obtenir une cl&eacute; API Gemini</h3>
+                    <ol class="settings-guide">
+                        <li>Rendez-vous sur <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a></li>
+                        <li>Connectez-vous avec votre compte Google</li>
+                        <li>Cliquez sur <strong>&laquo; Create API key &raquo;</strong></li>
+                        <li>S&eacute;lectionnez un projet ou cr&eacute;ez-en un nouveau</li>
+                        <li>Copiez la cl&eacute; g&eacute;n&eacute;r&eacute;e et collez-la ci-dessus</li>
+                    </ol>
+                    <p class="settings-note"><span class="material-icons-round" style="font-size:16px;vertical-align:middle;margin-right:4px">info</span>La cl&eacute; gratuite offre un quota g&eacute;n&eacute;reux suffisant pour un usage personnel.</p>
+                </div>
+            </div>
+        </section>
     </main>
 
     <!-- Player bar (persistent bottom) -->
@@ -290,6 +338,9 @@
                 </button>
                 <button class="player-btn player-btn-speed" id="player-speed-btn" onclick="playerCycleSpeed()">
                     1x
+                </button>
+                <button class="player-btn player-btn-norm" id="player-norm-btn" onclick="toggleVolumeNorm()" title="Normalisation du volume">
+                    <span class="material-icons-round">graphic_eq</span>
                 </button>
             </div>
         </div>

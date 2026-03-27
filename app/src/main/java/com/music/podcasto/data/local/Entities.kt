@@ -13,6 +13,7 @@ data class PodcastEntity(
     val feedUrl: String,
     val artworkUrl: String,
     val subscribed: Boolean = false,
+    val hidden: Boolean = false,
 )
 
 @Entity(tableName = "episodes")

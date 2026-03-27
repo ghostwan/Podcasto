@@ -17,6 +17,9 @@ interface PodcastDao {
     @Query("UPDATE podcasts SET subscribed = :subscribed WHERE id = :id")
     suspend fun updateSubscription(id: Long, subscribed: Boolean)
 
+    @Query("UPDATE podcasts SET hidden = :hidden WHERE id = :id")
+    suspend fun updateHidden(id: Long, hidden: Boolean)
+
     @Query("DELETE FROM podcasts WHERE id = :id")
     suspend fun deletePodcast(id: Long)
 }

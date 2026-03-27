@@ -134,6 +134,11 @@ fun PodcastoNavHost(
                                 launchSingleTop = true
                             }
                         },
+                        onSettingsClick = {
+                            navController.navigate("settings") {
+                                launchSingleTop = true
+                            }
+                        },
                         pendingTagId = pendingTagId,
                         onPendingTagConsumed = { pendingTagId = null },
                     )
@@ -217,6 +222,12 @@ fun PodcastoNavHost(
                                 launchSingleTop = true
                             }
                         },
+                    )
+                }
+
+                composable("settings") {
+                    SettingsScreen(
+                        onBack = { navController.popBackStack() },
                     )
                 }
             }
