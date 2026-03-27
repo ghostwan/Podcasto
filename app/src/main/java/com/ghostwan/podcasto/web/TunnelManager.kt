@@ -1,7 +1,7 @@
 package com.ghostwan.podcasto.web
 
 import android.util.Log
-import com.jcraft.jsch.ChannelExec
+import com.jcraft.jsch.ChannelShell
 import com.jcraft.jsch.JSch
 import com.jcraft.jsch.Session
 import kotlinx.coroutines.Dispatchers
@@ -16,8 +16,11 @@ import java.io.InputStreamReader
  * Manages an SSH tunnel to localhost.run to expose the local Ktor web server
  * via a public HTTPS URL without any signup or account.
  *
- * Uses: ssh -R 80:localhost:<localPort> nokey@localhost.run
- * localhost.run prints the public URL on stdout of the SSH session.
+ * How it works:
+ * 1. Opens an SSH session to localhost.run with user "nokey" (no auth)
+ * 2. Requests remote port forwarding: remote port 80 → localhost:<localPort>
+ * 3. Opens a shell channel to receive the banner output containing the public URL
+ * 4. The URL is in the format https://<hash>.lhr.life
  */
 class TunnelManager {
 
@@ -36,13 +39,13 @@ class TunnelManager {
     }
 
     private var session: Session? = null
-    private var execChannel: ChannelExec? = null
+    private var shellChannel: ChannelShell? = null
     @Volatile private var urlReaderThread: Thread? = null
 
     /**
-     * Start the SSH tunnel. Connects to localhost.run via an exec channel
-     * that runs the remote port forwarding command. The public URL is
-     * extracted from the command output on stdout.
+     * Start the SSH tunnel. Connects to localhost.run, sets up remote port
+     * forwarding at the session level, then opens a shell channel to read
+     * the banner containing the public tunnel URL.
      */
     suspend fun start(localPort: Int) {
         if (session?.isConnected == true) {
@@ -70,18 +73,20 @@ class TunnelManager {
                 session = sshSession
                 Log.i(TAG, "SSH session connected")
 
-                // Open an exec channel with the remote forwarding command
-                // This is how localhost.run works: the command triggers port forwarding
-                // and the URL is printed to stdout
-                val channel = sshSession.openChannel("exec") as ChannelExec
-                channel.setCommand("ssh -R $REMOTE_PORT:localhost:$localPort $SSH_USER@$SSH_HOST")
-                channel.setErrStream(System.err)
+                // Set up remote port forwarding at session level
+                // This is equivalent to ssh -R 80:localhost:<localPort>
+                sshSession.setPortForwardingR(REMOTE_PORT, "localhost", localPort)
+                Log.i(TAG, "Remote port forwarding set: $REMOTE_PORT -> localhost:$localPort")
+
+                // Open a shell channel to receive the banner with the tunnel URL
+                val channel = sshSession.openChannel("shell") as ChannelShell
+                channel.setPty(false) // No pseudo-terminal needed
 
                 val inputStream = channel.inputStream
                 channel.connect(10_000)
-                execChannel = channel
+                shellChannel = channel
 
-                Log.i(TAG, "Exec channel connected, reading output...")
+                Log.i(TAG, "Shell channel connected, reading output for URL...")
 
                 val reader = BufferedReader(InputStreamReader(inputStream))
 
@@ -112,10 +117,10 @@ class TunnelManager {
                     }
                 }.also { it.isDaemon = true; it.start() }
 
-                // Timeout: if after 15s we still don't have a URL, stop waiting
+                // Timeout: if after 20s we still don't have a URL, stop waiting
                 Thread {
                     try {
-                        Thread.sleep(15_000)
+                        Thread.sleep(20_000)
                         if (_tunnelUrl.value == null && _isConnecting.value) {
                             _isConnecting.value = false
                             Log.w(TAG, "Timeout waiting for tunnel URL")
@@ -145,8 +150,8 @@ class TunnelManager {
     private fun cleanup() {
         urlReaderThread?.interrupt()
         urlReaderThread = null
-        try { execChannel?.disconnect() } catch (_: Exception) {}
-        execChannel = null
+        try { shellChannel?.disconnect() } catch (_: Exception) {}
+        shellChannel = null
         try { session?.disconnect() } catch (_: Exception) {}
         session = null
     }
@@ -154,23 +159,27 @@ class TunnelManager {
     /**
      * Check if the tunnel is currently connected.
      */
-    fun isConnected(): Boolean = session?.isConnected == true && execChannel?.isClosed == false
+    fun isConnected(): Boolean = session?.isConnected == true && shellChannel?.isClosed == false
 
     /**
      * Extract the public URL from localhost.run SSH output.
      * localhost.run outputs lines like:
-     *   "Connect to http://abc123.localhost.run or https://abc123.localhost.run"
-     *   or just "https://abc123.localhost.run"
+     *   "a97a87c271b94b.lhr.life tunneled with tls termination, https://a97a87c271b94b.lhr.life"
+     * The domain can be *.lhr.life, *.localhost.run, or other subdomains.
      */
     private fun extractUrl(line: String): String? {
-        // Look for https://*.localhost.run pattern
-        val httpsRegex = Regex("""(https://[a-zA-Z0-9-]+\.localhost\.run)""")
-        httpsRegex.find(line)?.let { return it.value }
+        // Look for https:// URL pattern in the line
+        val httpsRegex = Regex("""(https://[a-zA-Z0-9-]+\.[a-zA-Z0-9.-]+)""")
+        val match = httpsRegex.find(line) ?: return null
+        val url = match.value
 
-        // Fallback: look for http://*.localhost.run
-        val httpRegex = Regex("""(http://[a-zA-Z0-9-]+\.localhost\.run)""")
-        httpRegex.find(line)?.let { return it.value }
+        // Filter out known non-tunnel URLs (documentation, admin, twitter, etc.)
+        val excludedHosts = listOf(
+            "twitter.com", "admin.localhost.run", "localhost.run/docs",
+            "localhost:3000", "openssh.com"
+        )
+        if (excludedHosts.any { url.contains(it) }) return null
 
-        return null
+        return url
     }
 }

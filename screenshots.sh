@@ -11,8 +11,14 @@ README="README.md"
 echo "=== Podcasto — Capture de screenshots interactive ==="
 echo ""
 
-# Sauvegarder la locale actuelle
-ORIGINAL_LOCALE=$($ADB shell cmd locale get-device-locale)
+# Sauvegarder la locale actuelle (trim whitespace/CR)
+ORIGINAL_LOCALE=$($ADB shell getprop persist.sys.locale | tr -d '[:space:]')
+if [ -z "$ORIGINAL_LOCALE" ]; then
+    ORIGINAL_LOCALE=$($ADB shell getprop ro.product.locale | tr -d '[:space:]')
+fi
+if [ -z "$ORIGINAL_LOCALE" ]; then
+    ORIGINAL_LOCALE="fr-FR"
+fi
 echo "Locale actuelle : $ORIGINAL_LOCALE"
 
 # Passer en anglais
@@ -27,28 +33,32 @@ sleep 1
 $ADB shell am start -n "$ACTIVITY" || true
 sleep 4
 
-# Supprimer les anciens screenshots
-if [ -d "$SCREENSHOT_DIR" ]; then
-    echo "Suppression des anciens screenshots..."
-    rm -f "$SCREENSHOT_DIR"/*.png
-else
-    mkdir -p "$SCREENSHOT_DIR"
-fi
+# Créer le dossier screenshots si nécessaire
+mkdir -p "$SCREENSHOT_DIR"
 
-count=0
+# Liste des screenshots capturés (nom sans extension)
+captured_files=()
 
 while true; do
     echo ""
     read -rp "Prendre un screenshot ? (o/n) " answer
     case "$answer" in
         [oOyY]*)
-            count=$((count + 1))
-            filename="${count}.png"
+            # Demander un nom descriptif
+            read -rp "  Nom du screenshot (ex: library, player, playlist) : " sname
+            if [ -z "$sname" ]; then
+                echo "  Nom vide, screenshot ignoré."
+                continue
+            fi
+            # Préfixer avec numéro pour garder l'ordre
+            num=$(printf "%02d" $((${#captured_files[@]} + 1)))
+            filename="${num}_${sname}.png"
             echo "  Capture en cours..."
             $ADB shell screencap -p "$DEVICE_TMP"
             $ADB pull "$DEVICE_TMP" "${SCREENSHOT_DIR}/${filename}" > /dev/null 2>&1
-            $ADB shell rm "$DEVICE_TMP"
+            $ADB shell rm "$DEVICE_TMP" || true
             echo "  Sauvegardé : ${SCREENSHOT_DIR}/${filename}"
+            captured_files+=("$filename")
             ;;
         [nN]*)
             echo ""
@@ -60,49 +70,53 @@ while true; do
     esac
 done
 
+count=${#captured_files[@]}
+
 if [ "$count" -eq 0 ]; then
     echo "Aucun screenshot pris."
-    exit 0
-fi
-
-echo "=== $count screenshot(s) capturé(s) ==="
-echo ""
-
-# Mettre à jour le README
-echo "Mise à jour du README..."
-
-# Construire le bloc d'images
-img_block='<p align="center">'
-for i in $(seq 1 $count); do
-    img_block+=$'\n'"  <img src=\"screenshots/${i}.png\" width=\"180\" />"
-done
-img_block+=$'\n''</p>'
-
-# Remplacer le bloc entre <!-- SCREENSHOTS_START --> et <!-- SCREENSHOTS_END -->
-# Si les marqueurs n'existent pas, remplacer le bloc <p align="center">...</p> après ## Screenshots
-if grep -q '<!-- SCREENSHOTS_START -->' "$README"; then
-    # Utiliser les marqueurs
-    awk -v block="$img_block" '
-        /<!-- SCREENSHOTS_START -->/ { print; print block; skip=1; next }
-        /<!-- SCREENSHOTS_END -->/ { skip=0 }
-        !skip { print }
-    ' "$README" > "${README}.tmp"
-    mv "${README}.tmp" "$README"
 else
-    # Remplacer le bloc <p align="center">...</p> après ## Screenshots
-    # et ajouter les marqueurs pour la prochaine fois
-    awk -v block="$img_block" '
-        /^## Screenshots/ { print; getline; print; found=1; next }
-        found && /^<p align="center">/ { skip=1; next }
-        found && skip && /^<\/p>/ { skip=0; found=0; print "<!-- SCREENSHOTS_START -->"; print block; print "<!-- SCREENSHOTS_END -->"; next }
-        found && skip { next }
-        { print }
-    ' "$README" > "${README}.tmp"
-    mv "${README}.tmp" "$README"
+    echo "=== $count screenshot(s) capturé(s) ==="
+    echo ""
+
+    # Demander si on veut mettre à jour le README
+    read -rp "Mettre à jour le README avec ces screenshots ? (o/n) " update_readme
+    case "$update_readme" in
+        [oOyY]*)
+            echo "Mise à jour du README..."
+
+            # Construire le bloc d'images avec noms descriptifs
+            img_block='<p align="center">'
+            for f in "${captured_files[@]}"; do
+                # Extraire le nom sans extension et sans le préfixe numérique pour l'alt text
+                alt_name=$(echo "$f" | sed 's/^[0-9]*_//; s/\.png$//' | sed 's/_/ /g')
+                # Capitaliser la première lettre
+                alt_name="$(echo "${alt_name:0:1}" | tr '[:lower:]' '[:upper:]')${alt_name:1}"
+                img_block+=$'\n'"  <img src=\"screenshots/${f}\" width=\"180\" alt=\"${alt_name}\" />"
+            done
+            img_block+=$'\n''</p>'
+
+            # Remplacer le bloc entre <!-- SCREENSHOTS_START --> et <!-- SCREENSHOTS_END -->
+            if grep -q '<!-- SCREENSHOTS_START -->' "$README"; then
+                awk -v block="$img_block" '
+                    /<!-- SCREENSHOTS_START -->/ { print; print block; skip=1; next }
+                    /<!-- SCREENSHOTS_END -->/ { skip=0 }
+                    !skip { print }
+                ' "$README" > "${README}.tmp"
+                mv "${README}.tmp" "$README"
+                echo "README mis à jour (marqueurs SCREENSHOTS trouvés)."
+            else
+                echo "ATTENTION: Marqueurs SCREENSHOTS non trouvés dans le README."
+                echo "Ajoutez manuellement les screenshots ou ajoutez les marqueurs:"
+                echo "  <!-- SCREENSHOTS_START -->"
+                echo "  <!-- SCREENSHOTS_END -->"
+            fi
+            ;;
+        *)
+            echo "README non modifié."
+            ;;
+    esac
 fi
 
-echo ""
-echo "=== Terminé ! ==="
 echo ""
 
 # Restaurer la locale d'origine
@@ -110,8 +124,11 @@ echo "Restauration de la locale : $ORIGINAL_LOCALE"
 $ADB shell cmd locale set-device-locale "$ORIGINAL_LOCALE" || true
 sleep 2
 $ADB shell am force-stop "$PACKAGE" || true
-$ADB shell am start -n "$ACTIVITY" || true > /dev/null 2>&1
+sleep 1
+$ADB shell am start -n "$ACTIVITY" > /dev/null 2>&1 || true
 
+echo ""
+echo "=== Terminé ! ==="
 echo ""
 echo "Fichiers :"
 ls -1 "$SCREENSHOT_DIR"/*.png 2>/dev/null || echo "  (aucun)"
