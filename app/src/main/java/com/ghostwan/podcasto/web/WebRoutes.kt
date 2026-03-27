@@ -820,5 +820,26 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                 call.respond(HttpStatusCode.BadRequest, ErrorResponse(e.message ?: "Invalid request"))
             }
         }
+
+        // GET /api/backup — export all data as JSON
+        get("/backup") {
+            try {
+                val json = repository.exportBackup()
+                call.respondText(json, ContentType.Application.Json)
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Export failed"))
+            }
+        }
+
+        // POST /api/restore — import data from JSON
+        post("/restore") {
+            try {
+                val body = call.receiveText()
+                repository.importBackup(body)
+                call.respond(HttpStatusCode.OK, mapOf("status" to "restored"))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse(e.message ?: "Import failed"))
+            }
+        }
     }
 }

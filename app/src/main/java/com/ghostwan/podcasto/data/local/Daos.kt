@@ -11,6 +11,9 @@ interface PodcastDao {
     @Query("SELECT * FROM podcasts WHERE id = :id")
     suspend fun getPodcastById(id: Long): PodcastEntity?
 
+    @Query("SELECT * FROM podcasts WHERE subscribed = 1")
+    suspend fun getAllSubscribedPodcasts(): List<PodcastEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPodcast(podcast: PodcastEntity)
 
@@ -34,6 +37,9 @@ interface EpisodeDao {
 
     @Query("SELECT * FROM episodes WHERE id = :id")
     suspend fun getEpisodeById(id: Long): EpisodeEntity?
+
+    @Query("SELECT * FROM episodes WHERE podcastId IN (:podcastIds)")
+    suspend fun getEpisodesForPodcasts(podcastIds: List<Long>): List<EpisodeEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEpisodes(episodes: List<EpisodeEntity>)
@@ -143,6 +149,12 @@ interface PlaylistDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPlaylistItem(item: PlaylistItemEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPlaylistItems(items: List<PlaylistItemEntity>)
+
+    @Query("SELECT * FROM playlist_items ORDER BY position ASC")
+    suspend fun getAllPlaylistItems(): List<PlaylistItemEntity>
+
     @Query("DELETE FROM playlist_items WHERE episodeId = :episodeId")
     suspend fun removeFromPlaylist(episodeId: Long)
 
@@ -164,8 +176,14 @@ interface TagDao {
     @Query("SELECT * FROM tags ORDER BY name ASC")
     fun getAllTags(): Flow<List<TagEntity>>
 
+    @Query("SELECT * FROM tags")
+    suspend fun getAllTagsList(): List<TagEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTag(tag: TagEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTags(tags: List<TagEntity>)
 
     @Delete
     suspend fun deleteTag(tag: TagEntity)
@@ -173,8 +191,14 @@ interface TagDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertPodcastTagCrossRef(crossRef: PodcastTagCrossRef)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertPodcastTagCrossRefs(crossRefs: List<PodcastTagCrossRef>)
+
     @Delete
     suspend fun deletePodcastTagCrossRef(crossRef: PodcastTagCrossRef)
+
+    @Query("SELECT * FROM podcast_tag_cross_ref WHERE podcastId IN (:podcastIds)")
+    suspend fun getCrossRefsForPodcasts(podcastIds: List<Long>): List<PodcastTagCrossRef>
 
     @Query("""
         SELECT t.* FROM tags t 
@@ -199,6 +223,12 @@ interface BookmarkDao {
     @Insert
     suspend fun insertBookmark(bookmark: BookmarkEntity): Long
 
+    @Query("SELECT * FROM bookmarks")
+    suspend fun getAllBookmarks(): List<BookmarkEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBookmarks(bookmarks: List<BookmarkEntity>)
+
     @Delete
     suspend fun deleteBookmark(bookmark: BookmarkEntity)
 
@@ -219,6 +249,12 @@ interface HistoryDao {
 
     @Insert
     suspend fun insertHistoryEntry(entry: HistoryEntity)
+
+    @Query("SELECT * FROM listening_history")
+    suspend fun getAllHistory(): List<HistoryEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertHistoryEntries(entries: List<HistoryEntity>)
 
     @Query("DELETE FROM listening_history")
     suspend fun clearHistory()

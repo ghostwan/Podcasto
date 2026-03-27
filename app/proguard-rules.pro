@@ -111,3 +111,22 @@
 -keep class com.jcraft.jsch.** { *; }
 -dontwarn org.ietf.jgss.**
 -dontwarn com.sun.security.jgss.**
+
+# === Google Sign-In / Drive API ===
+-dontwarn com.google.android.gms.**
+-keep class com.google.android.gms.auth.** { *; }
+-keep class com.google.android.gms.common.** { *; }
+-keep class com.google.api.client.** { *; }
+-keep class com.google.api.services.drive.** { *; }
+-keep class com.google.http.client.** { *; }
+-dontwarn com.google.api.client.googleapis.extensions.android.**
+-dontwarn com.google.api.client.http.**
+-dontwarn org.apache.http.**
+
+# === Backup data classes ===
+-keep class com.ghostwan.podcasto.data.repository.Backup* { *; }
+-keep class com.ghostwan.podcasto.data.backup.** { *; }
+
+# === Hilt WorkManager ===
+-keep class * extends androidx.work.ListenableWorker
+-keep class androidx.hilt.work.** { *; }

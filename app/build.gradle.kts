@@ -32,8 +32,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -59,6 +59,8 @@ android {
     packaging {
         resources {
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+            excludes += "META-INF/INDEX.LIST"
+            excludes += "META-INF/DEPENDENCIES"
         }
     }
 }
@@ -129,6 +131,16 @@ dependencies {
 
     // SSH tunnel (localhost.run)
     implementation("com.github.mwiede:jsch:0.2.21")
+
+    // Google Sign-In (Credential Manager) + Google Drive API
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
+    implementation("com.google.api-client:google-api-client-android:2.7.2")
+    implementation("com.google.apis:google-api-services-drive:v3-rev20241206-2.0.0")
+    implementation("com.google.http-client:google-http-client-gson:1.45.3")
+
+    // Hilt WorkManager
+    implementation("androidx.hilt:hilt-work:1.2.0")
+    ksp("androidx.hilt:hilt-compiler:1.2.0")
 
     // Core
     implementation("androidx.core:core-ktx:1.15.0")

@@ -1,6 +1,7 @@
 package com.ghostwan.podcasto.web
 
 import android.util.Log
+import com.jcraft.jsch.ChannelExec
 import com.jcraft.jsch.JSch
 import com.jcraft.jsch.Session
 import kotlinx.coroutines.Dispatchers
@@ -15,8 +16,8 @@ import java.io.InputStreamReader
  * Manages an SSH tunnel to localhost.run to expose the local Ktor web server
  * via a public HTTPS URL without any signup or account.
  *
- * Uses remote port forwarding: ssh -R 80:localhost:<localPort> nokey@localhost.run
- * The public URL is extracted from the SSH session output.
+ * Uses: ssh -R 80:localhost:<localPort> nokey@localhost.run
+ * localhost.run prints the public URL on stdout of the SSH session.
  */
 class TunnelManager {
 
@@ -35,12 +36,13 @@ class TunnelManager {
     }
 
     private var session: Session? = null
+    private var execChannel: ChannelExec? = null
     @Volatile private var urlReaderThread: Thread? = null
 
     /**
-     * Start the SSH tunnel. Connects to localhost.run and sets up
-     * remote port forwarding from port 80 to localhost:[localPort].
-     * Extracts the public URL from the SSH channel output.
+     * Start the SSH tunnel. Connects to localhost.run via an exec channel
+     * that runs the remote port forwarding command. The public URL is
+     * extracted from the command output on stdout.
      */
     suspend fun start(localPort: Int) {
         if (session?.isConnected == true) {
@@ -58,43 +60,30 @@ class TunnelManager {
 
                 // localhost.run accepts connections without authentication
                 sshSession.setConfig("StrictHostKeyChecking", "no")
-                // Disable password auth — localhost.run uses "none" auth
                 sshSession.setConfig("PreferredAuthentications", "none")
                 // Keep alive to maintain the tunnel
                 sshSession.serverAliveInterval = 30_000
                 sshSession.serverAliveCountMax = 3
-                // Connection timeout
-                sshSession.timeout = 15_000
 
                 Log.i(TAG, "Connecting to $SSH_HOST...")
                 sshSession.connect(15_000)
                 session = sshSession
+                Log.i(TAG, "SSH session connected")
 
-                // Open a channel to execute the remote forwarding command
-                // localhost.run outputs the URL on the exec channel
-                val channel = sshSession.openChannel("exec")
-                val execChannel = channel as com.jcraft.jsch.ChannelExec
-                execChannel.setCommand("ssh -R 80:localhost:$localPort nokey@localhost.run")
+                // Open an exec channel with the remote forwarding command
+                // This is how localhost.run works: the command triggers port forwarding
+                // and the URL is printed to stdout
+                val channel = sshSession.openChannel("exec") as ChannelExec
+                channel.setCommand("ssh -R $REMOTE_PORT:localhost:$localPort $SSH_USER@$SSH_HOST")
+                channel.setErrStream(System.err)
 
-                // Actually, localhost.run works differently:
-                // We use remote port forwarding via the SSH session itself,
-                // and the URL comes back as output on a "direct-tcpip" or via the session.
-                // The correct approach is to use setPortForwardingR and read the session log.
+                val inputStream = channel.inputStream
+                channel.connect(10_000)
+                execChannel = channel
 
-                // Close the exec channel, we don't need it
-                execChannel.disconnect()
+                Log.i(TAG, "Exec channel connected, reading output...")
 
-                // Set up remote port forwarding: remote 80 -> localhost:localPort
-                // localhost.run will print the URL to the SSH transport
-                sshSession.setPortForwardingR(REMOTE_PORT, "localhost", localPort)
-
-                Log.i(TAG, "Port forwarding set up: remote:$REMOTE_PORT -> localhost:$localPort")
-
-                // Open a shell channel to read the URL output
-                val shellChannel = sshSession.openChannel("shell")
-                shellChannel.connect(10_000)
-
-                val reader = BufferedReader(InputStreamReader(shellChannel.inputStream))
+                val reader = BufferedReader(InputStreamReader(inputStream))
 
                 // Read lines in a background thread to find the URL
                 urlReaderThread = Thread {
@@ -113,25 +102,32 @@ class TunnelManager {
                         if (session?.isConnected == true) {
                             Log.e(TAG, "Error reading SSH output", e)
                         }
+                    } finally {
+                        // If we exit the read loop without finding a URL,
+                        // the connection was likely closed
+                        if (_tunnelUrl.value == null) {
+                            _isConnecting.value = false
+                            Log.w(TAG, "SSH output ended without URL")
+                        }
                     }
                 }.also { it.isDaemon = true; it.start() }
 
-                // Give some time for the URL to arrive
-                // If after 10s we still don't have a URL, set connecting to false
+                // Timeout: if after 15s we still don't have a URL, stop waiting
                 Thread {
-                    Thread.sleep(10_000)
-                    if (_tunnelUrl.value == null && _isConnecting.value) {
-                        _isConnecting.value = false
-                        Log.w(TAG, "Timeout waiting for tunnel URL")
-                    }
+                    try {
+                        Thread.sleep(15_000)
+                        if (_tunnelUrl.value == null && _isConnecting.value) {
+                            _isConnecting.value = false
+                            Log.w(TAG, "Timeout waiting for tunnel URL")
+                        }
+                    } catch (_: InterruptedException) {}
                 }.also { it.isDaemon = true; it.start() }
 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start tunnel", e)
                 _isConnecting.value = false
                 _tunnelUrl.value = null
-                session?.disconnect()
-                session = null
+                cleanup()
             }
         }
     }
@@ -140,19 +136,25 @@ class TunnelManager {
      * Stop the SSH tunnel and clean up resources.
      */
     fun stop() {
-        urlReaderThread?.interrupt()
-        urlReaderThread = null
-        session?.disconnect()
-        session = null
+        cleanup()
         _tunnelUrl.value = null
         _isConnecting.value = false
         Log.i(TAG, "Tunnel stopped")
     }
 
+    private fun cleanup() {
+        urlReaderThread?.interrupt()
+        urlReaderThread = null
+        try { execChannel?.disconnect() } catch (_: Exception) {}
+        execChannel = null
+        try { session?.disconnect() } catch (_: Exception) {}
+        session = null
+    }
+
     /**
      * Check if the tunnel is currently connected.
      */
-    fun isConnected(): Boolean = session?.isConnected == true
+    fun isConnected(): Boolean = session?.isConnected == true && execChannel?.isClosed == false
 
     /**
      * Extract the public URL from localhost.run SSH output.

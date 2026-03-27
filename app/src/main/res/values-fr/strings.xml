@@ -154,4 +154,31 @@
     <string name="web_server_stop">Arrêter le serveur web</string>
     <string name="web_server_url">URL du serveur</string>
     <string name="tunnel_toggle">Activer/désactiver le tunnel public</string>
+
+    <!-- Backup / Restore -->
+    <string name="backup_restore_title">Sauvegarde locale</string>
+    <string name="backup_restore_description">Exportez vos données dans un fichier JSON dans Téléchargements, ou restaurez depuis un fichier de sauvegarde.</string>
+    <string name="backup_export">Exporter vers un fichier</string>
+    <string name="backup_import">Importer depuis un fichier</string>
+    <string name="backup_export_success">Sauvegarde enregistrée dans Téléchargements</string>
+    <string name="backup_export_error">Échec de l\'export</string>
+    <string name="backup_import_success">Sauvegarde restaurée avec succès</string>
+    <string name="backup_import_error">Échec de l\'import</string>
+
+    <!-- Google Drive Backup -->
+    <string name="drive_backup_title">Sauvegarde Google Drive</string>
+    <string name="drive_backup_description">Sauvegardez vos données (abonnements, épisodes, tags, signets, playlist, historique, paramètres) sur Google Drive. Activez la sauvegarde auto pour sauvegarder quotidiennement.</string>
+    <string name="drive_sign_in">Se connecter avec Google</string>
+    <string name="drive_sign_out">Se déconnecter</string>
+    <string name="drive_signed_in_as">Connecté en tant que %1$s</string>
+    <string name="drive_last_backup">Dernière sauvegarde : %1$s</string>
+    <string name="drive_backup_now">Sauvegarder sur Drive</string>
+    <string name="drive_restore">Restaurer depuis Drive</string>
+    <string name="drive_backup_success">Sauvegarde enregistrée sur Google Drive</string>
+    <string name="drive_backup_error">Échec de la sauvegarde Drive</string>
+    <string name="drive_restore_success">Restauré depuis Google Drive</string>
+    <string name="drive_restore_error">Échec de la restauration Drive</string>
+    <string name="drive_sign_in_error">Échec de la connexion</string>
+    <string name="drive_auto_backup">Sauvegarde automatique</string>
+    <string name="drive_auto_backup_description">Sauvegarder automatiquement sur Google Drive toutes les 24 heures</string>
 </resources>

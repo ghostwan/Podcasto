@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 ADB="${ANDROID_HOME}/platform-tools/adb"
 PACKAGE="com.ghostwan.podcasto"
@@ -17,14 +17,14 @@ echo "Locale actuelle : $ORIGINAL_LOCALE"
 
 # Passer en anglais
 echo "Passage en anglais (en-US)..."
-$ADB shell cmd locale set-device-locale en-US
+$ADB shell cmd locale set-device-locale en-US || true
 sleep 3
 
 # Redémarrer l'app pour appliquer la locale
 echo "Redémarrage de l'app..."
-$ADB shell am force-stop "$PACKAGE"
+$ADB shell am force-stop "$PACKAGE" || true
 sleep 1
-$ADB shell am start -n "$ACTIVITY" > /dev/null 2>&1
+$ADB shell am start -n "$ACTIVITY" || true
 sleep 4
 
 # Supprimer les anciens screenshots
@@ -107,10 +107,10 @@ echo ""
 
 # Restaurer la locale d'origine
 echo "Restauration de la locale : $ORIGINAL_LOCALE"
-$ADB shell cmd locale set-device-locale "$ORIGINAL_LOCALE"
+$ADB shell cmd locale set-device-locale "$ORIGINAL_LOCALE" || true
 sleep 2
-$ADB shell am force-stop "$PACKAGE"
-$ADB shell am start -n "$ACTIVITY" > /dev/null 2>&1
+$ADB shell am force-stop "$PACKAGE" || true
+$ADB shell am start -n "$ACTIVITY" || true > /dev/null 2>&1
 
 echo ""
 echo "Fichiers :"

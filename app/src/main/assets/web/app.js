@@ -79,6 +79,88 @@ function toggleGeminiKeyVisibility() {
 }
 
 // ========================
+// Backup / Restore
+// ========================
+async function exportBackup() {
+    const status = document.getElementById('backup-status');
+    status.innerHTML = '<span class="material-icons-round" style="color:var(--primary);vertical-align:middle;margin-right:4px;font-size:16px">hourglass_top</span>Export en cours...';
+    status.className = 'settings-status';
+    try {
+        const res = await fetch('/api/backup');
+        if (!res.ok) throw new Error('Erreur serveur: ' + res.status);
+        const data = await res.json();
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const date = new Date().toISOString().slice(0, 10);
+        a.href = url;
+        a.download = 'podcasto_backup_' + date + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        status.innerHTML = '<span class="material-icons-round" style="color:var(--success);vertical-align:middle;margin-right:4px;font-size:16px">check_circle</span>Sauvegarde export\u00e9e avec succ\u00e8s';
+        status.className = 'settings-status settings-status-ok';
+        showToast('Sauvegarde export\u00e9e');
+    } catch (e) {
+        status.innerHTML = '<span class="material-icons-round" style="color:var(--error);vertical-align:middle;margin-right:4px;font-size:16px">error</span>Erreur: ' + e.message;
+        status.className = 'settings-status settings-status-warn';
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+function importBackupDialog() {
+    document.getElementById('dialog-title').textContent = 'Importer une sauvegarde';
+    document.getElementById('dialog-text').innerHTML = '<p>Cette action remplacera toutes vos donn\u00e9es actuelles par celles du fichier de sauvegarde.</p><p style="color:var(--error);margin-top:8px"><strong>Cette op\u00e9ration est irr\u00e9versible.</strong></p>';
+    document.getElementById('dialog-confirm').textContent = 'Choisir un fichier';
+    document.getElementById('dialog-confirm').className = 'btn-primary';
+    document.getElementById('dialog-confirm').onclick = () => {
+        closeDialog();
+        document.getElementById('backup-file-input').click();
+    };
+    document.getElementById('dialog-overlay').style.display = '';
+}
+
+async function handleBackupFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const status = document.getElementById('backup-status');
+    status.innerHTML = '<span class="material-icons-round" style="color:var(--primary);vertical-align:middle;margin-right:4px;font-size:16px">hourglass_top</span>Restauration en cours...';
+    status.className = 'settings-status';
+    try {
+        const text = await file.text();
+        JSON.parse(text); // validate JSON
+        const res = await fetch('/api/restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: text,
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || 'Erreur serveur: ' + res.status);
+        }
+        status.innerHTML = '<span class="material-icons-round" style="color:var(--success);vertical-align:middle;margin-right:4px;font-size:16px">check_circle</span>Donn\u00e9es restaur\u00e9es avec succ\u00e8s';
+        status.className = 'settings-status settings-status-ok';
+        showToast('Donn\u00e9es restaur\u00e9es \u2014 rechargement...');
+        // Reload data
+        setTimeout(() => {
+            loadLibrary();
+            loadPlaylist();
+            loadNewEpisodes();
+            loadHistory();
+            loadSettings();
+        }, 500);
+    } catch (e) {
+        status.innerHTML = '<span class="material-icons-round" style="color:var(--error);vertical-align:middle;margin-right:4px;font-size:16px">error</span>Erreur: ' + e.message;
+        status.className = 'settings-status settings-status-warn';
+        showToast('Erreur: ' + e.message);
+    }
+    // Reset file input so same file can be re-selected
+    event.target.value = '';
+}
+
+// ========================
 // Utility
 // ========================
 let currentTab = 'library';

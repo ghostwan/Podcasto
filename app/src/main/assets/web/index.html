@@ -274,6 +274,22 @@
             </div>
             <div class="settings-content">
                 <div class="settings-section">
+                    <h3><span class="material-icons-round" style="vertical-align:middle;margin-right:8px">backup</span>Sauvegarde &amp; Restauration</h3>
+                    <p class="settings-description">Exportez toutes vos donn&eacute;es (podcasts, &eacute;pisodes, playlist, tags, favoris, param&egrave;tres) en fichier JSON, ou restaurez depuis un fichier pr&eacute;c&eacute;demment export&eacute;.</p>
+                    <div class="settings-key-row">
+                        <button class="btn-primary" onclick="exportBackup()">
+                            <span class="material-icons-round">download</span>
+                            Exporter la sauvegarde
+                        </button>
+                        <button class="btn-outline" onclick="importBackupDialog()">
+                            <span class="material-icons-round">upload</span>
+                            Importer une sauvegarde
+                        </button>
+                    </div>
+                    <div id="backup-status" class="settings-status"></div>
+                    <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none" onchange="handleBackupFile(event)">
+                </div>
+                <div class="settings-section">
                     <h3><span class="material-icons-round" style="vertical-align:middle;margin-right:8px">auto_awesome</span>Cl&eacute; API Gemini</h3>
                     <p class="settings-description">N&eacute;cessaire pour la d&eacute;couverte IA et les suggestions de recherche IA. Obtenez une cl&eacute; gratuite depuis Google AI Studio.</p>
                     <div class="settings-key-row">

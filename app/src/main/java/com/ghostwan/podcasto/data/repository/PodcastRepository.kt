@@ -14,6 +14,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import com.ghostwan.podcasto.R
 import java.io.File
 import javax.inject.Inject
@@ -285,4 +288,185 @@ class PodcastRepository @Inject constructor(
             0
         }
     }
+
+    // --- Backup / Restore ---
+
+    private val backupJson = Json {
+        prettyPrint = true
+        ignoreUnknownKeys = true
+    }
+
+    suspend fun exportBackup(): String = withContext(Dispatchers.IO) {
+        val podcasts = podcastDao.getAllSubscribedPodcasts()
+        val podcastIds = podcasts.map { it.id }
+        val episodes = episodeDao.getEpisodesForPodcasts(podcastIds)
+        val tags = tagDao.getAllTagsList()
+        val crossRefs = tagDao.getCrossRefsForPodcasts(podcastIds)
+        val bookmarks = bookmarkDao.getAllBookmarks()
+        val playlistItems = playlistDao.getAllPlaylistItems()
+        val history = historyDao.getAllHistory()
+
+        // Read settings from SharedPreferences
+        val appPrefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        val playerPrefs = context.getSharedPreferences("player_prefs", Context.MODE_PRIVATE)
+        val settings = BackupSettings(
+            geminiApiKey = appPrefs.getString("gemini_api_key", "") ?: "",
+            volumeNormalization = playerPrefs.getBoolean("volume_normalization", false),
+        )
+
+        val backup = BackupData(
+            version = 1,
+            podcasts = podcasts.map { it.toBackup() },
+            episodes = episodes.map { it.toBackup() },
+            tags = tags.map { it.toBackup() },
+            podcastTagRefs = crossRefs.map { BackupPodcastTagRef(it.podcastId, it.tagId) },
+            bookmarks = bookmarks.map { it.toBackup() },
+            playlistItems = playlistItems.map { BackupPlaylistItem(it.episodeId, it.position) },
+            history = history.map { it.toBackup() },
+            settings = settings,
+        )
+        backupJson.encodeToString(backup)
+    }
+
+    suspend fun importBackup(jsonString: String) = withContext(Dispatchers.IO) {
+        val backup = backupJson.decodeFromString<BackupData>(jsonString)
+
+        // Insert podcasts
+        for (p in backup.podcasts) {
+            podcastDao.insertPodcast(
+                PodcastEntity(
+                    id = p.id, title = p.title, author = p.author,
+                    description = p.description, feedUrl = p.feedUrl,
+                    artworkUrl = p.artworkUrl, subscribed = p.subscribed,
+                    hidden = p.hidden,
+                )
+            )
+        }
+
+        // Insert episodes
+        val episodes = backup.episodes.map { e ->
+            EpisodeEntity(
+                id = e.id, podcastId = e.podcastId, title = e.title,
+                description = e.description, audioUrl = e.audioUrl,
+                pubDate = e.pubDate, pubDateTimestamp = e.pubDateTimestamp,
+                duration = e.duration, played = e.played,
+                playbackPosition = e.playbackPosition,
+            )
+        }
+        episodeDao.insertEpisodes(episodes)
+
+        // Insert tags
+        val tags = backup.tags.map { TagEntity(id = it.id, name = it.name) }
+        tagDao.insertTags(tags)
+
+        // Insert cross refs
+        val crossRefs = backup.podcastTagRefs.map { PodcastTagCrossRef(it.podcastId, it.tagId) }
+        tagDao.insertPodcastTagCrossRefs(crossRefs)
+
+        // Insert bookmarks
+        val bookmarks = backup.bookmarks.map { b ->
+            BookmarkEntity(
+                id = b.id, episodeId = b.episodeId, positionMs = b.positionMs,
+                comment = b.comment, createdAt = b.createdAt,
+            )
+        }
+        bookmarkDao.insertBookmarks(bookmarks)
+
+        // Insert playlist items
+        val playlistItems = backup.playlistItems.map { PlaylistItemEntity(episodeId = it.episodeId, position = it.position) }
+        playlistDao.insertPlaylistItems(playlistItems)
+
+        // Insert history
+        val historyEntries = backup.history.map { h ->
+            HistoryEntity(id = h.id, episodeId = h.episodeId, podcastId = h.podcastId, listenedAt = h.listenedAt)
+        }
+        historyDao.insertHistoryEntries(historyEntries)
+
+        // Restore settings
+        val appPrefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        val playerPrefs = context.getSharedPreferences("player_prefs", Context.MODE_PRIVATE)
+        if (backup.settings.geminiApiKey.isNotEmpty()) {
+            appPrefs.edit().putString("gemini_api_key", backup.settings.geminiApiKey).apply()
+        }
+        playerPrefs.edit().putBoolean("volume_normalization", backup.settings.volumeNormalization).apply()
+    }
 }
+
+// --- Backup data model ---
+
+@Serializable
+data class BackupData(
+    val version: Int = 1,
+    val podcasts: List<BackupPodcast> = emptyList(),
+    val episodes: List<BackupEpisode> = emptyList(),
+    val tags: List<BackupTag> = emptyList(),
+    val podcastTagRefs: List<BackupPodcastTagRef> = emptyList(),
+    val bookmarks: List<BackupBookmark> = emptyList(),
+    val playlistItems: List<BackupPlaylistItem> = emptyList(),
+    val history: List<BackupHistory> = emptyList(),
+    val settings: BackupSettings = BackupSettings(),
+)
+
+@Serializable
+data class BackupSettings(
+    val geminiApiKey: String = "",
+    val volumeNormalization: Boolean = false,
+)
+
+@Serializable
+data class BackupPodcast(
+    val id: Long, val title: String, val author: String,
+    val description: String, val feedUrl: String, val artworkUrl: String,
+    val subscribed: Boolean = true, val hidden: Boolean = false,
+)
+
+@Serializable
+data class BackupEpisode(
+    val id: Long, val podcastId: Long, val title: String,
+    val description: String, val audioUrl: String, val pubDate: String,
+    val pubDateTimestamp: Long = 0, val duration: Long = 0,
+    val played: Boolean = false, val playbackPosition: Long = 0,
+)
+
+@Serializable
+data class BackupTag(val id: Long, val name: String)
+
+@Serializable
+data class BackupPodcastTagRef(val podcastId: Long, val tagId: Long)
+
+@Serializable
+data class BackupBookmark(
+    val id: Long, val episodeId: Long, val positionMs: Long,
+    val comment: String, val createdAt: Long,
+)
+
+@Serializable
+data class BackupPlaylistItem(val episodeId: Long, val position: Int)
+
+@Serializable
+data class BackupHistory(
+    val id: Long, val episodeId: Long, val podcastId: Long, val listenedAt: Long,
+)
+
+// Extension functions for conversion
+private fun PodcastEntity.toBackup() = BackupPodcast(
+    id = id, title = title, author = author, description = description,
+    feedUrl = feedUrl, artworkUrl = artworkUrl, subscribed = subscribed, hidden = hidden,
+)
+
+private fun EpisodeEntity.toBackup() = BackupEpisode(
+    id = id, podcastId = podcastId, title = title, description = description,
+    audioUrl = audioUrl, pubDate = pubDate, pubDateTimestamp = pubDateTimestamp,
+    duration = duration, played = played, playbackPosition = playbackPosition,
+)
+
+private fun TagEntity.toBackup() = BackupTag(id = id, name = name)
+
+private fun BookmarkEntity.toBackup() = BackupBookmark(
+    id = id, episodeId = episodeId, positionMs = positionMs,
+    comment = comment, createdAt = createdAt,
+)
+
+private fun HistoryEntity.toBackup() = BackupHistory(
+    id = id, episodeId = episodeId, podcastId = podcastId, listenedAt = listenedAt,
+)

@@ -25,6 +25,7 @@ import com.ghostwan.podcasto.ui.screens.*
 fun PodcastoNavHost(
     playerManager: PlayerManager = hiltViewModel<NavHostViewModel>().playerManager,
     repository: com.ghostwan.podcasto.data.repository.PodcastRepository = hiltViewModel<NavHostViewModel>().repository,
+    driveBackupManager: com.ghostwan.podcasto.data.backup.GoogleDriveBackupManager = hiltViewModel<NavHostViewModel>().driveBackupManager,
     openPlayerRequest: MutableState<Boolean> = mutableStateOf(false),
 ) {
     val navController = rememberNavController()
@@ -228,6 +229,8 @@ fun PodcastoNavHost(
                 composable("settings") {
                     SettingsScreen(
                         onBack = { navController.popBackStack() },
+                        repository = repository,
+                        driveBackupManager = driveBackupManager,
                     )
                 }
             }
