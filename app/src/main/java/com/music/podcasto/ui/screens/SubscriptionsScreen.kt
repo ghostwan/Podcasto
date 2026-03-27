@@ -64,12 +64,15 @@ class SubscriptionsViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private var tagFilterJob: kotlinx.coroutines.Job? = null
+
     fun selectTag(tagId: Long?) {
         _selectedTagId.value = tagId
+        tagFilterJob?.cancel()
         if (tagId == null) {
             _filteredPodcasts.value = null
         } else {
-            viewModelScope.launch {
+            tagFilterJob = viewModelScope.launch {
                 repository.getPodcastsForTag(tagId).collect {
                     _filteredPodcasts.value = it
                 }
@@ -124,8 +127,10 @@ fun SubscriptionsScreen(
     val webServerUrl by WebServerService.serverUrl.collectAsState()
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text(stringResource(R.string.nav_subscriptions)) },
                 actions = {
                     if (webServerRunning && webServerUrl != null) {
@@ -201,7 +206,8 @@ fun SubscriptionsScreen(
 
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f)
+                .fillMaxWidth()
                 .pullRefresh(pullRefreshState),
         ) {
         if (displayPodcasts.isEmpty()) {
@@ -221,7 +227,7 @@ fun SubscriptionsScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(displayPodcasts) { podcast ->
+                items(displayPodcasts, key = { it.id }) { podcast ->
                     val latestTs = latestTimestamps[podcast.id] ?: 0L
                     val isStale = latestTs in 1..threeMonthsAgo
                     SubscriptionItem(

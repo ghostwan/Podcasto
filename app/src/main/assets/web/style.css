@@ -1146,6 +1146,25 @@ main {
     outline: none;
 }
 
+.ai-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--primary);
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.ai-toggle input[type="checkbox"] {
+    accent-color: var(--primary);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
 /* Suggestion cards */
 .suggestions-grid {
     display: grid;

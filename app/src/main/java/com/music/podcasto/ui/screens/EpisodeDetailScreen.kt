@@ -197,6 +197,7 @@ fun EpisodeDetailScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
+            windowInsets = WindowInsets(0, 0, 0, 0),
             title = {
                 Text(
                     episode?.title ?: stringResource(R.string.episode_fallback),

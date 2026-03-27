@@ -93,6 +93,7 @@ fun HistoryScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
+            windowInsets = WindowInsets(0, 0, 0, 0),
             title = { Text(stringResource(R.string.nav_history)) },
             navigationIcon = {
                 IconButton(onClick = onBack) {

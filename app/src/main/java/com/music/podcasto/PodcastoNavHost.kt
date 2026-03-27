@@ -66,10 +66,9 @@ fun PodcastoNavHost(
                             onClick = {
                                 navController.navigate("subscriptions") {
                                     popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                                        inclusive = false
                                     }
                                     launchSingleTop = true
-                                    restoreState = true
                                 }
                             },
                         )
@@ -80,10 +79,9 @@ fun PodcastoNavHost(
                             onClick = {
                                 navController.navigate("playlist") {
                                     popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                                        inclusive = false
                                     }
                                     launchSingleTop = true
-                                    restoreState = true
                                 }
                             },
                         )
@@ -94,10 +92,9 @@ fun PodcastoNavHost(
                             onClick = {
                                 navController.navigate("new_episodes") {
                                     popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                                        inclusive = false
                                     }
                                     launchSingleTop = true
-                                    restoreState = true
                                 }
                             },
                         )

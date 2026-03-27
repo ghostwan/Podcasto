@@ -42,6 +42,7 @@
     <string name="ai_no_api_key">Gemini API key not configured</string>
     <string name="ai_search_title">AI suggestions</string>
     <string name="ai_search_loading">Searching with AI…</string>
+    <string name="ai_search_enabled">AI search</string>
     <string name="itunes_results_title">iTunes results (%d)</string>
 
     <!-- Subscriptions -->

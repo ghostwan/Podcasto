@@ -162,6 +162,7 @@ fun PlaylistScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
+            windowInsets = WindowInsets(0, 0, 0, 0),
             title = { Text(stringResource(R.string.nav_playlist)) },
             actions = {
                 IconButton(onClick = { showAutoAddDialog = true }) {

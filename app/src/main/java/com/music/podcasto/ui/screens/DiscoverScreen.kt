@@ -115,6 +115,9 @@ class DiscoverViewModel @Inject constructor(
     private val _aiSearchLoading = MutableStateFlow(false)
     val aiSearchLoading: StateFlow<Boolean> = _aiSearchLoading.asStateFlow()
 
+    private val _aiSearchEnabled = MutableStateFlow(true)
+    val aiSearchEnabled: StateFlow<Boolean> = _aiSearchEnabled.asStateFlow()
+
     private val jsonParser = Json { ignoreUnknownKeys = true }
 
     fun onQueryChange(query: String) {
@@ -126,6 +129,10 @@ class DiscoverViewModel @Inject constructor(
         if (_searchQuery.value.isNotBlank()) {
             search()
         }
+    }
+
+    fun toggleAiSearch(enabled: Boolean) {
+        _aiSearchEnabled.value = enabled
     }
 
     fun search() {
@@ -144,8 +151,13 @@ class DiscoverViewModel @Inject constructor(
             _isLoading.value = false
         }
 
-        // AI search in parallel
-        searchWithAi(query)
+        // AI search in parallel (only if enabled)
+        if (_aiSearchEnabled.value) {
+            searchWithAi(query)
+        } else {
+            _aiSearchSuggestions.value = emptyList()
+            _aiSearchLoading.value = false
+        }
     }
 
     private fun searchWithAi(query: String) {
@@ -282,11 +294,13 @@ fun DiscoverScreen(
     // AI search-based state
     val aiSearchSuggestions by viewModel.aiSearchSuggestions.collectAsState()
     val aiSearchLoading by viewModel.aiSearchLoading.collectAsState()
+    val aiSearchEnabled by viewModel.aiSearchEnabled.collectAsState()
 
     val showAiSection = query.isBlank() && results.isEmpty()
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
+            windowInsets = WindowInsets(0, 0, 0, 0),
             title = { Text(stringResource(R.string.discover)) },
             navigationIcon = {
                 IconButton(onClick = onBack) {
@@ -324,6 +338,25 @@ fun DiscoverScreen(
                     label = { Text(stringResource(option.labelResId)) },
                 )
             }
+        }
+
+        // AI search toggle
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(
+                checked = aiSearchEnabled,
+                onCheckedChange = viewModel::toggleAiSearch,
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = stringResource(R.string.ai_search_enabled),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.clickable { viewModel.toggleAiSearch(!aiSearchEnabled) },
+            )
         }
 
         Button(

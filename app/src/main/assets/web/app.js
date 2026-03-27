@@ -1661,8 +1661,9 @@ async function performSearch(query) {
     loading.style.display = '';
     results.innerHTML = '';
 
-    // Only show AI section if not triggered from an AI suggestion (avoid loops)
-    const doAiSearch = !searchFromAiSuggestion;
+    // Only show AI section if not triggered from an AI suggestion (avoid loops) and AI is enabled
+    const aiEnabled = document.getElementById('ai-search-toggle').checked;
+    const doAiSearch = !searchFromAiSuggestion && aiEnabled;
     searchFromAiSuggestion = false; // Reset flag
 
     if (doAiSearch) {
