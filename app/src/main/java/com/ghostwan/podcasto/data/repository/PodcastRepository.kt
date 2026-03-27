@@ -44,6 +44,9 @@ class PodcastRepository @Inject constructor(
     // --- Podcast ---
     fun getSubscribedPodcasts(): Flow<List<PodcastEntity>> = podcastDao.getSubscribedPodcasts()
 
+    fun getHiddenPodcastIds(): Flow<Set<Long>> = podcastDao.getHiddenPodcastIds()
+        .map { it.toSet() }
+
     suspend fun getPodcastById(id: Long): PodcastEntity? = podcastDao.getPodcastById(id)
 
     suspend fun subscribeToPodcast(podcast: ITunesPodcast) {

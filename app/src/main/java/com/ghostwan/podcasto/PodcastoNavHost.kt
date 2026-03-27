@@ -23,13 +23,15 @@ import com.ghostwan.podcasto.ui.screens.*
 
 @Composable
 fun PodcastoNavHost(
-    playerManager: PlayerManager = hiltViewModel<NavHostViewModel>().playerManager,
-    repository: com.ghostwan.podcasto.data.repository.PodcastRepository = hiltViewModel<NavHostViewModel>().repository,
-    driveBackupManager: com.ghostwan.podcasto.data.backup.GoogleDriveBackupManager = hiltViewModel<NavHostViewModel>().driveBackupManager,
+    navHostViewModel: NavHostViewModel = hiltViewModel(),
+    playerManager: PlayerManager = navHostViewModel.playerManager,
+    repository: com.ghostwan.podcasto.data.repository.PodcastRepository = navHostViewModel.repository,
+    driveBackupManager: com.ghostwan.podcasto.data.backup.GoogleDriveBackupManager = navHostViewModel.driveBackupManager,
     openPlayerRequest: MutableState<Boolean> = mutableStateOf(false),
 ) {
     val navController = rememberNavController()
     val playerState by playerManager.playerState.collectAsState()
+    val showHidden by navHostViewModel.showHidden.collectAsState()
 
     // Initialize player
     LaunchedEffect(Unit) {
@@ -142,6 +144,8 @@ fun PodcastoNavHost(
                         },
                         pendingTagId = pendingTagId,
                         onPendingTagConsumed = { pendingTagId = null },
+                        showHidden = showHidden,
+                        onToggleShowHidden = { navHostViewModel.toggleShowHidden() },
                     )
                 }
 
@@ -152,6 +156,7 @@ fun PodcastoNavHost(
                                 launchSingleTop = true
                             }
                         },
+                        showHidden = showHidden,
                     )
                 }
 
@@ -167,6 +172,7 @@ fun PodcastoNavHost(
                                 launchSingleTop = true
                             }
                         },
+                        showHidden = showHidden,
                     )
                 }
 
@@ -178,6 +184,7 @@ fun PodcastoNavHost(
                             }
                         },
                         onBack = { navController.popBackStack() },
+                        showHidden = showHidden,
                     )
                 }
 

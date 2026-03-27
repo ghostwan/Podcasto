@@ -46,6 +46,9 @@ class HistoryViewModel @Inject constructor(
     val history: StateFlow<List<HistoryWithDetails>> = repository.getHistoryWithDetails()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val hiddenPodcastIds: StateFlow<Set<Long>> = repository.getHiddenPodcastIds()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     fun clearHistory() {
         viewModelScope.launch {
             repository.clearHistory()
@@ -65,9 +68,14 @@ class HistoryViewModel @Inject constructor(
 fun HistoryScreen(
     onEpisodeClick: (Long) -> Unit,
     onBack: () -> Unit,
+    showHidden: Boolean = false,
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val history by viewModel.history.collectAsState()
+    val hiddenIds by viewModel.hiddenPodcastIds.collectAsState()
+
+    // Filter hidden podcasts unless showHidden is enabled
+    val filteredHistory = if (showHidden) history else history.filter { it.history.podcastId !in hiddenIds }
     var showClearDialog by remember { mutableStateOf(false) }
 
     if (showClearDialog) {
@@ -101,7 +109,7 @@ fun HistoryScreen(
                 }
             },
             actions = {
-                if (history.isNotEmpty()) {
+                if (filteredHistory.isNotEmpty()) {
                     IconButton(onClick = { showClearDialog = true }) {
                         Icon(Icons.Default.DeleteSweep, contentDescription = stringResource(R.string.clear_history))
                     }
@@ -109,7 +117,7 @@ fun HistoryScreen(
             },
         )
 
-        if (history.isEmpty()) {
+        if (filteredHistory.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
@@ -135,7 +143,7 @@ fun HistoryScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                items(history, key = { it.history.id }) { item ->
+                items(filteredHistory, key = { it.history.id }) { item ->
                     HistoryItem(
                         item = item,
                         onClick = { onEpisodeClick(item.history.episodeId) },

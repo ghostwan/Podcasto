@@ -62,6 +62,9 @@ class NewEpisodesViewModel @Inject constructor(
     val allTags: StateFlow<List<TagEntity>> = repository.getAllTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val hiddenPodcastIds: StateFlow<Set<Long>> = repository.getHiddenPodcastIds()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     private val _selectedTagId = MutableStateFlow<Long?>(null)
     val selectedTagId: StateFlow<Long?> = _selectedTagId.asStateFlow()
 
@@ -140,15 +143,20 @@ class NewEpisodesViewModel @Inject constructor(
 fun NewEpisodesScreen(
     onEpisodeClick: (Long) -> Unit,
     onHistoryClick: () -> Unit,
+    showHidden: Boolean = false,
     viewModel: NewEpisodesViewModel = hiltViewModel(),
 ) {
     val episodes by viewModel.episodes.collectAsState()
+    val hiddenIds by viewModel.hiddenPodcastIds.collectAsState()
     val playlistIds by viewModel.playlistEpisodeIds.collectAsState()
     val nowPlayingId by viewModel.nowPlayingEpisodeId.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
     val selectedTagId by viewModel.selectedTagId.collectAsState()
     val hidePlayed by viewModel.hidePlayed.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+
+    // Filter hidden podcasts unless showHidden is enabled
+    val filteredEpisodes = if (showHidden) episodes else episodes.filter { it.episode.podcastId !in hiddenIds }
 
     val pullRefreshState = rememberPullRefreshState(
         refreshing = isRefreshing,
@@ -203,7 +211,7 @@ fun NewEpisodesScreen(
                 .fillMaxSize()
                 .pullRefresh(pullRefreshState),
         ) {
-            if (episodes.isEmpty() && !isRefreshing) {
+            if (filteredEpisodes.isEmpty() && !isRefreshing) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
@@ -229,7 +237,7 @@ fun NewEpisodesScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(vertical = 4.dp),
                 ) {
-                    items(episodes, key = { it.episode.id }) { item ->
+                    items(filteredEpisodes, key = { it.episode.id }) { item ->
                         val isInPlaylist = item.episode.id in playlistIds
                         val isNowPlaying = item.episode.id == nowPlayingId
 

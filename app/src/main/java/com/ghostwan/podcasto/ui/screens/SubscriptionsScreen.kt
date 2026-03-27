@@ -72,14 +72,7 @@ class SubscriptionsViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
-    private val _showHidden = MutableStateFlow(false)
-    val showHidden: StateFlow<Boolean> = _showHidden.asStateFlow()
-
     private var tagFilterJob: kotlinx.coroutines.Job? = null
-
-    fun toggleShowHidden() {
-        _showHidden.value = !_showHidden.value
-    }
 
     fun toggleHidden(podcastId: Long, currentlyHidden: Boolean) {
         viewModelScope.launch {
@@ -123,6 +116,8 @@ fun SubscriptionsScreen(
     onSettingsClick: () -> Unit = {},
     pendingTagId: Long? = null,
     onPendingTagConsumed: () -> Unit = {},
+    showHidden: Boolean = false,
+    onToggleShowHidden: () -> Unit = {},
     viewModel: SubscriptionsViewModel = hiltViewModel(),
 ) {
     val allPodcasts by viewModel.subscribedPodcasts.collectAsState()
@@ -131,7 +126,6 @@ fun SubscriptionsScreen(
     val filteredPodcasts by viewModel.filteredPodcasts.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val latestTimestamps by viewModel.latestTimestamps.collectAsState()
-    val showHidden by viewModel.showHidden.collectAsState()
     val threeMonthsAgo = remember { System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000 }
 
     // Apply tag filter when navigating from PodcastDetailScreen
@@ -220,7 +214,7 @@ fun SubscriptionsScreen(
                     }
                     // Show/hide hidden podcasts toggle
                     if (hiddenCount > 0) {
-                        IconButton(onClick = { viewModel.toggleShowHidden() }) {
+                        IconButton(onClick = { onToggleShowHidden() }) {
                             Icon(
                                 imageVector = if (showHidden) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                                 contentDescription = stringResource(R.string.show_hidden_podcasts),

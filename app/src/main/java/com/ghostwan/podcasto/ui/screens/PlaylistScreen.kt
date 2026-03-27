@@ -55,6 +55,9 @@ class PlaylistViewModel @Inject constructor(
     val episodes: StateFlow<List<EpisodeWithArtwork>> = repository.getPlaylistEpisodesWithArtwork()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val hiddenPodcastIds: StateFlow<Set<Long>> = repository.getHiddenPodcastIds()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     val allTags: StateFlow<List<TagEntity>> = repository.getAllTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -121,19 +124,24 @@ class PlaylistViewModel @Inject constructor(
 @Composable
 fun PlaylistScreen(
     onEpisodeClick: (Long) -> Unit,
+    showHidden: Boolean = false,
     viewModel: PlaylistViewModel = hiltViewModel(),
 ) {
     val dbEpisodes by viewModel.episodes.collectAsState()
+    val hiddenIds by viewModel.hiddenPodcastIds.collectAsState()
     val allTags by viewModel.allTags.collectAsState()
     val nowPlayingId by viewModel.nowPlayingEpisodeId.collectAsState()
     val playerState by viewModel.playerState.collectAsState()
     val isAutoAdding by viewModel.isAutoAdding.collectAsState()
 
+    // Filter hidden podcasts unless showHidden is enabled
+    val filteredEpisodes = if (showHidden) dbEpisodes else dbEpisodes.filter { it.episode.podcastId !in hiddenIds }
+
     // Local mutable copy for reordering
-    var localEpisodes by remember { mutableStateOf(dbEpisodes) }
+    var localEpisodes by remember { mutableStateOf(filteredEpisodes) }
     // Sync from DB when DB changes and user is NOT dragging
-    LaunchedEffect(dbEpisodes) {
-        localEpisodes = dbEpisodes
+    LaunchedEffect(filteredEpisodes) {
+        localEpisodes = filteredEpisodes
     }
 
     var showAutoAddDialog by remember { mutableStateOf(false) }

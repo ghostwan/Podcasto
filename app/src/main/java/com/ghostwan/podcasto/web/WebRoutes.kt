@@ -545,7 +545,9 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
 
         // GET /api/playlist — get playlist with episode details and artwork
         get("/playlist") {
+            val hiddenIds = repository.getHiddenPodcastIds().first()
             val episodes = repository.getPlaylistEpisodesWithArtworkList()
+                .filter { it.episode.podcastId !in hiddenIds }
             call.respond(episodes.map { ewa ->
                 val podcast = repository.getPodcastById(ewa.episode.podcastId)
                 PlaylistItemResponse(
@@ -717,11 +719,12 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
         get("/new-episodes") {
             try {
                 val tagId = call.request.queryParameters["tagId"]?.toLongOrNull()
+                val hiddenIds = repository.getHiddenPodcastIds().first()
                 val episodes = if (tagId != null) {
                     repository.getRecentEpisodesWithArtworkForTag(tagId).first()
                 } else {
                     repository.getRecentEpisodesWithArtwork().first()
-                }
+                }.filter { it.episode.podcastId !in hiddenIds }
                 call.respond(episodes.map { ewa ->
                     val podcast = repository.getPodcastById(ewa.episode.podcastId)
                     EpisodeResponse(
@@ -747,7 +750,9 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
         // GET /api/history — listening history
         get("/history") {
             try {
+                val hiddenIds = repository.getHiddenPodcastIds().first()
                 val history = repository.getHistoryWithDetails().first()
+                    .filter { it.history.podcastId !in hiddenIds }
                 call.respond(history.map { h ->
                     HistoryResponse(
                         id = h.history.id,
