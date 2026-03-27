@@ -16,7 +16,6 @@ import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
@@ -148,6 +147,7 @@ fun SubscriptionsScreen(
     val tunnelUrlState by WebServerService.tunnelUrl.collectAsState()
     val isTunnelConnecting by WebServerService.isTunnelConnecting.collectAsState()
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var showServerModeDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -174,42 +174,32 @@ fun SubscriptionsScreen(
                             )
                         }
                     }
-                    // Web server toggle
+                    // Web server toggle — single button, shows mode dialog when starting
                     IconButton(
                         onClick = {
                             if (webServerRunning) {
                                 WebServerService.stop(context)
                             } else {
-                                WebServerService.start(context)
+                                showServerModeDialog = true
                             }
                         },
+                        enabled = !isTunnelConnecting,
                     ) {
-                        Icon(
-                            painter = painterResource(
-                                if (webServerRunning) R.drawable.ic_web_on else R.drawable.ic_web_off,
-                            ),
-                            contentDescription = if (webServerRunning) stringResource(R.string.web_server_stop) else stringResource(R.string.web_server_start),
-                            tint = if (webServerRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    // Tunnel toggle (only show when web server is running)
-                    if (webServerRunning) {
-                        IconButton(
-                            onClick = { WebServerService.toggleTunnel(context) },
-                            enabled = !isTunnelConnecting,
-                        ) {
-                            if (isTunnelConnecting) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = if (tunnelUrlState != null) Icons.Default.Cloud else Icons.Default.CloudOff,
-                                    contentDescription = stringResource(R.string.tunnel_toggle),
-                                    tint = if (tunnelUrlState != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+                        if (isTunnelConnecting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(
+                                    if (webServerRunning) R.drawable.ic_web_on else R.drawable.ic_web_off,
+                                ),
+                                contentDescription = if (webServerRunning) stringResource(R.string.web_server_stop) else stringResource(R.string.web_server_start),
+                                tint = if (webServerRunning) {
+                                    if (tunnelUrlState != null) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
+                                } else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                     // Show/hide hidden podcasts toggle
@@ -330,6 +320,86 @@ fun SubscriptionsScreen(
         }
         }
     }
+
+    // Server mode dialog
+    if (showServerModeDialog) {
+        AlertDialog(
+            onDismissRequest = { showServerModeDialog = false },
+            title = { Text(stringResource(R.string.web_server_mode_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Local option
+                    OutlinedCard(
+                        onClick = {
+                            showServerModeDialog = false
+                            WebServerService.start(context)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_web_on),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Column {
+                                Text(
+                                    stringResource(R.string.web_server_mode_local),
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                Text(
+                                    stringResource(R.string.web_server_mode_local_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    // Tunnel option
+                    OutlinedCard(
+                        onClick = {
+                            showServerModeDialog = false
+                            WebServerService.startWithTunnel(context)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Cloud,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary,
+                            )
+                            Column {
+                                Text(
+                                    stringResource(R.string.web_server_mode_tunnel),
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                Text(
+                                    stringResource(R.string.web_server_mode_tunnel_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showServerModeDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -344,11 +414,14 @@ fun SubscriptionItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (isStale || showHiddenIndicator) Modifier.alpha(0.45f) else Modifier)
+            .then(if (showHiddenIndicator) Modifier.alpha(0.45f) else Modifier)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
             ),
+        colors = if (isStale) CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
+        ) else CardDefaults.cardColors(),
     ) {
         Row(
             modifier = Modifier.padding(12.dp),

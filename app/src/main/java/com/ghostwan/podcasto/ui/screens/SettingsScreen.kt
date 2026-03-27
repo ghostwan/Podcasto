@@ -52,6 +52,8 @@ fun SettingsScreen(
 
     var geminiKey by remember { mutableStateOf(prefs.getString("gemini_api_key", "") ?: "") }
     var keyVisible by remember { mutableStateOf(false) }
+    var webPassword by remember { mutableStateOf(prefs.getString("web_server_password", "") ?: "") }
+    var passwordVisible by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var isExporting by remember { mutableStateOf(false) }
@@ -76,6 +78,8 @@ fun SettingsScreen(
     val driveRestoreSuccessMsg = stringResource(R.string.drive_restore_success)
     val driveRestoreErrorMsg = stringResource(R.string.drive_restore_error)
     val driveSignInErrorMsg = stringResource(R.string.drive_sign_in_error)
+    val passwordSavedMsg = stringResource(R.string.web_password_saved)
+    val passwordClearedMsg = stringResource(R.string.web_password_cleared)
 
     // Google Sign-In launcher
     val signInLauncher = rememberLauncherForActivityResult(
@@ -383,6 +387,94 @@ fun SettingsScreen(
                 Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.backup_import))
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            HorizontalDivider()
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ==========================================
+            // Web Server Password section
+            // ==========================================
+            Text(
+                text = stringResource(R.string.web_password_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = stringResource(R.string.web_password_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = webPassword,
+                onValueChange = { webPassword = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.web_password_hint)) },
+                singleLine = true,
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    Row {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = null,
+                            )
+                        }
+                        if (webPassword.isNotEmpty()) {
+                            IconButton(onClick = {
+                                webPassword = ""
+                                prefs.edit().remove("web_server_password").apply()
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(passwordClearedMsg)
+                                }
+                            }) {
+                                Icon(Icons.Default.Clear, contentDescription = null)
+                            }
+                        }
+                    }
+                },
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = {
+                    prefs.edit().putString("web_server_password", webPassword.trim()).apply()
+                    scope.launch {
+                        snackbarHostState.showSnackbar(passwordSavedMsg)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = webPassword.isNotBlank(),
+            ) {
+                Text(stringResource(R.string.save))
+            }
+
+            if (webPassword.isBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.web_password_not_set),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            } else {
+                val savedPwd = prefs.getString("web_server_password", "") ?: ""
+                if (savedPwd.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.web_password_set),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))

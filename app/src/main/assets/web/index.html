@@ -9,6 +9,26 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 </head>
 <body>
+    <!-- Login overlay -->
+    <div id="login-overlay" class="login-overlay" style="display:none">
+        <div class="login-card">
+            <span class="material-icons-round login-icon">headphones</span>
+            <h2>Podcasto</h2>
+            <p class="login-subtitle">Entrez le mot de passe pour acc&eacute;der &agrave; l&apos;interface web</p>
+            <div class="login-field">
+                <input type="password" id="login-password" class="login-input" placeholder="Mot de passe" autocomplete="current-password">
+                <button type="button" class="login-vis-btn" onclick="toggleLoginPasswordVisibility()">
+                    <span class="material-icons-round" id="login-vis-icon">visibility</span>
+                </button>
+            </div>
+            <div id="login-error" class="login-error" style="display:none"></div>
+            <button id="login-submit" class="btn-primary login-btn" onclick="submitLogin()">
+                <span class="material-icons-round">login</span>
+                Connexion
+            </button>
+        </div>
+    </div>
+
     <nav>
         <div class="nav-brand">
             <span class="material-icons-round">headphones</span>

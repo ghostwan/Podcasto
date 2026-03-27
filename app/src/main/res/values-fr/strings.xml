@@ -154,6 +154,11 @@
     <string name="web_server_stop">Arrêter le serveur web</string>
     <string name="web_server_url">URL du serveur</string>
     <string name="tunnel_toggle">Activer/désactiver le tunnel public</string>
+    <string name="web_server_mode_title">Démarrer le serveur web</string>
+    <string name="web_server_mode_local">Local (WiFi)</string>
+    <string name="web_server_mode_tunnel">Tunnel (Internet)</string>
+    <string name="web_server_mode_local_desc">Accès depuis le même réseau</string>
+    <string name="web_server_mode_tunnel_desc">Accès depuis partout via localhost.run</string>
 
     <!-- Backup / Restore -->
     <string name="backup_restore_title">Sauvegarde locale</string>
@@ -181,4 +186,13 @@
     <string name="drive_sign_in_error">Échec de la connexion</string>
     <string name="drive_auto_backup">Sauvegarde automatique</string>
     <string name="drive_auto_backup_description">Sauvegarder automatiquement sur Google Drive toutes les 24 heures</string>
+
+    <!-- Web Server Password -->
+    <string name="web_password_title">Mot de passe du serveur web</string>
+    <string name="web_password_description">Définissez un mot de passe pour protéger l\'interface web lors de l\'accès via tunnel. Laissez vide pour désactiver l\'authentification (accès local uniquement).</string>
+    <string name="web_password_hint">Entrez un mot de passe</string>
+    <string name="web_password_saved">Mot de passe enregistré</string>
+    <string name="web_password_cleared">Mot de passe supprimé</string>
+    <string name="web_password_set">Mot de passe défini</string>
+    <string name="web_password_not_set">Aucun mot de passe — interface web non protégée</string>
 </resources>

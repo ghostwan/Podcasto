@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 @Serializable
 data class PodcastResponse(
@@ -161,6 +162,79 @@ data class ReorderRequest(
     val episodeIds: List<Long>,
 )
 
+@Serializable
+data class LoginRequest(
+    val password: String,
+)
+
+@Serializable
+data class LoginResponse(
+    val success: Boolean,
+    val message: String,
+    val remainingAttempts: Int = 0,
+)
+
+// Session and rate-limiting management
+object WebAuthManager {
+    private val sessions = ConcurrentHashMap<String, Long>() // token -> expiry timestamp
+    private val failedAttempts = ConcurrentHashMap<String, FailedAttemptInfo>()
+    private const val SESSION_DURATION_MS = 24L * 60 * 60 * 1000 // 24 hours
+    private const val MAX_ATTEMPTS = 3
+    private const val LOCKOUT_DURATION_MS = 15L * 60 * 1000 // 15 minutes
+
+    data class FailedAttemptInfo(val count: Int, val lastAttemptTime: Long)
+
+    fun createSession(): String {
+        val token = java.util.UUID.randomUUID().toString()
+        sessions[token] = System.currentTimeMillis() + SESSION_DURATION_MS
+        return token
+    }
+
+    fun isValidSession(token: String?): Boolean {
+        if (token.isNullOrBlank()) return false
+        val expiry = sessions[token] ?: return false
+        if (System.currentTimeMillis() > expiry) {
+            sessions.remove(token)
+            return false
+        }
+        return true
+    }
+
+    fun isBlocked(ip: String): Boolean {
+        val info = failedAttempts[ip] ?: return false
+        if (info.count >= MAX_ATTEMPTS) {
+            if (System.currentTimeMillis() - info.lastAttemptTime < LOCKOUT_DURATION_MS) {
+                return true
+            }
+            // Lockout expired — reset
+            failedAttempts.remove(ip)
+            return false
+        }
+        return false
+    }
+
+    fun recordFailedAttempt(ip: String): Int {
+        val current = failedAttempts[ip]
+        val newCount = if (current != null &&
+            System.currentTimeMillis() - current.lastAttemptTime < LOCKOUT_DURATION_MS
+        ) {
+            current.count + 1
+        } else {
+            1
+        }
+        failedAttempts[ip] = FailedAttemptInfo(newCount, System.currentTimeMillis())
+        return MAX_ATTEMPTS - newCount
+    }
+
+    fun clearFailedAttempts(ip: String) {
+        failedAttempts.remove(ip)
+    }
+
+    fun clearAllSessions() {
+        sessions.clear()
+    }
+}
+
 fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.() -> Unit = {
 
     fun getGeminiApiKey(): String {
@@ -168,6 +242,25 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
         val key = prefs.getString("gemini_api_key", null)
         if (!key.isNullOrBlank()) return key
         return BuildConfig.GEMINI_API_KEY
+    }
+
+    fun getWebPassword(): String? {
+        val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        val password = prefs.getString("web_server_password", null)
+        return if (password.isNullOrBlank()) null else password
+    }
+
+    fun getSessionToken(call: ApplicationCall): String? {
+        val cookieHeader = call.request.headers["Cookie"] ?: return null
+        return cookieHeader.split(";")
+            .map { it.trim() }
+            .firstOrNull { it.startsWith("podcasto_session=") }
+            ?.substringAfter("podcasto_session=")
+    }
+
+    fun getClientIp(call: ApplicationCall): String {
+        return call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
+            ?: call.request.local.remoteAddress
     }
 
     // Serve the web UI
@@ -184,8 +277,67 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
         call.respondText(js, ContentType.Application.JavaScript)
     }
 
-    // API routes
+    // Auth endpoints (always accessible)
+    post("/api/login") {
+        val password = getWebPassword()
+        if (password == null) {
+            // No password set — create session anyway
+            val token = WebAuthManager.createSession()
+            call.response.headers.append("Set-Cookie", "podcasto_session=$token; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400")
+            call.respond(LoginResponse(success = true, message = "No password required", remainingAttempts = 0))
+            return@post
+        }
+
+        val ip = getClientIp(call)
+        if (WebAuthManager.isBlocked(ip)) {
+            call.respond(HttpStatusCode.TooManyRequests, LoginResponse(success = false, message = "Too many attempts. Try again in 15 minutes.", remainingAttempts = 0))
+            return@post
+        }
+
+        val request = call.receive<LoginRequest>()
+        if (request.password == password) {
+            WebAuthManager.clearFailedAttempts(ip)
+            val token = WebAuthManager.createSession()
+            call.response.headers.append("Set-Cookie", "podcasto_session=$token; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400")
+            call.respond(LoginResponse(success = true, message = "Authenticated", remainingAttempts = 0))
+        } else {
+            val remaining = WebAuthManager.recordFailedAttempt(ip)
+            call.respond(HttpStatusCode.Unauthorized, LoginResponse(success = false, message = "Wrong password", remainingAttempts = remaining))
+        }
+    }
+
+    get("/api/auth-check") {
+        val password = getWebPassword()
+        if (password == null) {
+            call.respond(mapOf("authenticated" to true, "passwordRequired" to false))
+            return@get
+        }
+        val token = getSessionToken(call)
+        if (WebAuthManager.isValidSession(token)) {
+            call.respond(mapOf("authenticated" to true, "passwordRequired" to true))
+        } else {
+            call.respond(HttpStatusCode.Unauthorized, mapOf("authenticated" to false, "passwordRequired" to true))
+        }
+    }
+
+    // API routes — with auth interceptor
     route("/api") {
+
+        // Auth interceptor: check session on all /api routes (skip login & auth-check)
+        intercept(ApplicationCallPipeline.Call) {
+            val path = call.request.path()
+            if (path == "/api/login" || path == "/api/auth-check") return@intercept
+
+            val password = getWebPassword()
+            if (password != null) {
+                val token = getSessionToken(call)
+                if (!WebAuthManager.isValidSession(token)) {
+                    call.respond(HttpStatusCode.Unauthorized, ErrorResponse("Authentication required"))
+                    finish()
+                    return@intercept
+                }
+            }
+        }
 
         // GET /api/podcasts — list subscribed podcasts (with tags)
         get("/podcasts") {

@@ -48,6 +48,7 @@ class WebServerService : Service() {
         const val CHANNEL_ID = "web_server_channel"
         const val NOTIFICATION_ID = 42
         const val ACTION_TOGGLE_TUNNEL = "toggle_tunnel"
+        const val ACTION_START_WITH_TUNNEL = "start_with_tunnel"
 
         private val _isRunning = MutableStateFlow(false)
         val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
@@ -74,6 +75,13 @@ class WebServerService : Service() {
             }
             context.startService(intent)
         }
+
+        fun startWithTunnel(context: Context) {
+            val intent = Intent(context, WebServerService::class.java).apply {
+                action = ACTION_START_WITH_TUNNEL
+            }
+            context.startForegroundService(intent)
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -89,6 +97,21 @@ class WebServerService : Service() {
                 if (tunnelManager?.isConnected() == true) {
                     tunnelManager?.stop()
                 } else {
+                    tunnelManager = TunnelManager()
+                    tunnelManager?.start(PORT)
+                }
+            }
+            return START_STICKY
+        }
+        if (intent?.action == ACTION_START_WITH_TUNNEL) {
+            if (server == null) {
+                startServer()
+                val notification = buildNotification()
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            // Start tunnel after server is up
+            serviceScope.launch {
+                if (tunnelManager?.isConnected() != true) {
                     tunnelManager = TunnelManager()
                     tunnelManager?.start(PORT)
                 }

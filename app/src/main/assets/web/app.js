@@ -1,6 +1,114 @@
 // Podcasto Web UI — Full Player & Library Management
 
 // ========================
+// Authentication
+// ========================
+async function checkAuth() {
+    try {
+        const res = await fetch('/api/auth-check');
+        if (res.status === 401) {
+            showLoginOverlay();
+            return false;
+        }
+        const data = await res.json();
+        if (data.authenticated) {
+            hideLoginOverlay();
+            return true;
+        }
+        showLoginOverlay();
+        return false;
+    } catch (e) {
+        // If server is unreachable, show app anyway (local use)
+        hideLoginOverlay();
+        return true;
+    }
+}
+
+function showLoginOverlay() {
+    document.getElementById('login-overlay').style.display = '';
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-error').style.display = 'none';
+    // Focus password input
+    setTimeout(() => document.getElementById('login-password').focus(), 100);
+}
+
+function toggleLoginPasswordVisibility() {
+    const input = document.getElementById('login-password');
+    const icon = document.getElementById('login-vis-icon');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.textContent = 'visibility_off';
+    } else {
+        input.type = 'password';
+        icon.textContent = 'visibility';
+    }
+}
+
+function hideLoginOverlay() {
+    document.getElementById('login-overlay').style.display = 'none';
+}
+
+async function submitLogin() {
+    const input = document.getElementById('login-password');
+    const password = input.value;
+    const errorEl = document.getElementById('login-error');
+
+    if (!password) {
+        errorEl.textContent = 'Veuillez entrer le mot de passe';
+        errorEl.style.display = '';
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            hideLoginOverlay();
+            loadLibrary();
+        } else {
+            if (res.status === 429) {
+                errorEl.textContent = 'Trop de tentatives. R\u00e9essayez dans 15 minutes.';
+            } else if (data.remainingAttempts > 0) {
+                errorEl.textContent = `Mot de passe incorrect. ${data.remainingAttempts} tentative(s) restante(s).`;
+            } else {
+                errorEl.textContent = 'Mot de passe incorrect. Compte verrouill\u00e9.';
+            }
+            errorEl.style.display = '';
+            input.value = '';
+            input.focus();
+        }
+    } catch (e) {
+        errorEl.textContent = 'Erreur de connexion: ' + e.message;
+        errorEl.style.display = '';
+    }
+}
+
+// Wrapper for fetch that intercepts 401 responses
+async function authFetch(url, options) {
+    const res = await fetch(url, options);
+    if (res.status === 401) {
+        showLoginOverlay();
+        throw new Error('Authentication required');
+    }
+    return res;
+}
+
+// Override global fetch to intercept 401 on API calls (except auth endpoints)
+const _originalFetch = window.fetch.bind(window);
+window.fetch = async function(url, options) {
+    const res = await _originalFetch(url, options);
+    if (res.status === 401 && typeof url === 'string' && url.startsWith('/api/') && !url.includes('/api/login') && !url.includes('/api/auth-check')) {
+        showLoginOverlay();
+    }
+    return res;
+};
+
+// ========================
 // Settings
 // ========================
 async function loadSettings() {
@@ -246,8 +354,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressInput = document.getElementById('player-progress-input');
     progressInput.addEventListener('input', onProgressSeek);
 
-    // Load library on start
-    loadLibrary();
+    // Login password enter key
+    document.getElementById('login-password').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitLogin();
+    });
+
+    // Check authentication before loading
+    checkAuth().then(authenticated => {
+        if (authenticated) loadLibrary();
+    });
 });
 
 // ========================
@@ -1582,24 +1697,89 @@ function playerCycleSpeed() {
 }
 
 function setupAudioPipeline() {
+    // Only create Web Audio pipeline when volume normalization is actually needed
+    if (!volumeNormEnabled) {
+        // If pipeline was previously set up, tear it down to restore direct playback
+        teardownAudioPipeline();
+        return;
+    }
     if (audioContext) return; // Already set up
-    const audio = document.getElementById('audio-element');
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    sourceNode = audioContext.createMediaElementSource(audio);
 
-    // DynamicsCompressor for volume normalization
-    compressorNode = audioContext.createDynamicsCompressor();
-    compressorNode.threshold.setValueAtTime(-24, audioContext.currentTime);
-    compressorNode.knee.setValueAtTime(30, audioContext.currentTime);
-    compressorNode.ratio.setValueAtTime(12, audioContext.currentTime);
-    compressorNode.attack.setValueAtTime(0.003, audioContext.currentTime);
-    compressorNode.release.setValueAtTime(0.25, audioContext.currentTime);
+    try {
+        const audio = document.getElementById('audio-element');
+        // crossOrigin needed for Web Audio API to work with external CDN audio
+        audio.crossOrigin = 'anonymous';
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        sourceNode = audioContext.createMediaElementSource(audio);
 
-    // Makeup gain to compensate for compression
-    gainNode = audioContext.createGain();
-    gainNode.gain.setValueAtTime(1.5, audioContext.currentTime);
+        // DynamicsCompressor for volume normalization
+        compressorNode = audioContext.createDynamicsCompressor();
+        compressorNode.threshold.setValueAtTime(-24, audioContext.currentTime);
+        compressorNode.knee.setValueAtTime(30, audioContext.currentTime);
+        compressorNode.ratio.setValueAtTime(12, audioContext.currentTime);
+        compressorNode.attack.setValueAtTime(0.003, audioContext.currentTime);
+        compressorNode.release.setValueAtTime(0.25, audioContext.currentTime);
 
-    updateAudioPipeline();
+        // Makeup gain to compensate for compression
+        gainNode = audioContext.createGain();
+        gainNode.gain.setValueAtTime(1.5, audioContext.currentTime);
+
+        sourceNode.connect(compressorNode);
+        compressorNode.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+    } catch (e) {
+        console.error('Failed to setup audio pipeline:', e);
+        // Fallback: disable normalization and use direct playback
+        teardownAudioPipeline();
+        volumeNormEnabled = false;
+        localStorage.setItem('volumeNormEnabled', 'false');
+        showToast('Normalisation indisponible (CORS)');
+    }
+}
+
+function teardownAudioPipeline() {
+    if (audioContext) {
+        try {
+            if (sourceNode) sourceNode.disconnect();
+            if (compressorNode) compressorNode.disconnect();
+            if (gainNode) gainNode.disconnect();
+            audioContext.close();
+        } catch (e) { /* ignore */ }
+        audioContext = null;
+        sourceNode = null;
+        compressorNode = null;
+        gainNode = null;
+        // Remove crossOrigin to avoid CORS issues on CDNs that don't support it
+        const audio = document.getElementById('audio-element');
+        audio.removeAttribute('crossorigin');
+    }
+}
+
+function toggleVolumeNorm() {
+    const wasEnabled = volumeNormEnabled;
+    volumeNormEnabled = !volumeNormEnabled;
+    localStorage.setItem('volumeNormEnabled', volumeNormEnabled);
+
+    if (volumeNormEnabled) {
+        setupAudioPipeline();
+    } else {
+        // Need to teardown and reload current source (MediaElementSource is permanent)
+        const audio = document.getElementById('audio-element');
+        const currentTime = audio.currentTime;
+        const currentSrc = audio.src;
+        const wasPlaying = !audio.paused;
+
+        teardownAudioPipeline();
+
+        // Reload audio to detach from Web Audio API
+        if (currentSrc) {
+            audio.src = currentSrc;
+            audio.currentTime = currentTime;
+            if (wasPlaying) audio.play();
+        }
+    }
+    updateVolumeNormButton();
+    showToast(volumeNormEnabled ? 'Normalisation du volume activée' : 'Normalisation du volume désactivée');
 }
 
 function updateAudioPipeline() {
@@ -1637,7 +1817,10 @@ function updateVolumeNormButton() {
 function showPlayerBar() {
     document.getElementById('player-bar').style.display = '';
     document.body.classList.add('player-visible');
-    setupAudioPipeline();
+    // Only set up Web Audio pipeline if volume normalization is enabled
+    if (volumeNormEnabled) {
+        setupAudioPipeline();
+    }
     updateVolumeNormButton();
 }
 

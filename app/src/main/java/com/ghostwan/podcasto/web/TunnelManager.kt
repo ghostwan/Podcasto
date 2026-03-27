@@ -96,11 +96,14 @@ class TunnelManager {
                         var line: String?
                         while (reader.readLine().also { line = it } != null) {
                             Log.d(TAG, "SSH output: $line")
-                            val url = extractUrl(line!!)
-                            if (url != null) {
-                                Log.i(TAG, "Tunnel URL: $url")
-                                _tunnelUrl.value = url
-                                _isConnecting.value = false
+                            // Only capture the first valid URL (ignore subsequent ones)
+                            if (_tunnelUrl.value == null) {
+                                val url = extractUrl(line!!)
+                                if (url != null) {
+                                    Log.i(TAG, "Tunnel URL: $url")
+                                    _tunnelUrl.value = url
+                                    _isConnecting.value = false
+                                }
                             }
                         }
                     } catch (e: Exception) {
@@ -174,11 +177,11 @@ class TunnelManager {
         val url = match.value
 
         // Filter out known non-tunnel URLs (documentation, admin, twitter, etc.)
-        val excludedHosts = listOf(
-            "twitter.com", "admin.localhost.run", "localhost.run/docs",
-            "localhost:3000", "openssh.com"
+        val excludedDomains = listOf(
+            "https://twitter.com", "https://admin.localhost.run",
+            "https://localhost.run", "https://openssh.com"
         )
-        if (excludedHosts.any { url.contains(it) }) return null
+        if (excludedDomains.any { url.startsWith(it) }) return null
 
         return url
     }
