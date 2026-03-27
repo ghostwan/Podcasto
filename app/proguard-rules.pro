@@ -12,11 +12,11 @@
 -keepclasseswithmembers class kotlinx.serialization.json.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
--keep,includedescriptorclasses class com.music.podcasto.**$$serializer { *; }
--keepclassmembers class com.music.podcasto.** {
+-keep,includedescriptorclasses class com.ghostwan.podcasto.**$$serializer { *; }
+-keepclassmembers class com.ghostwan.podcasto.** {
     *** Companion;
 }
--keepclasseswithmembers class com.music.podcasto.** {
+-keepclasseswithmembers class com.ghostwan.podcasto.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 
@@ -83,10 +83,10 @@
 }
 
 # === Data classes used in API responses ===
--keep class com.music.podcasto.data.remote.** { *; }
--keep class com.music.podcasto.web.** { *; }
--keep class com.music.podcasto.ui.screens.AiSuggestion { *; }
--keep class com.music.podcasto.ui.screens.AiDiscoverResponse { *; }
+-keep class com.ghostwan.podcasto.data.remote.** { *; }
+-keep class com.ghostwan.podcasto.web.** { *; }
+-keep class com.ghostwan.podcasto.ui.screens.AiSuggestion { *; }
+-keep class com.ghostwan.podcasto.ui.screens.AiDiscoverResponse { *; }
 
 # === Keep enum classes ===
 -keepclassmembers enum * {
@@ -105,3 +105,9 @@
 -dontwarn org.slf4j.**
 -dontwarn javax.annotation.**
 -dontwarn kotlin.reflect.jvm.internal.**
+
+# === JSch (SSH tunnel) ===
+-dontwarn com.jcraft.jsch.**
+-keep class com.jcraft.jsch.** { *; }
+-dontwarn org.ietf.jgss.**
+-dontwarn com.sun.security.jgss.**

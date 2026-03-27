@@ -30,6 +30,7 @@ A full-featured podcast player for Android with an embedded web management inter
 
 ## Screenshots
 
+<!-- SCREENSHOTS_START -->
 <p align="center">
   <img src="screenshots/01_library.png" width="180" alt="Library" />
   <img src="screenshots/02_discover.png" width="180" alt="Discover" />
@@ -39,6 +40,7 @@ A full-featured podcast player for Android with an embedded web management inter
   <img src="screenshots/06_playlist.png" width="180" alt="Playlist" />
   <img src="screenshots/07_new_episodes.png" width="180" alt="New Episodes" />
 </p>
+<!-- SCREENSHOTS_END -->
 
 The app uses a fixed Material 3 purple theme with a three-tab layout (Library, Playlist, New). Discover is accessed via a FAB button in the Library screen. The web server can be started/stopped from the Library toolbar.
 
@@ -49,7 +51,7 @@ The app uses a fixed Material 3 purple theme with a three-tab layout (Library, P
 | UI | Jetpack Compose, Material 3 |
 | Navigation | Navigation Compose |
 | DI | Hilt |
-| Database | Room (SQLite) v4 with versioned migrations |
+| Database | Room (SQLite) v5 with versioned migrations |
 | Network | Retrofit, OkHttp |
 | Media | Media3 / ExoPlayer |
 | Images | Coil |
@@ -62,7 +64,7 @@ The app uses a fixed Material 3 purple theme with a three-tab layout (Library, P
 ```
 app/src/main/java/com/music/podcasto/
   data/
-    local/         -- Room entities, DAOs, database (v4 with migrations)
+    local/         -- Room entities, DAOs, database (v5 with migrations)
     remote/        -- iTunes API service, RSS parser, Apple Podcasts scraper
     repository/    -- PodcastRepository (single source of truth)
   di/              -- Hilt AppModule
@@ -92,7 +94,7 @@ Requirements: Android SDK, a connected device or emulator (minSdk 26).
 # Or manually
 ./gradlew assembleRelease
 adb install -r app/build/outputs/apk/release/app-release.apk
-adb shell am start -n com.music.podcasto/.MainActivity
+adb shell am start -n com.ghostwan.podcasto/.MainActivity
 ```
 
 ### Web Interface
@@ -106,11 +108,16 @@ Start the web server from the Library screen toolbar (globe icon). The server UR
 
 ### AI Features
 
-To enable AI-powered search and discovery, add your Gemini API key to `local.properties`:
+To enable AI-powered search and discovery, you can either:
+
+1. **In-app settings** (recommended): Go to Settings (overflow menu in Library) and enter your Gemini API key
+2. **Build-time**: Add your key to `local.properties`:
 
 ```properties
 GEMINI_API_KEY=your_key_here
 ```
+
+Get a free API key from [Google AI Studio](https://aistudio.google.com/apikey).
 
 ## License
 

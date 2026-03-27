@@ -10,11 +10,11 @@ plugins {
 }
 
 android {
-    namespace = "com.music.podcasto"
+    namespace = "com.ghostwan.podcasto"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.music.podcasto"
+        applicationId = "com.ghostwan.podcasto"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -54,6 +54,12 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    packaging {
+        resources {
+            excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        }
     }
 }
 
@@ -120,6 +126,9 @@ dependencies {
 
     // Google Generative AI (Gemini)
     implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+
+    // SSH tunnel (localhost.run)
+    implementation("com.github.mwiede:jsch:0.2.21")
 
     // Core
     implementation("androidx.core:core-ktx:1.15.0")

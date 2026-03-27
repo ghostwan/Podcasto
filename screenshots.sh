@@ -2,140 +2,116 @@
 set -euo pipefail
 
 ADB="${ANDROID_HOME}/platform-tools/adb"
-PACKAGE="com.music.podcasto"
+PACKAGE="com.ghostwan.podcasto"
 ACTIVITY="${PACKAGE}/.MainActivity"
 SCREENSHOT_DIR="screenshots"
 DEVICE_TMP="/sdcard/podcasto_screenshot.png"
+README="README.md"
 
-# Pixel 7: 1080x2400, density 420
-# Bottom nav: Library [0,2064][346,2274] | Playlist [367,2064][713,2274] | New [734,2064][1080,2274]
-# MiniPlayer area: [0,1896][1080,2064]
-# FAB Discover: [891,1707][1038,1854]
-
-screenshot() {
-    local name="$1"
-    local desc="$2"
-    echo "  Capturing: $name ($desc)"
-    $ADB shell screencap -p "$DEVICE_TMP"
-    $ADB pull "$DEVICE_TMP" "${SCREENSHOT_DIR}/${name}.png" > /dev/null 2>&1
-    $ADB shell rm "$DEVICE_TMP"
-    echo "  Saved: ${SCREENSHOT_DIR}/${name}.png"
-}
-
-tap() {
-    $ADB shell input tap "$1" "$2"
-}
-
-back() {
-    $ADB shell input keyevent KEYCODE_BACK
-}
-
-swipe_up() {
-    $ADB shell input swipe 540 1500 540 800 300
-}
-
-echo "=== Podcasto Automatic Screenshot Tool ==="
+echo "=== Podcasto — Capture de screenshots interactive ==="
 echo ""
 
-# --- Save current locale ---
+# Sauvegarder la locale actuelle
 ORIGINAL_LOCALE=$($ADB shell cmd locale get-device-locale)
-echo "Current locale: $ORIGINAL_LOCALE"
+echo "Locale actuelle : $ORIGINAL_LOCALE"
 
-# --- Switch to English ---
-echo "Switching device to English (en-US)..."
+# Passer en anglais
+echo "Passage en anglais (en-US)..."
 $ADB shell cmd locale set-device-locale en-US
 sleep 3
 
-# --- Restart app fresh ---
-echo "Restarting app..."
+# Redémarrer l'app pour appliquer la locale
+echo "Redémarrage de l'app..."
 $ADB shell am force-stop "$PACKAGE"
 sleep 1
 $ADB shell am start -n "$ACTIVITY" > /dev/null 2>&1
 sleep 4
 
-# --- Create output directory ---
-mkdir -p "$SCREENSHOT_DIR"
+# Supprimer les anciens screenshots
+if [ -d "$SCREENSHOT_DIR" ]; then
+    echo "Suppression des anciens screenshots..."
+    rm -f "$SCREENSHOT_DIR"/*.png
+else
+    mkdir -p "$SCREENSHOT_DIR"
+fi
+
+count=0
+
+while true; do
+    echo ""
+    read -rp "Prendre un screenshot ? (o/n) " answer
+    case "$answer" in
+        [oOyY]*)
+            count=$((count + 1))
+            filename="${count}.png"
+            echo "  Capture en cours..."
+            $ADB shell screencap -p "$DEVICE_TMP"
+            $ADB pull "$DEVICE_TMP" "${SCREENSHOT_DIR}/${filename}" > /dev/null 2>&1
+            $ADB shell rm "$DEVICE_TMP"
+            echo "  Sauvegardé : ${SCREENSHOT_DIR}/${filename}"
+            ;;
+        [nN]*)
+            echo ""
+            break
+            ;;
+        *)
+            echo "  Répondre o (oui) ou n (non)"
+            ;;
+    esac
+done
+
+if [ "$count" -eq 0 ]; then
+    echo "Aucun screenshot pris."
+    exit 0
+fi
+
+echo "=== $count screenshot(s) capturé(s) ==="
+echo ""
+
+# Mettre à jour le README
+echo "Mise à jour du README..."
+
+# Construire le bloc d'images
+img_block='<p align="center">'
+for i in $(seq 1 $count); do
+    img_block+=$'\n'"  <img src=\"screenshots/${i}.png\" width=\"180\" />"
+done
+img_block+=$'\n''</p>'
+
+# Remplacer le bloc entre <!-- SCREENSHOTS_START --> et <!-- SCREENSHOTS_END -->
+# Si les marqueurs n'existent pas, remplacer le bloc <p align="center">...</p> après ## Screenshots
+if grep -q '<!-- SCREENSHOTS_START -->' "$README"; then
+    # Utiliser les marqueurs
+    awk -v block="$img_block" '
+        /<!-- SCREENSHOTS_START -->/ { print; print block; skip=1; next }
+        /<!-- SCREENSHOTS_END -->/ { skip=0 }
+        !skip { print }
+    ' "$README" > "${README}.tmp"
+    mv "${README}.tmp" "$README"
+else
+    # Remplacer le bloc <p align="center">...</p> après ## Screenshots
+    # et ajouter les marqueurs pour la prochaine fois
+    awk -v block="$img_block" '
+        /^## Screenshots/ { print; getline; print; found=1; next }
+        found && /^<p align="center">/ { skip=1; next }
+        found && skip && /^<\/p>/ { skip=0; found=0; print "<!-- SCREENSHOTS_START -->"; print block; print "<!-- SCREENSHOTS_END -->"; next }
+        found && skip { next }
+        { print }
+    ' "$README" > "${README}.tmp"
+    mv "${README}.tmp" "$README"
+fi
 
 echo ""
-echo "=== Taking screenshots ==="
+echo "=== Terminé ! ==="
 echo ""
 
-# 1. Library (subscriptions)
-screenshot "01_library" "Library / Subscriptions"
-sleep 1
-
-# 2. Tap first podcast → Podcast Detail
-echo "  Navigating to Podcast Detail..."
-tap 540 620
-sleep 3
-screenshot "02_podcast_detail" "Podcast Detail"
-sleep 1
-
-# 3. Tap first episode → Episode Detail
-# Episodes start below the header. Get position from UI dump after loading.
-# Typically episodes are around y=800+ in podcast detail. Use a safe tap.
-echo "  Navigating to Episode Detail..."
-# Scroll down a bit first to make sure episodes are visible
-# Episodes usually start around y=900 in podcast detail
-tap 540 1000
-sleep 3
-screenshot "03_episode_detail" "Episode Detail"
-sleep 1
-
-# 4. Back to Podcast Detail, then back to Library
-echo "  Going back to Library..."
-back
-sleep 1
-back
-sleep 2
-
-# 5. Tap MiniPlayer → Player fullscreen
-echo "  Opening Player..."
-tap 540 1980
-sleep 2
-screenshot "04_player" "Player"
-sleep 1
-
-# 6. Back to Library
-echo "  Going back to Library..."
-back
-sleep 1
-
-# 7. Playlist tab
-echo "  Navigating to Playlist..."
-tap 540 2169
-sleep 2
-screenshot "05_playlist" "Playlist"
-sleep 1
-
-# 8. New Episodes tab
-echo "  Navigating to New Episodes..."
-tap 907 2169
-sleep 2
-screenshot "06_new_episodes" "New Episodes"
-sleep 1
-
-# 9. Go back to Library, tap FAB → Discover
-echo "  Navigating to Discover..."
-tap 173 2169
-sleep 1
-tap 965 1780
-sleep 2
-screenshot "07_discover" "Discover"
-sleep 1
-
-# --- Restore original locale ---
-echo ""
-echo "Restoring original locale: $ORIGINAL_LOCALE"
+# Restaurer la locale d'origine
+echo "Restauration de la locale : $ORIGINAL_LOCALE"
 $ADB shell cmd locale set-device-locale "$ORIGINAL_LOCALE"
 sleep 2
-
-# --- Restart app with original locale ---
 $ADB shell am force-stop "$PACKAGE"
 $ADB shell am start -n "$ACTIVITY" > /dev/null 2>&1
 
 echo ""
-echo "=== Done! Screenshots saved in ${SCREENSHOT_DIR}/ ==="
-echo ""
-echo "Files:"
-ls -1 "$SCREENSHOT_DIR"/*.png 2>/dev/null || echo "  (none)"
+echo "Fichiers :"
+ls -1 "$SCREENSHOT_DIR"/*.png 2>/dev/null || echo "  (aucun)"

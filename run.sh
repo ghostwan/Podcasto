@@ -25,7 +25,7 @@ adb install -r "$APK_PATH"
 
 echo ""
 echo "=== Launching app ==="
-adb shell am start -n com.music.podcasto/.MainActivity
+adb shell am start -n com.ghostwan.podcasto/.MainActivity
 
 echo ""
 echo "=== Done! ==="

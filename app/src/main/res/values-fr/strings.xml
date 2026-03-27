@@ -153,4 +153,5 @@
     <string name="web_server_start">Démarrer le serveur web</string>
     <string name="web_server_stop">Arrêter le serveur web</string>
     <string name="web_server_url">URL du serveur</string>
+    <string name="tunnel_toggle">Activer/désactiver le tunnel public</string>
 </resources>

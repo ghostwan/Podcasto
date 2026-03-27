@@ -153,4 +153,5 @@
     <string name="web_server_start">Start web server</string>
     <string name="web_server_stop">Stop web server</string>
     <string name="web_server_url">Server URL</string>
+    <string name="tunnel_toggle">Toggle public tunnel</string>
 </resources>
