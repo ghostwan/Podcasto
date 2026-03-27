@@ -62,7 +62,7 @@ interface EpisodeDao {
     @Query("""
         SELECT e.*, p.artworkUrl FROM episodes e
         INNER JOIN podcasts p ON e.podcastId = p.id
-        WHERE p.subscribed = 1
+        WHERE p.subscribed = 1 AND p.hidden = 0
         ORDER BY e.pubDateTimestamp DESC
         LIMIT 100
     """)
@@ -72,7 +72,7 @@ interface EpisodeDao {
         SELECT e.*, p.artworkUrl FROM episodes e
         INNER JOIN podcasts p ON e.podcastId = p.id
         INNER JOIN podcast_tag_cross_ref ptc ON p.id = ptc.podcastId
-        WHERE p.subscribed = 1 AND ptc.tagId = :tagId
+        WHERE p.subscribed = 1 AND p.hidden = 0 AND ptc.tagId = :tagId
         ORDER BY e.pubDateTimestamp DESC
         LIMIT 100
     """)
@@ -81,7 +81,7 @@ interface EpisodeDao {
     @Query("""
         SELECT e.* FROM episodes e
         INNER JOIN podcasts p ON e.podcastId = p.id
-        WHERE p.subscribed = 1 AND e.played = 0
+        WHERE p.subscribed = 1 AND p.hidden = 0 AND e.played = 0
           AND e.pubDateTimestamp = (
               SELECT MAX(e2.pubDateTimestamp) FROM episodes e2
               WHERE e2.podcastId = e.podcastId AND e2.played = 0
@@ -94,7 +94,7 @@ interface EpisodeDao {
         SELECT e.* FROM episodes e
         INNER JOIN podcasts p ON e.podcastId = p.id
         INNER JOIN podcast_tag_cross_ref ptc ON p.id = ptc.podcastId
-        WHERE ptc.tagId = :tagId AND p.subscribed = 1 AND e.played = 0
+        WHERE ptc.tagId = :tagId AND p.subscribed = 1 AND p.hidden = 0 AND e.played = 0
           AND e.pubDateTimestamp = (
               SELECT MAX(e2.pubDateTimestamp) FROM episodes e2
               WHERE e2.podcastId = e.podcastId AND e2.played = 0
@@ -116,6 +116,8 @@ interface PlaylistDao {
     @Query("""
         SELECT e.* FROM episodes e 
         INNER JOIN playlist_items p ON e.id = p.episodeId 
+        INNER JOIN podcasts pod ON e.podcastId = pod.id
+        WHERE pod.hidden = 0
         ORDER BY p.position ASC
     """)
     fun getPlaylistEpisodes(): Flow<List<EpisodeEntity>>
@@ -123,6 +125,8 @@ interface PlaylistDao {
     @Query("""
         SELECT e.* FROM episodes e 
         INNER JOIN playlist_items p ON e.id = p.episodeId 
+        INNER JOIN podcasts pod ON e.podcastId = pod.id
+        WHERE pod.hidden = 0
         ORDER BY p.position ASC
     """)
     suspend fun getPlaylistEpisodesList(): List<EpisodeEntity>
@@ -131,6 +135,7 @@ interface PlaylistDao {
         SELECT e.*, pod.artworkUrl FROM episodes e 
         INNER JOIN playlist_items p ON e.id = p.episodeId 
         INNER JOIN podcasts pod ON e.podcastId = pod.id
+        WHERE pod.hidden = 0
         ORDER BY p.position ASC
     """)
     fun getPlaylistEpisodesWithArtwork(): Flow<List<EpisodeWithArtwork>>
@@ -139,6 +144,7 @@ interface PlaylistDao {
         SELECT e.*, pod.artworkUrl FROM episodes e 
         INNER JOIN playlist_items p ON e.id = p.episodeId 
         INNER JOIN podcasts pod ON e.podcastId = pod.id
+        WHERE pod.hidden = 0
         ORDER BY p.position ASC
     """)
     suspend fun getPlaylistEpisodesWithArtworkList(): List<EpisodeWithArtwork>
@@ -243,6 +249,7 @@ interface HistoryDao {
         FROM listening_history h
         INNER JOIN episodes e ON h.episodeId = e.id
         INNER JOIN podcasts p ON h.podcastId = p.id
+        WHERE p.hidden = 0
         ORDER BY h.listenedAt DESC
     """)
     fun getHistoryWithDetails(): Flow<List<HistoryWithDetails>>

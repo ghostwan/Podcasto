@@ -160,7 +160,11 @@ fun SubscriptionsScreen(
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
-                title = { Text(stringResource(R.string.nav_subscriptions)) },
+                title = {
+                    if (!webServerRunning) {
+                        Text(stringResource(R.string.nav_subscriptions))
+                    }
+                },
                 actions = {
                     // Display the active URL (tunnel URL takes priority over local)
                     val displayUrl = tunnelUrlState ?: webServerUrl
