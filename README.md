@@ -18,8 +18,8 @@ A full-featured podcast player for Android with an embedded web management inter
 - **Progress tracking** -- Playback position is saved and restored (including when switching episodes or using "Play All"), episodes are marked as played on completion and removed from playlist
 - **Hidden podcasts** -- Long press on a subscription to hide it from the library (toggle visibility with the eye icon)
 - **Backup & Restore** -- Export all data (podcasts, episodes, tags, bookmarks, playlist, settings) to a local JSON file, or import from a previous backup. Google Drive backup with optional auto-backup every 24h via WorkManager
-- **Settings** -- Configure Gemini API key, Google Drive backup, and volume normalization from the overflow menu
-- **SSH Tunnel** -- Expose the web server to the internet via localhost.run (JSch SSH tunnel, no signup required)
+- **Settings** -- Configure Gemini API key, Google Drive backup, volume normalization, and web server password from the overflow menu
+- **SSH Tunnel** -- Expose the web server to the internet via localhost.run (JSch SSH tunnel, no signup required), accessible from a unified server button with Local/Tunnel mode selection
 - **Apple Podcasts fallback** -- Podcasts without a feed URL in the iTunes API (e.g. Radio France) are resolved by scraping the Apple Podcasts web page
 - **Internationalization** -- Full English and French translations
 
@@ -33,8 +33,11 @@ A full-featured podcast player for Android with an embedded web management inter
 - **New episodes** -- Browse latest episodes across all subscriptions
 - **Backup & Restore** -- Export/import all data as JSON directly from the web settings
 - **Settings** -- Configure Gemini API key from the web interface
+- **Password protection** -- Optional password authentication with rate limiting (3 attempts, 15-minute lockout), session-based via cookie
 
 ## Screenshots
+
+### Android App
 
 <!-- SCREENSHOTS_START -->
 <p align="center">
@@ -50,6 +53,15 @@ A full-featured podcast player for Android with an embedded web management inter
   <img src="screenshots/10_web_server.png" width="180" alt="Web Server" />
 </p>
 <!-- SCREENSHOTS_END -->
+
+### Web Interface
+
+<p align="center">
+  <img src="screenshots/11_web_playlist.png" width="400" alt="Web Playlist" />
+  <img src="screenshots/12_web_history.png" width="400" alt="Web History" />
+  <img src="screenshots/13_web_search.png" width="400" alt="Web Search" />
+  <img src="screenshots/14_web_ai_discovery.png" width="400" alt="Web AI Discovery" />
+</p>
 
 The app uses a fixed Material 3 purple theme with a three-tab layout (Library, Playlist, New). Discover is accessed via a FAB button in the Library screen. The web server can be started/stopped from the Library toolbar.
 
