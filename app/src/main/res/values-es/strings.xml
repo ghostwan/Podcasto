@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Podcasto</string>
+
+    <!-- Navigation -->
+    <string name="nav_library">Biblioteca</string>
+    <string name="nav_playlist">Playlist</string>
+    <string name="nav_subscriptions">Suscripciones</string>
+    <string name="nav_history">Historial</string>
+
+    <!-- New Episodes -->
+    <string name="nav_new_episodes">Nuevos</string>
+    <string name="no_new_episodes">Aún no hay episodios.\n¡Suscríbete a podcasts para ver los nuevos!</string>
+    <string name="add_to_playlist">Añadir a la playlist</string>
+    <string name="already_in_playlist">Ya está en la playlist</string>
+    <string name="in_playlist">En la playlist</string>
+    <string name="remove_from_playlist">Quitar de la playlist</string>
+    <string name="not_in_playlist">No está en la playlist</string>
+    <string name="no_episodes_for_tag">No hay episodios para esta etiqueta</string>
+
+    <!-- Common -->
+    <string name="back">Atrás</string>
+    <string name="cancel">Cancelar</string>
+    <string name="save">Guardar</string>
+    <string name="done">Listo</string>
+    <string name="add">Añadir</string>
+    <string name="remove">Quitar</string>
+    <string name="search">Buscar</string>
+    <string name="all">Todos</string>
+    <string name="play">Reproducir</string>
+    <string name="pause">Pausa</string>
+
+    <!-- Discover -->
+    <string name="discover">Descubrir</string>
+    <string name="discover_podcasts">Descubrir podcasts</string>
+    <string name="search_podcasts_hint">Buscar podcasts…</string>
+    <string name="ai_generate_suggestions">Generar sugerencias IA</string>
+    <string name="ai_loading">Generando sugerencias…</string>
+    <string name="ai_error">Error en descubrimiento IA: %1$s</string>
+    <string name="ai_no_subscriptions">¡Suscríbete a podcasts primero para que la IA pueda recomendar nuevos!</string>
+    <string name="ai_search_suggestion">Buscar</string>
+    <string name="ai_no_api_key">Clave API de Gemini no configurada</string>
+    <string name="ai_search_title">Sugerencias IA</string>
+    <string name="ai_search_loading">Buscando con IA…</string>
+    <string name="ai_search_enabled">Búsqueda IA</string>
+    <string name="itunes_results_title">Resultados de iTunes (%d)</string>
+
+    <!-- Subscriptions -->
+    <string name="no_subscriptions">Aún no hay suscripciones.\n¡Descubre podcasts para suscribirte!</string>
+    <string name="no_podcasts_with_tag">No hay podcasts con esta etiqueta</string>
+
+    <!-- Podcast Detail -->
+    <string name="podcast_fallback">Podcast</string>
+    <string name="subscribe">Suscribirse</string>
+    <string name="subscribed">Suscrito</string>
+    <string name="filter_played">Filtrar escuchados</string>
+    <string name="tags">Etiquetas</string>
+    <string name="episodes_count">Episodios (%d)</string>
+    <string name="unplayed_only">Solo no escuchados</string>
+    <string name="now_playing">Reproduciendo</string>
+    <string name="played">Escuchado</string>
+    <string name="unable_to_load_feed">No se pudo cargar el feed del podcast</string>
+
+    <!-- Episode Detail -->
+    <string name="episode_fallback">Episodio</string>
+    <string name="queue">Cola</string>
+    <string name="download">Descargar</string>
+    <string name="saved">Guardado</string>
+    <string name="unplayed">No escuchado</string>
+    <string name="bookmark">Marcador</string>
+    <string name="bookmarks_count">Marcadores (%d)</string>
+    <string name="description_label">Descripción</string>
+    <string name="no_description">No hay descripción disponible.</string>
+    <string name="delete_bookmark">Eliminar marcador</string>
+    <string name="add_bookmark">Añadir marcador</string>
+    <string name="add_bookmark_description">Marcar la posición de reproducción actual con un comentario opcional.</string>
+    <string name="comment_optional">Comentario (opcional)</string>
+
+    <!-- Tag Management -->
+    <string name="manage_tags">Gestionar etiquetas</string>
+    <string name="new_tag">Nueva etiqueta</string>
+
+    <!-- Player -->
+    <string name="now_playing_title">Reproduciendo ahora</string>
+    <string name="nothing_playing">Nada en reproducción</string>
+    <string name="rewind_10s">Retroceder 10s</string>
+    <string name="forward_30s">Avanzar 30s</string>
+    <string name="previous_episode">Episodio anterior</string>
+    <string name="next_episode">Episodio siguiente</string>
+    <string name="go_to_playlist">Ir a la playlist</string>
+    <string name="go_to_podcast">Ir al podcast</string>
+
+    <!-- Playlist -->
+    <string name="play_all">Reproducir todo</string>
+    <string name="playlist_empty">Tu playlist está vacía.\n¡Añade episodios desde su página de detalle!</string>
+    <string name="auto_add_episodes">Añadir automáticamente</string>
+    <string name="clear_playlist">Vaciar playlist</string>
+    <string name="reorder">Reordenar</string>
+    <string name="auto_add_title">Añadir últimos episodios</string>
+    <string name="auto_add_description">Añadir el último episodio no escuchado de cada suscripción.</string>
+    <string name="from_all_subscriptions">De todas las suscripciones</string>
+    <string name="or_filter_by_tag">O filtrar por etiqueta:</string>
+
+    <!-- Download -->
+    <string name="downloading_episode">Descargando episodio…</string>
+
+    <!-- Country filter -->
+    <string name="country_all">Todos</string>
+
+    <!-- History -->
+    <string name="no_history">Aún no hay historial de escucha.\n¡Empieza a escuchar un episodio!</string>
+    <string name="clear_history">Borrar historial</string>
+    <string name="clear_history_confirm">¿Estás seguro de que quieres borrar todo tu historial de escucha?</string>
+    <string name="country_fr">Francia</string>
+    <string name="country_us">EE.UU.</string>
+    <string name="country_gb">Reino Unido</string>
+    <string name="country_de">Alemania</string>
+    <string name="country_es">España</string>
+    <string name="country_it">Italia</string>
+    <string name="country_br">Brasil</string>
+    <string name="country_jp">Japón</string>
+
+    <!-- Hidden Podcasts -->
+    <string name="settings">Ajustes</string>
+    <string name="show_hidden_podcasts">Mostrar podcasts ocultos</string>
+    <string name="podcast_hidden">Oculto</string>
+    <string name="hide_podcast">Ocultar podcast</string>
+    <string name="unhide_podcast">Mostrar podcast</string>
+
+    <!-- Volume Normalization -->
+    <string name="volume_normalization">Normalización de volumen</string>
+    <string name="volume_normalization_on">Normalización de volumen activada</string>
+    <string name="volume_normalization_off">Normalización de volumen desactivada</string>
+
+    <!-- Settings / Gemini -->
+    <string name="gemini_api_key">Clave API de Gemini</string>
+    <string name="gemini_api_key_hint">Introduce tu clave API de Gemini</string>
+    <string name="gemini_api_key_saved">Clave API guardada</string>
+    <string name="gemini_api_key_cleared">Clave API eliminada</string>
+    <string name="gemini_guide_title">Cómo obtener una clave API de Gemini</string>
+    <string name="gemini_guide_step1">1. Ve a Google AI Studio</string>
+    <string name="gemini_guide_step2">2. Inicia sesión con tu cuenta de Google</string>
+    <string name="gemini_guide_step3">3. Haz clic en \"Create API key\"</string>
+    <string name="gemini_guide_step4">4. Copia la clave y pégala arriba</string>
+    <string name="gemini_guide_link">Abrir Google AI Studio</string>
+    <string name="gemini_guide_url">https://aistudio.google.com/apikey</string>
+
+    <!-- Web Server -->
+    <string name="web_server_channel">Servidor web</string>
+    <string name="web_server_channel_desc">Notificación del servidor web integrado</string>
+    <string name="web_server_running">Servidor web activo</string>
+    <string name="web_server_running_desc">Accesible en %1$s</string>
+    <string name="web_server_start">Iniciar servidor web</string>
+    <string name="web_server_stop">Detener servidor web</string>
+    <string name="web_server_url">URL del servidor</string>
+    <string name="tunnel_toggle">Activar/desactivar túnel público</string>
+    <string name="web_server_mode_title">Iniciar servidor web</string>
+    <string name="web_server_mode_local">Local (WiFi)</string>
+    <string name="web_server_mode_tunnel">Túnel (Internet)</string>
+    <string name="web_server_mode_local_desc">Acceso desde la misma red</string>
+    <string name="web_server_mode_tunnel_desc">Acceso desde cualquier lugar vía localhost.run</string>
+
+    <!-- Backup / Restore -->
+    <string name="backup_restore_title">Copia de seguridad local</string>
+    <string name="backup_restore_description">Exporta todos tus datos como archivo JSON en Descargas, o restaura desde un archivo de copia de seguridad.</string>
+    <string name="backup_export">Exportar a archivo</string>
+    <string name="backup_import">Importar desde archivo</string>
+    <string name="backup_export_success">Copia guardada en Descargas</string>
+    <string name="backup_export_error">Error en la exportación</string>
+    <string name="backup_import_success">Copia restaurada con éxito</string>
+    <string name="backup_import_error">Error en la importación</string>
+
+    <!-- Google Drive Backup -->
+    <string name="drive_backup_title">Copia de seguridad en Google Drive</string>
+    <string name="drive_backup_description">Guarda tus datos (suscripciones, episodios, etiquetas, marcadores, playlist, historial, ajustes) en Google Drive. Activa la copia automática para guardar diariamente.</string>
+    <string name="drive_sign_in">Iniciar sesión con Google</string>
+    <string name="drive_sign_out">Cerrar sesión</string>
+    <string name="drive_signed_in_as">Conectado como %1$s</string>
+    <string name="drive_last_backup">Última copia: %1$s</string>
+    <string name="drive_backup_now">Guardar en Drive</string>
+    <string name="drive_restore">Restaurar desde Drive</string>
+    <string name="drive_backup_success">Copia guardada en Google Drive</string>
+    <string name="drive_backup_error">Error en la copia de Drive</string>
+    <string name="drive_restore_success">Restaurado desde Google Drive</string>
+    <string name="drive_restore_error">Error en la restauración de Drive</string>
+    <string name="drive_sign_in_error">Error al iniciar sesión</string>
+    <string name="drive_auto_backup">Copia automática</string>
+    <string name="drive_auto_backup_description">Guardar automáticamente en Google Drive cada 24 horas</string>
+
+    <!-- Web Server Password -->
+    <string name="web_password_title">Contraseña del servidor web</string>
+    <string name="web_password_description">Establece una contraseña para proteger la interfaz web al acceder por túnel. Déjalo vacío para desactivar la autenticación (solo acceso local).</string>
+    <string name="web_password_hint">Introduce una contraseña</string>
+    <string name="web_password_saved">Contraseña guardada</string>
+    <string name="web_password_cleared">Contraseña eliminada</string>
+    <string name="web_password_set">Contraseña establecida</string>
+    <string name="web_password_not_set">Sin contraseña — interfaz web sin protección</string>
+</resources>

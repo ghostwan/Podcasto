@@ -21,7 +21,7 @@ A full-featured podcast player for Android with an embedded web management inter
 - **Settings** -- Configure Gemini API key, Google Drive backup, volume normalization, and web server password from the overflow menu
 - **SSH Tunnel** -- Expose the web server to the internet via localhost.run (JSch SSH tunnel, no signup required), accessible from a unified server button with Local/Tunnel mode selection
 - **Apple Podcasts fallback** -- Podcasts without a feed URL in the iTunes API (e.g. Radio France) are resolved by scraping the Apple Podcasts web page
-- **Internationalization** -- Full English and French translations
+- **Internationalization** -- Full English, French, German, and Spanish translations
 
 ### Web Interface
 - **Embedded web server** -- Access your podcast library from any browser on the local network (Ktor CIO)
@@ -107,6 +107,8 @@ app/src/main/assets/web/  -- Web UI (HTML/CSS/JS single-page app)
 app/src/main/res/
   values/          -- English strings (default)
   values-fr/       -- French translations
+  values-de/       -- German translations
+  values-es/       -- Spanish translations
 ```
 
 ## Building & Running
