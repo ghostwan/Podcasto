@@ -157,8 +157,17 @@ class PlayerManager @Inject constructor(
                 Uri.parse(freshEpisode.downloadPath)
             } else {
                 // Resolve YouTube URLs at play time (they expire)
-                val resolvedUrl = repository.resolveAudioUrl(freshEpisode)
-                Uri.parse(resolvedUrl)
+                try {
+                    val resolvedUrl = repository.resolveAudioUrl(freshEpisode)
+                    Uri.parse(resolvedUrl)
+                } catch (e: Exception) {
+                    android.util.Log.e("PlayerManager", "Failed to resolve audio URL for episode ${freshEpisode.id}", e)
+                    _playerState.value = _playerState.value.copy(
+                        currentEpisode = freshEpisode,
+                        isPlaying = false,
+                    )
+                    return@launch
+                }
             }
             val mediaItem = MediaItem.Builder()
                 .setUri(audioUri)

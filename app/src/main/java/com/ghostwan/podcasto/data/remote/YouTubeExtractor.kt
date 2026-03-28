@@ -168,23 +168,18 @@ class YouTubeExtractor @Inject constructor(
      */
     suspend fun resolveAudioStreamUrl(videoUrl: String): String = withContext(Dispatchers.IO) {
         ensureInitialized()
-        try {
-            Log.d(TAG, "Resolving audio stream for: $videoUrl")
-            val info = StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
+        Log.d(TAG, "Resolving audio stream for: $videoUrl")
+        val info = StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
 
-            // Prefer audio-only streams, sorted by bitrate (highest first)
-            val audioStreams = info.audioStreams
-                .sortedByDescending { it.averageBitrate }
+        // Prefer audio-only streams, sorted by bitrate (highest first)
+        val audioStreams = info.audioStreams
+            .sortedByDescending { it.averageBitrate }
 
-            val bestStream = audioStreams.firstOrNull()
-                ?: throw Exception("No audio streams found for $videoUrl")
+        val bestStream = audioStreams.firstOrNull()
+            ?: throw Exception("No audio streams found for $videoUrl")
 
-            Log.d(TAG, "Resolved audio stream: ${bestStream.content} (${bestStream.averageBitrate}kbps, ${bestStream.format?.name})")
-            bestStream.content
-        } catch (e: ExtractionException) {
-            Log.e(TAG, "Failed to resolve audio stream for $videoUrl", e)
-            throw e
-        }
+        Log.d(TAG, "Resolved audio stream: ${bestStream.content} (${bestStream.averageBitrate}kbps, ${bestStream.format?.name})")
+        bestStream.content
     }
 
     /**
