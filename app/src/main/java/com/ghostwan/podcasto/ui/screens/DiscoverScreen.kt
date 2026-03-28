@@ -31,6 +31,7 @@ import com.google.ai.client.generativeai.GenerativeModel
 import com.ghostwan.podcasto.BuildConfig
 import com.ghostwan.podcasto.R
 import com.ghostwan.podcasto.data.remote.ITunesPodcast
+import com.ghostwan.podcasto.data.remote.YouTubeExtractor
 import com.ghostwan.podcasto.data.repository.PodcastRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -126,6 +127,16 @@ class DiscoverViewModel @Inject constructor(
     private val _aiSearchEnabled = MutableStateFlow(true)
     val aiSearchEnabled: StateFlow<Boolean> = _aiSearchEnabled.asStateFlow()
 
+    // YouTube subscription state
+    private val _youtubeLoading = MutableStateFlow(false)
+    val youtubeLoading: StateFlow<Boolean> = _youtubeLoading.asStateFlow()
+
+    private val _youtubeSuccess = MutableStateFlow<String?>(null)
+    val youtubeSuccess: StateFlow<String?> = _youtubeSuccess.asStateFlow()
+
+    private val _youtubeError = MutableStateFlow<String?>(null)
+    val youtubeError: StateFlow<String?> = _youtubeError.asStateFlow()
+
     private val jsonParser = Json { ignoreUnknownKeys = true }
 
     fun onQueryChange(query: String) {
@@ -146,6 +157,12 @@ class DiscoverViewModel @Inject constructor(
     fun search() {
         val query = _searchQuery.value.trim()
         if (query.isEmpty()) return
+
+        // Check if query is a YouTube channel URL
+        if (YouTubeExtractor.isYouTubeChannelUrl(query)) {
+            subscribeToYouTubeChannel(query)
+            return
+        }
 
         // iTunes search
         viewModelScope.launch {
@@ -206,6 +223,28 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
             }
             _aiSearchLoading.value = false
         }
+    }
+
+    private fun subscribeToYouTubeChannel(channelUrl: String) {
+        viewModelScope.launch {
+            _youtubeLoading.value = true
+            _youtubeSuccess.value = null
+            _youtubeError.value = null
+            try {
+                val podcast = repository.subscribeToYouTubeChannel(channelUrl)
+                _youtubeSuccess.value = podcast.title
+                _youtubeLoading.value = false
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _youtubeError.value = e.message ?: "Unknown error"
+                _youtubeLoading.value = false
+            }
+        }
+    }
+
+    fun clearYoutubeState() {
+        _youtubeSuccess.value = null
+        _youtubeError.value = null
     }
 
     fun searchFromSuggestion(suggestion: AiSuggestion) {
@@ -304,6 +343,11 @@ fun DiscoverScreen(
     val aiSearchLoading by viewModel.aiSearchLoading.collectAsState()
     val aiSearchEnabled by viewModel.aiSearchEnabled.collectAsState()
 
+    // YouTube state
+    val youtubeLoading by viewModel.youtubeLoading.collectAsState()
+    val youtubeSuccess by viewModel.youtubeSuccess.collectAsState()
+    val youtubeError by viewModel.youtubeError.collectAsState()
+
     val showAiSection = query.isBlank() && results.isEmpty()
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -323,7 +367,7 @@ fun DiscoverScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            placeholder = { Text(stringResource(R.string.search_podcasts_hint)) },
+            placeholder = { Text(stringResource(R.string.search_podcasts_or_youtube_hint)) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search)) },
             singleLine = true,
             shape = RoundedCornerShape(28.dp),
@@ -372,9 +416,64 @@ fun DiscoverScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            enabled = query.isNotBlank() && !isLoading,
+            enabled = query.isNotBlank() && !isLoading && !youtubeLoading,
         ) {
             Text(stringResource(R.string.search))
+        }
+
+        // YouTube subscription status
+        if (youtubeLoading) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = stringResource(R.string.youtube_subscribing),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+
+        youtubeSuccess?.let { channelName ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .clickable { viewModel.clearYoutubeState() },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+            ) {
+                Text(
+                    text = stringResource(R.string.youtube_subscribed_success, channelName),
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+
+        youtubeError?.let { error ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .clickable { viewModel.clearYoutubeState() },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                ),
+            ) {
+                Text(
+                    text = stringResource(R.string.youtube_subscribe_error, error),
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
         }
 
         if (isLoading) {

@@ -9,6 +9,7 @@ import com.ghostwan.podcasto.data.remote.ApplePodcastsScraper
 import com.ghostwan.podcasto.data.remote.ITunesApiService
 import com.ghostwan.podcasto.data.remote.ITunesPodcast
 import com.ghostwan.podcasto.data.remote.RssParser
+import com.ghostwan.podcasto.data.remote.YouTubeExtractor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +28,7 @@ class PodcastRepository @Inject constructor(
     private val iTunesApi: ITunesApiService,
     private val rssParser: RssParser,
     private val applePodcastsScraper: ApplePodcastsScraper,
+    private val youTubeExtractor: YouTubeExtractor,
     private val podcastDao: PodcastDao,
     private val episodeDao: EpisodeDao,
     private val playlistDao: PlaylistDao,
@@ -84,6 +86,10 @@ class PodcastRepository @Inject constructor(
     }
 
     suspend fun refreshPodcastEpisodes(podcast: PodcastEntity) = withContext(Dispatchers.IO) {
+        if (podcast.sourceType == "youtube") {
+            refreshYouTubeEpisodes(podcast)
+            return@withContext
+        }
         try {
             val feed = rssParser.parseFeed(podcast.feedUrl)
             val updatedPodcast = podcast.copy(
@@ -143,6 +149,86 @@ class PodcastRepository @Inject constructor(
             )
         }
         Pair(podcast, episodes)
+    }
+
+    // --- YouTube ---
+
+    /**
+     * Subscribe to a YouTube channel as a podcast.
+     * Uses NewPipe Extractor to get channel info, then YouTube RSS for episodes.
+     */
+    suspend fun subscribeToYouTubeChannel(channelUrl: String): PodcastEntity = withContext(Dispatchers.IO) {
+        val channelInfo = youTubeExtractor.getChannelInfo(channelUrl)
+        // Use channel ID hash as podcast ID to avoid collision with iTunes IDs
+        val podcastId = channelInfo.channelId.hashCode().toLong().let { if (it < 0) -it else it }
+        val feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=${channelInfo.channelId}"
+
+        val entity = PodcastEntity(
+            id = podcastId,
+            title = channelInfo.name,
+            author = channelInfo.name,
+            description = channelInfo.description,
+            feedUrl = feedUrl,
+            artworkUrl = channelInfo.avatarUrl,
+            subscribed = true,
+            sourceType = "youtube",
+        )
+        podcastDao.insertPodcast(entity)
+        refreshYouTubeEpisodes(entity)
+        entity
+    }
+
+    /**
+     * Refresh episodes for a YouTube-type podcast using its RSS feed.
+     */
+    private suspend fun refreshYouTubeEpisodes(podcast: PodcastEntity) {
+        try {
+            // Extract channel ID from feed URL
+            val channelId = podcast.feedUrl
+                .substringAfter("channel_id=", "")
+                .takeIf { it.isNotEmpty() }
+                ?: return
+
+            val videos = youTubeExtractor.fetchChannelVideos(channelId)
+            val episodes = videos.mapIndexed { index, video ->
+                val episodeId = podcast.id * 100000 + index
+                val existingEpisode = episodeDao.getEpisodeById(episodeId)
+                EpisodeEntity(
+                    id = episodeId,
+                    podcastId = podcast.id,
+                    title = video.title,
+                    description = video.description,
+                    audioUrl = video.videoUrl, // Store video URL; resolved at play time
+                    pubDate = video.pubDate,
+                    pubDateTimestamp = video.pubDateTimestamp,
+                    duration = 0, // YouTube RSS doesn't provide duration
+                    downloadPath = existingEpisode?.downloadPath,
+                    played = existingEpisode?.played ?: false,
+                    playbackPosition = existingEpisode?.playbackPosition ?: 0,
+                )
+            }
+            episodeDao.insertEpisodes(episodes)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * Resolve the actual audio stream URL for an episode.
+     * For YouTube episodes, this uses NewPipe Extractor (URL expires, must resolve at play time).
+     * For regular RSS episodes, returns the stored audioUrl directly.
+     */
+    suspend fun resolveAudioUrl(episode: EpisodeEntity): String {
+        // First check if the URL itself is a YouTube video URL (direct detection)
+        if (YouTubeExtractor.isYouTubeVideoUrl(episode.audioUrl)) {
+            return youTubeExtractor.resolveAudioStreamUrl(episode.audioUrl)
+        }
+        // Fallback: check podcast sourceType
+        val podcast = podcastDao.getPodcastById(episode.podcastId)
+        if (podcast?.sourceType == "youtube") {
+            return youTubeExtractor.resolveAudioStreamUrl(episode.audioUrl)
+        }
+        return episode.audioUrl
     }
 
     // --- Episodes ---
@@ -341,7 +427,7 @@ class PodcastRepository @Inject constructor(
                     id = p.id, title = p.title, author = p.author,
                     description = p.description, feedUrl = p.feedUrl,
                     artworkUrl = p.artworkUrl, subscribed = p.subscribed,
-                    hidden = p.hidden,
+                    hidden = p.hidden, sourceType = p.sourceType,
                 )
             )
         }
@@ -421,6 +507,7 @@ data class BackupPodcast(
     val id: Long, val title: String, val author: String,
     val description: String, val feedUrl: String, val artworkUrl: String,
     val subscribed: Boolean = true, val hidden: Boolean = false,
+    val sourceType: String = "rss",
 )
 
 @Serializable
@@ -455,6 +542,7 @@ data class BackupHistory(
 private fun PodcastEntity.toBackup() = BackupPodcast(
     id = id, title = title, author = author, description = description,
     feedUrl = feedUrl, artworkUrl = artworkUrl, subscribed = subscribed, hidden = hidden,
+    sourceType = sourceType,
 )
 
 private fun EpisodeEntity.toBackup() = BackupEpisode(

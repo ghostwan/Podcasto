@@ -14,6 +14,7 @@ data class PodcastEntity(
     val artworkUrl: String,
     val subscribed: Boolean = false,
     val hidden: Boolean = false,
+    val sourceType: String = "rss", // "rss" or "youtube"
 )
 
 @Entity(tableName = "episodes")

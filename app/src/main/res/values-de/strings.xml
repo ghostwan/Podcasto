@@ -195,4 +195,10 @@
     <string name="web_password_cleared">Passwort entfernt</string>
     <string name="web_password_set">Passwort ist gesetzt</string>
     <string name="web_password_not_set">Kein Passwort — Weboberfläche ungeschützt</string>
+
+    <!-- YouTube -->
+    <string name="search_podcasts_or_youtube_hint">Podcasts suchen oder YouTube-Kanal-URL einfügen…</string>
+    <string name="youtube_subscribing">YouTube-Kanal wird abonniert…</string>
+    <string name="youtube_subscribed_success">%1$s abonniert</string>
+    <string name="youtube_subscribe_error">YouTube-Abonnement fehlgeschlagen: %1$s</string>
 </resources>

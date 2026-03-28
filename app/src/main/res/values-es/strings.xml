@@ -195,4 +195,10 @@
     <string name="web_password_cleared">Contraseña eliminada</string>
     <string name="web_password_set">Contraseña establecida</string>
     <string name="web_password_not_set">Sin contraseña — interfaz web sin protección</string>
+
+    <!-- YouTube -->
+    <string name="search_podcasts_or_youtube_hint">Buscar podcasts o pegar URL de canal de YouTube…</string>
+    <string name="youtube_subscribing">Suscribiéndose al canal de YouTube…</string>
+    <string name="youtube_subscribed_success">Suscrito a %1$s</string>
+    <string name="youtube_subscribe_error">Error en la suscripción de YouTube: %1$s</string>
 </resources>

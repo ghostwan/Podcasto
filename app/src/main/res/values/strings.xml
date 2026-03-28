@@ -195,4 +195,10 @@
     <string name="web_password_cleared">Password removed</string>
     <string name="web_password_set">Password is set</string>
     <string name="web_password_not_set">No password — web interface is unprotected</string>
+
+    <!-- YouTube -->
+    <string name="search_podcasts_or_youtube_hint">Search podcasts or paste YouTube channel URL…</string>
+    <string name="youtube_subscribing">Subscribing to YouTube channel…</string>
+    <string name="youtube_subscribed_success">Subscribed to %1$s</string>
+    <string name="youtube_subscribe_error">YouTube subscription failed: %1$s</string>
 </resources>

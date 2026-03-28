@@ -156,7 +156,9 @@ class PlayerManager @Inject constructor(
             val audioUri = if (freshEpisode.downloadPath != null) {
                 Uri.parse(freshEpisode.downloadPath)
             } else {
-                Uri.parse(freshEpisode.audioUrl)
+                // Resolve YouTube URLs at play time (they expire)
+                val resolvedUrl = repository.resolveAudioUrl(freshEpisode)
+                Uri.parse(resolvedUrl)
             }
             val mediaItem = MediaItem.Builder()
                 .setUri(audioUri)
@@ -216,6 +218,8 @@ class PlayerManager @Inject constructor(
                 val audioUri = if (episode.downloadPath != null) {
                     Uri.parse(episode.downloadPath)
                 } else {
+                    // Note: for playMultiple, YouTube URLs will be resolved individually
+                    // when each track starts playing via the single play() method
                     Uri.parse(episode.audioUrl)
                 }
                 MediaItem.Builder()

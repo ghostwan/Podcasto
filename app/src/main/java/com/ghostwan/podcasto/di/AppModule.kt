@@ -82,12 +82,18 @@ object AppModule {
             }
         }
 
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE podcasts ADD COLUMN sourceType TEXT NOT NULL DEFAULT 'rss'")
+            }
+        }
+
         return Room.databaseBuilder(
             context,
             PodcastoDatabase::class.java,
             "podcasto.db",
         )
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
     }

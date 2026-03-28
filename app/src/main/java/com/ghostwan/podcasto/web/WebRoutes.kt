@@ -32,6 +32,7 @@ data class PodcastResponse(
     val tags: List<TagResponse> = emptyList(),
     val latestEpisodeTimestamp: Long = 0,
     val hidden: Boolean = false,
+    val sourceType: String = "rss",
 )
 
 @Serializable
@@ -356,6 +357,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                     tags = podcastTags.map { TagResponse(it.id, it.name) },
                     latestEpisodeTimestamp = latestTimestamps[p.id] ?: 0L,
                     hidden = p.hidden,
+                    sourceType = p.sourceType,
                 )
             }
             call.respond(response)
@@ -378,6 +380,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                 subscribed = podcast.subscribed,
                 tags = podcastTags.map { TagResponse(it.id, it.name) },
                 hidden = podcast.hidden,
+                sourceType = podcast.sourceType,
             ))
         }
 
@@ -474,6 +477,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                             subscribed = true,
                             tags = podcastTags.map { TagResponse(it.id, it.name) },
                             hidden = existing.hidden,
+                            sourceType = existing.sourceType,
                         ),
                         episodes = episodes.map { e ->
                             EpisodeResponse(
@@ -942,6 +946,49 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                 call.respond(HttpStatusCode.OK, mapOf("status" to "added"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, ErrorResponse(e.message ?: "Failed to add history"))
+            }
+        }
+
+        // === YouTube ===
+
+        // GET /api/youtube/resolve?url=... — resolve YouTube video to audio stream URL
+        get("/youtube/resolve") {
+            val videoUrl = call.request.queryParameters["url"]
+                ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'url' parameter"))
+            try {
+                // For episodes already in DB, use resolveAudioUrl which checks sourceType
+                // For direct URL resolution, check if it's a YouTube URL
+                if (!com.ghostwan.podcasto.data.remote.YouTubeExtractor.isYouTubeVideoUrl(videoUrl)) {
+                    call.respond(mapOf("audioUrl" to videoUrl))
+                    return@get
+                }
+                val episode = com.ghostwan.podcasto.data.local.EpisodeEntity(
+                    id = 0, podcastId = 0, title = "", description = "",
+                    audioUrl = videoUrl, pubDate = "", pubDateTimestamp = 0,
+                )
+                val audioUrl = repository.resolveAudioUrl(episode)
+                call.respond(mapOf("audioUrl" to audioUrl))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ErrorResponse("Failed to resolve YouTube audio: ${e.message}"))
+            }
+        }
+
+        // POST /api/youtube/subscribe — subscribe to YouTube channel
+        post("/youtube/subscribe") {
+            try {
+                val body = call.receive<Map<String, String>>()
+                val channelUrl = body["channelUrl"]
+                    ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'channelUrl'"))
+                val podcast = repository.subscribeToYouTubeChannel(channelUrl)
+                call.respond(HttpStatusCode.OK, mapOf(
+                    "status" to "subscribed",
+                    "id" to podcast.id.toString(),
+                    "name" to podcast.title,
+                    "artistName" to podcast.author,
+                    "artworkUrl" to podcast.artworkUrl,
+                ))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ErrorResponse("YouTube subscribe failed: ${e.message}"))
             }
         }
 

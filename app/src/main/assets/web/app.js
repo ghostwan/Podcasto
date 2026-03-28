@@ -496,6 +496,7 @@ function renderLibrary(podcasts) {
         return `
         <div class="podcast-card ${isStale ? 'stale' : ''}${hiddenClass}" onclick="openPodcastDetail(${p.id})">
             ${p.hidden ? '<div class="hidden-badge"><span class="material-icons-round">visibility_off</span></div>' : ''}
+            ${p.sourceType === 'youtube' ? '<div class="youtube-badge"><span class="material-icons-round" style="color:#f00">smart_display</span></div>' : ''}
             <div class="card-content">
                 <img class="artwork" src="${esc(p.artworkUrl)}" alt="${esc(p.title)}" onerror="this.src='${placeholderImg()}'">
                 <div class="info">
@@ -1418,7 +1419,7 @@ async function playNewEpisode(episodeId, artworkUrl) {
         playerPodcastTitle = '';
 
         const audio = document.getElementById('audio-element');
-        audio.src = episode.audioUrl;
+        audio.src = await resolveAudioUrl(episode);
         audio.playbackRate = playbackSpeed;
 
         const startPos = episode.playbackPosition > 0 ? episode.playbackPosition / 1000 : 0;
@@ -1533,7 +1534,7 @@ async function playHistoryEpisode(episodeId, artworkUrl, podcastTitle) {
         playerPodcastTitle = podcastTitle || '';
 
         const audio = document.getElementById('audio-element');
-        audio.src = episode.audioUrl;
+        audio.src = await resolveAudioUrl(episode);
         audio.playbackRate = playbackSpeed;
 
         const startPos = episode.playbackPosition > 0 ? episode.playbackPosition / 1000 : 0;
@@ -1602,6 +1603,34 @@ function clearHistoryConfirm() {
 }
 
 // ========================
+// YouTube URL helpers
+// ========================
+function isYouTubeUrl(url) {
+    if (!url) return false;
+    return url.includes('youtube.com/watch') || url.includes('youtu.be/');
+}
+
+function isYouTubeChannelUrl(query) {
+    if (!query) return false;
+    return query.match(/youtube\.com\/(channel\/|@|c\/)/i) ||
+           query.match(/youtu\.be\//i) && false; // youtu.be is for videos, not channels
+}
+
+async function resolveAudioUrl(episode) {
+    if (!episode || !episode.audioUrl) return '';
+    if (!isYouTubeUrl(episode.audioUrl)) return episode.audioUrl;
+    try {
+        const res = await authFetch(`/api/youtube/resolve?url=${encodeURIComponent(episode.audioUrl)}`);
+        const data = await res.json();
+        if (data.audioUrl) return data.audioUrl;
+        throw new Error(data.error || 'Failed to resolve YouTube audio');
+    } catch (e) {
+        showToast('Erreur YouTube: ' + e.message);
+        throw e;
+    }
+}
+
+// ========================
 // Audio Player
 // ========================
 async function playEpisode(episodeId, seekTo) {
@@ -1617,7 +1646,7 @@ async function playEpisode(episodeId, seekTo) {
         playerPodcastTitle = currentPodcastDetail ? currentPodcastDetail.title : '';
 
         const audio = document.getElementById('audio-element');
-        audio.src = episode.audioUrl;
+        audio.src = await resolveAudioUrl(episode);
         audio.playbackRate = playbackSpeed;
 
         // Seek to saved position or specified position
@@ -1653,7 +1682,7 @@ async function playEpisodeFromPlaylist(episodeId, artworkUrl, podcastTitle) {
         playerPodcastTitle = podcastTitle || '';
 
         const audio = document.getElementById('audio-element');
-        audio.src = episode.audioUrl;
+        audio.src = await resolveAudioUrl(episode);
         audio.playbackRate = playbackSpeed;
 
         const startPos = episode.playbackPosition > 0 ? episode.playbackPosition / 1000 : 0;
@@ -2115,6 +2144,49 @@ async function performSearch(query) {
     const aiGrid = document.getElementById('search-ai-grid');
     const aiLoading = document.getElementById('search-ai-loading');
     const itunesHeader = document.getElementById('search-itunes-header');
+
+    // YouTube channel URL detection
+    if (query.match(/youtube\.com\/(channel\/|@|c\/)/i)) {
+        empty.style.display = 'none';
+        aiResults.style.display = 'none';
+        itunesHeader.style.display = 'none';
+        results.innerHTML = '';
+        loading.style.display = '';
+        try {
+            const res = await authFetch('/api/youtube/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channelUrl: query })
+            });
+            loading.style.display = 'none';
+            const data = await res.json();
+            if (data.error) {
+                showToast('Erreur YouTube: ' + data.error);
+                empty.style.display = '';
+                empty.querySelector('p').textContent = data.error;
+                return;
+            }
+            // Show success
+            results.innerHTML = `
+                <div class="podcast-card">
+                    <div class="subscribed-badge"><span class="material-icons-round">check_circle</span> Abonn\u00e9</div>
+                    <div class="card-content">
+                        <img class="artwork" src="${esc(data.artworkUrl || '')}" alt="${esc(data.name || '')}" onerror="this.src='${placeholderImg()}'">
+                        <div class="info">
+                            <div class="title"><span class="material-icons-round" style="font-size:16px;vertical-align:middle;color:#f00;margin-right:4px">smart_display</span>${esc(data.name || 'YouTube Channel')}</div>
+                            <div class="author">${esc(data.artistName || '')}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            showToast('Abonn\u00e9 \u00e0 ' + (data.name || 'la cha\u00eene YouTube'));
+            loadLibrary();
+        } catch (e) {
+            loading.style.display = 'none';
+            showToast('Erreur YouTube: ' + e.message);
+        }
+        return;
+    }
 
     empty.style.display = 'none';
     loading.style.display = '';

@@ -222,6 +222,13 @@ main {
     font-size: 20px;
 }
 
+.youtube-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 20px;
+}
+
 .btn-icon {
     background: none;
     border: 1px solid var(--outline);
