@@ -15,3 +15,6 @@ local.properties
 *.keystore
 keystore.properties
 signing.properties
+
+# Google Play service account
+play-service-account.json

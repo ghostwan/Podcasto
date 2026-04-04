@@ -7,6 +7,7 @@ plugins {
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.github.triplet.play")
 }
 
 // Load local.properties once (not committed to git)
@@ -95,6 +96,19 @@ android {
             excludes += "META-INF/DEPENDENCIES"
         }
     }
+}
+
+// Gradle Play Publisher — deploy 'store' flavor to Google Play
+play {
+    // Service account JSON for Google Play Developer API
+    val serviceAccountFile = rootProject.file("play-service-account.json")
+    if (serviceAccountFile.exists()) {
+        serviceAccountCredentials.set(serviceAccountFile)
+    }
+
+    // Only publish the 'store' flavor (no YouTube/NewPipe)
+    track.set("internal") // internal → alpha → beta → production
+    defaultToAppBundles.set(true)
 }
 
 dependencies {
