@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="app/src/main/ic_launcher-playstore.png" width="128" alt="Podcasto icon" />
+</p>
+
 # Podcasto
 
 A full-featured podcast player for Android with YouTube channel support, an embedded web management interface, and AI-powered discovery -- built with Kotlin and Jetpack Compose.
@@ -22,7 +26,7 @@ A full-featured podcast player for Android with YouTube channel support, an embe
 - **Settings** -- Configure Gemini API key, Google Drive backup, volume normalization, web server password, and version info (long press to open GitHub) from the overflow menu
 - **SSH Tunnel** -- Expose the web server to the internet via localhost.run (JSch SSH tunnel, no signup required), accessible from a unified server button with Local/Tunnel mode selection
 - **Apple Podcasts fallback** -- Podcasts without a feed URL in the iTunes API (e.g. Radio France) are resolved by scraping the Apple Podcasts web page
-- **Internationalization** -- Full English, French, German, and Spanish translations
+- **Internationalization** -- Full English, French, German, Spanish, Italian, Dutch, Japanese, Swedish, and Chinese (Simplified) translations
 
 ### Web Interface
 - **Embedded web server** -- Access your podcast library from any browser on the local network (Ktor CIO)
@@ -133,6 +137,11 @@ app/src/main/res/
   values-fr/       -- French translations
   values-de/       -- German translations
   values-es/       -- Spanish translations
+  values-it/       -- Italian translations
+  values-nl/       -- Dutch translations
+  values-ja/       -- Japanese translations
+  values-sv/       -- Swedish translations
+  values-zh-rCN/   -- Chinese (Simplified) translations
 ```
 
 ## Building & Running
