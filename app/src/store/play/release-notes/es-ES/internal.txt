@@ -1,0 +1,11 @@
+Versión inicial de Podcasto, reproductor de podcasts completo.
+- Buscar y suscribirse a podcasts vía iTunes
+- Reproductor con avance 10s/30s, playlist con arrastre
+- Descarga para escucha sin conexión
+- Etiquetas, marcadores, filtros escuchados/no escuchados
+- Descubrimiento IA con Gemini
+- Servidor web para control remoto
+- Acceso túnel con contraseña
+- Copia de seguridad local y Google Drive
+- Historial de escucha y normalización de volumen
+- 4 idiomas: EN, FR, DE, ES

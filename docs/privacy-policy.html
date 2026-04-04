@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podcasto — Privacy Policy</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 24px;
+            line-height: 1.6;
+            color: #1a1a1a;
+            background: #fafafa;
+        }
+        h1 { color: #6750A4; }
+        h2 { color: #333; margin-top: 32px; }
+        .last-updated { color: #666; font-style: italic; margin-bottom: 32px; }
+        a { color: #6750A4; }
+        ul { padding-left: 24px; }
+        li { margin-bottom: 8px; }
+        .section { margin-bottom: 24px; }
+    </style>
+</head>
+<body>
+    <h1>Podcasto — Privacy Policy</h1>
+    <p class="last-updated">Last updated: April 4, 2026</p>
+
+    <div class="section">
+        <h2>Introduction</h2>
+        <p>Podcasto is a free, open-source podcast player for Android developed by ghostwan. This privacy policy explains how Podcasto handles your data. In short: <strong>we do not collect, store, or share any personal data</strong>.</p>
+    </div>
+
+    <div class="section">
+        <h2>Data Stored Locally</h2>
+        <p>All your data is stored locally on your device and never leaves it unless you explicitly choose to back it up. This includes:</p>
+        <ul>
+            <li>Podcast subscriptions and episode metadata</li>
+            <li>Playback progress and listening history</li>
+            <li>Playlists, tags, and bookmarks</li>
+            <li>Downloaded episodes (audio files)</li>
+            <li>App settings and preferences</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Network Requests</h2>
+        <p>Podcasto makes network requests solely to provide its core functionality:</p>
+        <ul>
+            <li><strong>iTunes Search API</strong> — to search and discover podcasts. Queries are sent to Apple's servers.</li>
+            <li><strong>RSS feeds</strong> — to fetch podcast episode listings directly from podcast publishers.</li>
+            <li><strong>Audio streaming</strong> — to stream or download episode audio files from podcast publishers' servers.</li>
+            <li><strong>Podcast artwork</strong> — to load cover images from podcast publishers' servers.</li>
+        </ul>
+        <p>No personal data, device identifiers, or usage analytics are sent with these requests.</p>
+    </div>
+
+    <div class="section">
+        <h2>Optional Features</h2>
+        <p>The following features involve third-party services and are entirely opt-in:</p>
+
+        <h3>Google Drive Backup</h3>
+        <p>If you choose to sign in with your Google account, Podcasto can back up your data (subscriptions, episodes, tags, bookmarks, playlist, history, settings) to your Google Drive App Data folder. This data is only accessible by Podcasto and by you. No data is shared with ghostwan or any third party. You can revoke access at any time from your <a href="https://myaccount.google.com/permissions">Google Account permissions</a>.</p>
+
+        <h3>Gemini AI Discovery</h3>
+        <p>If you provide a Gemini API key, Podcasto sends your subscription list to Google's Generative AI API to generate podcast recommendations. Your API key is stored locally on your device and is never shared with ghostwan. Usage of the Gemini API is subject to <a href="https://ai.google.dev/terms">Google's API Terms of Service</a>.</p>
+
+        <h3>Built-in Web Server</h3>
+        <p>Podcasto includes an optional web server that allows you to control the app from a web browser. When enabled, it runs locally on your device. If you enable the public tunnel feature (via localhost.run), your web interface becomes accessible from the internet. You can protect it with a password. No data is sent to ghostwan through this feature.</p>
+    </div>
+
+    <div class="section">
+        <h2>Data Collection</h2>
+        <p>Podcasto does <strong>not</strong>:</p>
+        <ul>
+            <li>Collect any personal information</li>
+            <li>Track your usage or behavior</li>
+            <li>Display advertisements</li>
+            <li>Use analytics services or crash reporting tools</li>
+            <li>Share any data with third parties</li>
+            <li>Require account creation</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>Data Deletion</h2>
+        <p>Since all data is stored locally on your device, you can delete all Podcasto data at any time by:</p>
+        <ul>
+            <li>Clearing the app's data from Android Settings</li>
+            <li>Uninstalling the app</li>
+        </ul>
+        <p>If you used Google Drive backup, you can delete the backup data from your Google Drive.</p>
+    </div>
+
+    <div class="section">
+        <h2>Children's Privacy</h2>
+        <p>Podcasto is not directed at children under the age of 13. We do not knowingly collect any data from children.</p>
+    </div>
+
+    <div class="section">
+        <h2>Changes to This Policy</h2>
+        <p>This privacy policy may be updated occasionally. Changes will be posted on this page with an updated date. The policy is also available in the app's <a href="https://github.com/ghostwan/Podcasto">source code repository</a>.</p>
+    </div>
+
+    <div class="section">
+        <h2>Contact</h2>
+        <p>If you have any questions about this privacy policy, you can open an issue on the <a href="https://github.com/ghostwan/Podcasto/issues">GitHub repository</a>.</p>
+    </div>
+
+    <div class="section">
+        <h2>Open Source</h2>
+        <p>Podcasto is open-source software. You can review the complete source code at <a href="https://github.com/ghostwan/Podcasto">github.com/ghostwan/Podcasto</a> to verify these privacy claims.</p>
+    </div>
+</body>
+</html>

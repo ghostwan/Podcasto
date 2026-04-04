@@ -1,0 +1,11 @@
+Erstveröffentlichung von Podcasto, einem Podcast-Player.
+- Podcasts suchen und abonnieren über iTunes
+- Audioplayer mit 10s/30s Spulen, Playlist per Drag-and-Drop
+- Episoden für Offline-Wiedergabe herunterladen
+- Tags, Lesezeichen, Gehört/Ungehört-Filter
+- KI-Entdeckung mit Gemini
+- Integrierter Webserver zur Fernsteuerung
+- Tunnel-Zugriff mit Passwortschutz
+- Lokale und Google Drive Sicherung
+- Hörverlauf und Lautstärke-Normalisierung
+- 4 Sprachen: EN, FR, DE, ES

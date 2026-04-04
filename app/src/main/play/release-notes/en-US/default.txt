@@ -1,0 +1,13 @@
+Initial release of Podcasto, a full-featured podcast player.
+
+- Search & subscribe to podcasts via iTunes
+- Audio player with skip 10s/30s, playlist with drag-to-reorder
+- Download episodes for offline listening
+- Tags, bookmarks, played/unplayed filters
+- AI-powered discovery with Gemini
+- Built-in web server for remote control
+- Tunnel access with password protection
+- Local & Google Drive backup
+- Listening history & volume normalization
+- 4 languages: EN, FR, DE, ES
+- Material 3 design

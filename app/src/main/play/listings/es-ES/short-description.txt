@@ -1,0 +1,1 @@
+Reproductor de podcasts con control web, descubrimiento IA y modo sin conexión.

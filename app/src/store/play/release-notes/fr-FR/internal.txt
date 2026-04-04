@@ -1,0 +1,11 @@
+Version initiale de Podcasto, lecteur de podcasts complet.
+- Recherche et abonnement via iTunes
+- Lecteur audio avec avance 10s/30s, playlist glisser-déposer
+- Téléchargement pour écoute hors ligne
+- Tags, signets, filtres écoutés/non écoutés
+- Découverte IA avec Gemini
+- Serveur web intégré pour contrôle à distance
+- Accès tunnel avec mot de passe
+- Sauvegarde locale et Google Drive
+- Historique d'écoute et normalisation du volume
+- 4 langues : EN, FR, DE, ES

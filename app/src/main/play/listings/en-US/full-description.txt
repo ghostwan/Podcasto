@@ -1,0 +1,39 @@
+Podcasto is a full-featured, open-source podcast player for Android that puts you in control of your listening experience.
+
+🎧 LISTEN YOUR WAY
+Search and subscribe to thousands of podcasts via the iTunes catalog. Browse episodes, read full descriptions, and pick up right where you left off with automatic playback progress tracking. The built-in audio player offers skip forward 30s, rewind 10s, previous/next episode navigation, and volume normalization for consistent audio levels across all your shows.
+
+📋 SMART PLAYLISTS
+Build your listening queue with drag-to-reorder support. Automatically add the latest unplayed episode from each of your subscriptions — filter by tag to add only from specific groups. Clear, play all, or manage individual episodes with ease.
+
+🏷️ ORGANIZE WITH TAGS
+Create custom tags to categorize your subscriptions. Filter your library and new episodes by tag. Reorder tags with drag-and-drop to keep your favorites on top.
+
+📥 OFFLINE LISTENING
+Download episodes to listen without an internet connection. Filter your library to show only downloaded episodes. Delete downloads when you no longer need them.
+
+🔖 BOOKMARKS
+Mark specific moments in any episode with optional comments. Jump back to bookmarked positions instantly. Perfect for noting key insights, quotes, or funny moments.
+
+🤖 AI-POWERED DISCOVERY
+Connect your Gemini API key to unlock AI-powered podcast recommendations based on your existing subscriptions. Get personalized suggestions and search with natural language queries.
+
+🌐 BUILT-IN WEB SERVER
+Control Podcasto from any device on your network with the responsive web interface. Start the web server from settings, then open the URL in any browser. Full feature parity: browse, search, play, manage playlists, and more — all from your computer or tablet.
+
+🔒 SECURE REMOTE ACCESS
+Enable public tunnel access via localhost.run to control your podcasts from anywhere on the internet. Protect the web interface with a password. Session-based authentication with brute-force protection (3 attempts, 15-minute lockout).
+
+💾 BACKUP & RESTORE
+Export all your data (subscriptions, episodes, tags, bookmarks, playlist, listening history, settings) to a JSON file in Downloads. Restore from a previous backup at any time. Or sign in with Google to back up to Google Drive with optional automatic daily backups.
+
+📊 LISTENING HISTORY
+Track every episode you listen to. Browse your complete listening history and clear it when needed.
+
+👁️ LIBRARY MANAGEMENT
+Long-press any podcast to hide it from your library without unsubscribing. Show hidden podcasts anytime from settings.
+
+🌍 MULTILINGUAL
+Available in English, French, German, and Spanish. Country-based search filtering for 8 countries (USA, France, UK, Germany, Spain, Italy, Brazil, Japan).
+
+Podcasto is free, open-source, and respects your privacy. No ads, no tracking, no account required.
