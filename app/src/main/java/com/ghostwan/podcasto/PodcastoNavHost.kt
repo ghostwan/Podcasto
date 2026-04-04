@@ -12,6 +12,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -19,6 +21,7 @@ import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.ghostwan.podcasto.R
 import com.ghostwan.podcasto.player.PlayerManager
+import com.ghostwan.podcasto.player.LanguageSelectionRequest
 import com.ghostwan.podcasto.ui.screens.*
 
 @Composable
@@ -295,5 +298,59 @@ fun PodcastoNavHost(
                 repository = repository,
             )
         }
+
+        // Language selection dialog for YouTube episodes with multiple audio languages
+        val languageRequest by playerManager.languageSelectionRequest.collectAsState()
+        languageRequest?.let { request ->
+            LanguageSelectionDialog(
+                request = request,
+                onLanguageSelected = { languageCode ->
+                    playerManager.playWithLanguage(request.episode, request.artworkUrl, languageCode)
+                },
+                onDismiss = {
+                    playerManager.dismissLanguageSelection()
+                },
+            )
+        }
     }
+}
+
+@Composable
+private fun LanguageSelectionDialog(
+    request: LanguageSelectionRequest,
+    onLanguageSelected: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.select_audio_language)) },
+        text = {
+            Column {
+                Text(
+                    text = request.episode.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                request.availableLanguages.entries.sortedBy { it.value }.forEach { (code, displayName) ->
+                    TextButton(
+                        onClick = { onLanguageSelected(code) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = displayName,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
 }

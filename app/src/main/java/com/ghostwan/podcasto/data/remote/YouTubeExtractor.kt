@@ -22,6 +22,19 @@ import javax.inject.Singleton
 
 data class ResolvedAudioStream(val url: String, val durationSeconds: Long)
 
+/**
+ * Represents available audio languages for a YouTube video.
+ * If only one language (or none specified), availableLanguages will have 0-1 entry.
+ */
+data class AudioLanguageOptions(
+    val videoUrl: String,
+    val durationSeconds: Long,
+    /** language code -> display name, e.g. "fr" -> "French", "en" -> "English" */
+    val availableLanguages: Map<String, String>,
+    /** The default (highest bitrate) audio stream URL (for single-language videos) */
+    val defaultAudioUrl: String,
+)
+
 data class YouTubeChannelInfo(
     val channelId: String,
     val name: String,
@@ -178,6 +191,20 @@ class YouTubeExtractor @Inject constructor(
     }
 
     /**
+     * Internal: get StreamInfo with retry on failure (re-initializes NewPipe Extractor).
+     */
+    private suspend fun getStreamInfo(videoUrl: String): StreamInfo = withContext(Dispatchers.IO) {
+        ensureInitialized()
+        try {
+            StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
+        } catch (e: Exception) {
+            Log.w(TAG, "First attempt failed, re-initializing and retrying: ${e.message}")
+            reinitialize()
+            StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
+        }
+    }
+
+    /**
      * Resolve the audio stream URL for a YouTube video.
      * Uses NewPipe Extractor to get the best audio-only stream.
      * These URLs expire, so they must be resolved at play time.
@@ -185,16 +212,8 @@ class YouTubeExtractor @Inject constructor(
      * Returns the audio URL and video duration in seconds.
      */
     suspend fun resolveAudioStreamUrl(videoUrl: String): ResolvedAudioStream = withContext(Dispatchers.IO) {
-        ensureInitialized()
         Log.d(TAG, "Resolving audio stream for: $videoUrl")
-
-        val info = try {
-            StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
-        } catch (e: Exception) {
-            Log.w(TAG, "First attempt failed, re-initializing and retrying: ${e.message}")
-            reinitialize()
-            StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
-        }
+        val info = getStreamInfo(videoUrl)
 
         // Prefer audio-only streams, sorted by bitrate (highest first)
         val audioStreams = info.audioStreams
@@ -204,6 +223,69 @@ class YouTubeExtractor @Inject constructor(
             ?: throw Exception("No audio streams found for $videoUrl")
 
         Log.d(TAG, "Resolved audio stream: ${bestStream.content} (${bestStream.averageBitrate}kbps, ${bestStream.format?.name}, duration=${info.duration}s)")
+        ResolvedAudioStream(url = bestStream.content, durationSeconds = info.duration)
+    }
+
+    /**
+     * Get available audio languages for a YouTube video.
+     * Returns AudioLanguageOptions with the list of distinct locales from audio streams.
+     * If the video has only one language (or no locale info), availableLanguages will be empty/single.
+     */
+    suspend fun getAvailableLanguages(videoUrl: String): AudioLanguageOptions = withContext(Dispatchers.IO) {
+        Log.d(TAG, "Checking available languages for: $videoUrl")
+        val info = getStreamInfo(videoUrl)
+
+        val audioStreams = info.audioStreams
+        if (audioStreams.isEmpty()) {
+            throw Exception("No audio streams found for $videoUrl")
+        }
+
+        // Group streams by locale
+        val languageMap = mutableMapOf<String, String>()
+        for (stream in audioStreams) {
+            val locale = stream.audioLocale
+            if (locale != null) {
+                val code = locale.language
+                if (code.isNotEmpty() && code !in languageMap) {
+                    languageMap[code] = locale.getDisplayLanguage(locale).replaceFirstChar { it.uppercase() }
+                }
+            }
+        }
+
+        // Default: best stream by bitrate
+        val bestStream = audioStreams.sortedByDescending { it.averageBitrate }.first()
+
+        Log.d(TAG, "Available languages: $languageMap (${audioStreams.size} total streams)")
+        AudioLanguageOptions(
+            videoUrl = videoUrl,
+            durationSeconds = info.duration,
+            availableLanguages = languageMap,
+            defaultAudioUrl = bestStream.content,
+        )
+    }
+
+    /**
+     * Resolve the audio stream URL for a specific language.
+     * Falls back to best available stream if the requested language is not found.
+     */
+    suspend fun resolveAudioStreamForLanguage(videoUrl: String, languageCode: String): ResolvedAudioStream = withContext(Dispatchers.IO) {
+        Log.d(TAG, "Resolving audio stream for language '$languageCode': $videoUrl")
+        val info = getStreamInfo(videoUrl)
+
+        val audioStreams = info.audioStreams
+        if (audioStreams.isEmpty()) {
+            throw Exception("No audio streams found for $videoUrl")
+        }
+
+        // Try to find streams matching the requested language, pick highest bitrate
+        val matchingStreams = audioStreams
+            .filter { it.audioLocale?.language == languageCode }
+            .sortedByDescending { it.averageBitrate }
+
+        val bestStream = matchingStreams.firstOrNull()
+            ?: audioStreams.sortedByDescending { it.averageBitrate }.first()
+
+        Log.d(TAG, "Resolved audio stream for '$languageCode': ${bestStream.content} (${bestStream.averageBitrate}kbps, locale=${bestStream.audioLocale}, duration=${info.duration}s)")
         ResolvedAudioStream(url = bestStream.content, durationSeconds = info.duration)
     }
 

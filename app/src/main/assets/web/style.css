@@ -1559,6 +1559,32 @@ body.player-visible .toast {
     gap: 8px;
 }
 
+.lang-dialog-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 8px 0 16px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.lang-dialog-list button {
+    background: var(--surface-hover);
+    border: 1px solid var(--surface-border, rgba(255,255,255,0.1));
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 15px;
+    color: var(--on-surface);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+}
+
+.lang-dialog-list button:hover {
+    background: var(--primary);
+    color: var(--on-primary);
+}
+
 /* Responsive */
 @media (max-width: 640px) {
     nav { padding: 0 16px; }

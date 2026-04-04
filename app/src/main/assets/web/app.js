@@ -1684,17 +1684,78 @@ function isYouTubeChannelUrl(query) {
            query.match(/youtu\.be\//i) && false; // youtu.be is for videos, not channels
 }
 
-async function resolveAudioUrl(episode) {
+async function resolveAudioUrl(episode, lang) {
     if (!episode || !episode.audioUrl) return '';
     if (!isYouTubeUrl(episode.audioUrl)) return episode.audioUrl;
     try {
-        const res = await authFetch(`/api/youtube/resolve?url=${encodeURIComponent(episode.audioUrl)}`);
+        let url = `/api/youtube/resolve?url=${encodeURIComponent(episode.audioUrl)}`;
+        if (lang) url += `&lang=${encodeURIComponent(lang)}`;
+        const res = await authFetch(url);
         const data = await res.json();
         if (data.audioUrl) return data.audioUrl;
         throw new Error(data.error || 'Failed to resolve YouTube audio');
     } catch (e) {
         showToast('Erreur YouTube: ' + e.message);
         throw e;
+    }
+}
+
+/**
+ * Check if a YouTube episode has multiple audio languages.
+ * Returns {languages: {code: displayName}, defaultAudioUrl?: string} or null.
+ * If multiple languages, languages will have >1 entry.
+ * If single language, defaultAudioUrl can be used directly (avoids second resolve call).
+ */
+async function checkYouTubeLanguages(episode) {
+    if (!episode || !episode.audioUrl || !isYouTubeUrl(episode.audioUrl)) return null;
+    try {
+        const res = await authFetch(`/api/youtube/languages?url=${encodeURIComponent(episode.audioUrl)}`);
+        const data = await res.json();
+        return data;
+    } catch (e) {
+        return null; // Fail silently, proceed with default
+    }
+}
+
+/**
+ * Show language selection dialog and return a Promise that resolves with the chosen language code,
+ * or null if the user dismisses the dialog.
+ */
+function showLangDialog(languages, episodeTitle) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('lang-dialog-overlay');
+        const titleEl = document.getElementById('lang-dialog-title');
+        const listEl = document.getElementById('lang-dialog-list');
+
+        titleEl.textContent = 'Select Audio Language';
+        listEl.innerHTML = '';
+
+        // Sort languages alphabetically by display name
+        const sorted = Object.entries(languages).sort((a, b) => a[1].localeCompare(b[1]));
+        for (const [code, displayName] of sorted) {
+            const btn = document.createElement('button');
+            btn.textContent = displayName;
+            btn.onclick = () => {
+                overlay.style.display = 'none';
+                resolve(code);
+            };
+            listEl.appendChild(btn);
+        }
+
+        overlay.style.display = 'flex';
+
+        // Close handler
+        window._closeLangDialogResolve = () => {
+            overlay.style.display = 'none';
+            resolve(null);
+        };
+    });
+}
+
+function closeLangDialog() {
+    if (window._closeLangDialogResolve) {
+        window._closeLangDialogResolve();
+        window._closeLangDialogResolve = null;
     }
 }
 
@@ -1713,8 +1774,22 @@ async function playEpisode(episodeId, seekTo) {
         playerArtwork = episode.artworkUrl || (currentPodcastDetail ? currentPodcastDetail.artworkUrl : '');
         playerPodcastTitle = currentPodcastDetail ? currentPodcastDetail.title : '';
 
+        // Check for multiple audio languages on YouTube episodes
+        let selectedLang = null;
+        let preResolvedUrl = null;
+        if (isYouTubeUrl(episode.audioUrl)) {
+            const langData = await checkYouTubeLanguages(episode);
+            if (langData && langData.languages && Object.keys(langData.languages).length > 1) {
+                selectedLang = await showLangDialog(langData.languages, episode.title);
+                if (selectedLang === null) return; // User dismissed
+            } else if (langData && langData.defaultAudioUrl) {
+                // Single language — use pre-resolved URL to avoid double network call
+                preResolvedUrl = langData.defaultAudioUrl;
+            }
+        }
+
         const audio = document.getElementById('audio-element');
-        audio.src = await resolveAudioUrl(episode);
+        audio.src = preResolvedUrl || await resolveAudioUrl(episode, selectedLang);
         audio.playbackRate = playbackSpeed;
 
         // Seek to saved position or specified position
@@ -1751,8 +1826,21 @@ async function playEpisodeFromPlaylist(episodeId, artworkUrl, podcastTitle) {
         playerArtwork = artworkUrl || episode.artworkUrl || '';
         playerPodcastTitle = podcastTitle || '';
 
+        // Check for multiple audio languages on YouTube episodes
+        let selectedLang = null;
+        let preResolvedUrl = null;
+        if (isYouTubeUrl(episode.audioUrl)) {
+            const langData = await checkYouTubeLanguages(episode);
+            if (langData && langData.languages && Object.keys(langData.languages).length > 1) {
+                selectedLang = await showLangDialog(langData.languages, episode.title);
+                if (selectedLang === null) return; // User dismissed
+            } else if (langData && langData.defaultAudioUrl) {
+                preResolvedUrl = langData.defaultAudioUrl;
+            }
+        }
+
         const audio = document.getElementById('audio-element');
-        audio.src = await resolveAudioUrl(episode);
+        audio.src = preResolvedUrl || await resolveAudioUrl(episode, selectedLang);
         audio.playbackRate = playbackSpeed;
 
         const startPos = episode.playbackPosition > 0 ? episode.playbackPosition / 1000 : 0;

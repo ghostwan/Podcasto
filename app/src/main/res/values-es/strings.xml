@@ -204,4 +204,5 @@
     <string name="search_podcasts_or_youtube_hint">Buscar podcasts o pegar URL de canal de YouTube…</string>
     <string name="youtube_loading">Cargando canal de YouTube…</string>
     <string name="youtube_subscribe_error">Error al cargar el canal de YouTube: %1$s</string>
+    <string name="select_audio_language">Seleccionar idioma de audio</string>
 </resources>

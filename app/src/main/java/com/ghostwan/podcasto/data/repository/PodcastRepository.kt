@@ -10,6 +10,7 @@ import com.ghostwan.podcasto.data.remote.ITunesApiService
 import com.ghostwan.podcasto.data.remote.ITunesPodcast
 import com.ghostwan.podcasto.data.remote.RssParser
 import com.ghostwan.podcasto.data.remote.ResolvedAudioStream
+import com.ghostwan.podcasto.data.remote.AudioLanguageOptions
 import com.ghostwan.podcasto.data.remote.YouTubeExtractor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -302,6 +303,36 @@ class PodcastRepository @Inject constructor(
         val podcast = podcastDao.getPodcastById(episode.podcastId)
         if (podcast?.sourceType == "youtube") {
             return youTubeExtractor.resolveAudioStreamUrl(episode.audioUrl)
+        }
+        return ResolvedAudioStream(url = episode.audioUrl, durationSeconds = 0)
+    }
+
+    /**
+     * Get available audio languages for a YouTube episode.
+     * Returns null if the episode is not YouTube-based.
+     */
+    suspend fun getAvailableLanguages(episode: EpisodeEntity): AudioLanguageOptions? {
+        if (YouTubeExtractor.isYouTubeVideoUrl(episode.audioUrl)) {
+            return youTubeExtractor.getAvailableLanguages(episode.audioUrl)
+        }
+        val podcast = podcastDao.getPodcastById(episode.podcastId)
+        if (podcast?.sourceType == "youtube") {
+            return youTubeExtractor.getAvailableLanguages(episode.audioUrl)
+        }
+        return null
+    }
+
+    /**
+     * Resolve the audio URL for a specific language.
+     * For non-YouTube episodes, ignores the language parameter.
+     */
+    suspend fun resolveAudioUrlForLanguage(episode: EpisodeEntity, languageCode: String): ResolvedAudioStream {
+        if (YouTubeExtractor.isYouTubeVideoUrl(episode.audioUrl)) {
+            return youTubeExtractor.resolveAudioStreamForLanguage(episode.audioUrl, languageCode)
+        }
+        val podcast = podcastDao.getPodcastById(episode.podcastId)
+        if (podcast?.sourceType == "youtube") {
+            return youTubeExtractor.resolveAudioStreamForLanguage(episode.audioUrl, languageCode)
         }
         return ResolvedAudioStream(url = episode.audioUrl, durationSeconds = 0)
     }

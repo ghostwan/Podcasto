@@ -204,4 +204,5 @@
     <string name="search_podcasts_or_youtube_hint">Rechercher des podcasts ou coller une URL de chaîne YouTube…</string>
     <string name="youtube_loading">Chargement de la chaîne YouTube…</string>
     <string name="youtube_subscribe_error">Échec du chargement YouTube : %1$s</string>
+    <string name="select_audio_language">Choisir la langue audio</string>
 </resources>

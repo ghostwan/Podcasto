@@ -984,10 +984,40 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
 
         // === YouTube ===
 
-        // GET /api/youtube/resolve?url=... — resolve YouTube video to audio stream URL
+        // GET /api/youtube/languages?url=... — get available audio languages for a YouTube video
+        // Returns {languages: {code: displayName}, defaultAudioUrl?: string}
+        // When only 1 language, returns defaultAudioUrl to avoid a second resolve call
+        get("/youtube/languages") {
+            val videoUrl = call.request.queryParameters["url"]
+                ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'url' parameter"))
+            try {
+                if (!com.ghostwan.podcasto.data.remote.YouTubeExtractor.isYouTubeVideoUrl(videoUrl)) {
+                    call.respond(mapOf("languages" to emptyMap<String, String>(), "defaultAudioUrl" to videoUrl))
+                    return@get
+                }
+                val episode = com.ghostwan.podcasto.data.local.EpisodeEntity(
+                    id = 0, podcastId = 0, title = "", description = "",
+                    audioUrl = videoUrl, pubDate = "", pubDateTimestamp = 0,
+                )
+                val options = repository.getAvailableLanguages(episode)
+                if (options == null || options.availableLanguages.size <= 1) {
+                    call.respond(mapOf(
+                        "languages" to emptyMap<String, String>(),
+                        "defaultAudioUrl" to (options?.defaultAudioUrl ?: ""),
+                    ))
+                } else {
+                    call.respond(mapOf("languages" to options.availableLanguages))
+                }
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ErrorResponse("Failed to get languages: ${e.message}"))
+            }
+        }
+
+        // GET /api/youtube/resolve?url=...&lang=xx — resolve YouTube video to audio stream URL (optionally for a specific language)
         get("/youtube/resolve") {
             val videoUrl = call.request.queryParameters["url"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'url' parameter"))
+            val lang = call.request.queryParameters["lang"]
             try {
                 // For episodes already in DB, use resolveAudioUrl which checks sourceType
                 // For direct URL resolution, check if it's a YouTube URL
@@ -999,7 +1029,11 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                     id = 0, podcastId = 0, title = "", description = "",
                     audioUrl = videoUrl, pubDate = "", pubDateTimestamp = 0,
                 )
-                val resolved = repository.resolveAudioUrl(episode)
+                val resolved = if (lang != null) {
+                    repository.resolveAudioUrlForLanguage(episode, lang)
+                } else {
+                    repository.resolveAudioUrl(episode)
+                }
                 call.respond(mapOf("audioUrl" to resolved.url))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, ErrorResponse("Failed to resolve YouTube audio: ${e.message}"))

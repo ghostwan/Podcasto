@@ -14,6 +14,7 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.ghostwan.podcasto.data.local.EpisodeEntity
+import com.ghostwan.podcasto.data.remote.YouTubeExtractor
 import com.ghostwan.podcasto.data.repository.PodcastRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -38,6 +39,17 @@ data class PlayerState(
     val volumeNormEnabled: Boolean = false,
 )
 
+/**
+ * Emitted when a YouTube episode has multiple audio languages available.
+ * The UI should show a picker and call PlayerManager.playWithLanguage().
+ */
+data class LanguageSelectionRequest(
+    val episode: EpisodeEntity,
+    val artworkUrl: String,
+    /** language code -> display name, e.g. "fr" -> "Fran\u00e7ais" */
+    val availableLanguages: Map<String, String>,
+)
+
 @Singleton
 class PlayerManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -49,6 +61,10 @@ class PlayerManager @Inject constructor(
 
     private val _playerState = MutableStateFlow(PlayerState())
     val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
+
+    /** Emitted when a YouTube episode has multiple audio languages; UI should show a picker. */
+    private val _languageSelectionRequest = MutableStateFlow<LanguageSelectionRequest?>(null)
+    val languageSelectionRequest: StateFlow<LanguageSelectionRequest?> = _languageSelectionRequest.asStateFlow()
 
     private var currentEpisode: EpisodeEntity? = null
     private var currentArtworkUrl: String = ""
@@ -170,61 +186,152 @@ class PlayerManager @Inject constructor(
             currentSourceType = podcast?.sourceType ?: "rss"
             saveLastEpisode(freshEpisode.id, artworkUrl, currentSourceType)
 
-            // Record in listening history
-            repository.addHistoryEntry(freshEpisode.id, freshEpisode.podcastId)
-
-            // Auto-add to top of playlist if not already in it
-            repository.addToPlaylistTop(freshEpisode.id)
-
-            val audioUri = if (freshEpisode.downloadPath != null) {
-                Uri.parse(freshEpisode.downloadPath)
-            } else {
-                // Resolve YouTube URLs at play time (they expire)
+            // For YouTube episodes without a local download, check for multiple languages
+            if (freshEpisode.downloadPath == null && (YouTubeExtractor.isYouTubeVideoUrl(freshEpisode.audioUrl) || currentSourceType == "youtube")) {
                 try {
-                    val resolved = repository.resolveAudioUrl(freshEpisode)
-                    // If YouTube duration was resolved and episode had no duration, save it
-                    if (resolved.durationSeconds > 0 && freshEpisode.duration == 0L) {
-                        repository.updateEpisodeDuration(freshEpisode.id, resolved.durationSeconds)
+                    val langOptions = repository.getAvailableLanguages(freshEpisode)
+                    if (langOptions != null && langOptions.availableLanguages.size > 1) {
+                        // Multiple languages available — ask user to choose
+                        isChangingMedia = false
+                        _languageSelectionRequest.value = LanguageSelectionRequest(
+                            episode = freshEpisode,
+                            artworkUrl = artworkUrl,
+                            availableLanguages = langOptions.availableLanguages,
+                        )
+                        return@launch
                     }
-                    Uri.parse(resolved.url)
+                    // Single or no language — use the default audio URL from the same call
+                    // (avoids a second StreamInfo.getInfo() network call)
+                    if (langOptions != null && langOptions.defaultAudioUrl.isNotEmpty()) {
+                        if (langOptions.durationSeconds > 0 && freshEpisode.duration == 0L) {
+                            repository.updateEpisodeDuration(freshEpisode.id, langOptions.durationSeconds)
+                        }
+                        repository.addHistoryEntry(freshEpisode.id, freshEpisode.podcastId)
+                        repository.addToPlaylistTop(freshEpisode.id)
+                        startMediaPlayback(freshEpisode, artworkUrl, Uri.parse(langOptions.defaultAudioUrl))
+                        return@launch
+                    }
                 } catch (e: Exception) {
-                    android.util.Log.e("PlayerManager", "Failed to resolve audio URL for episode ${freshEpisode.id}", e)
-                    isChangingMedia = false
-                    _playerState.value = _playerState.value.copy(
-                        currentEpisode = freshEpisode,
-                        isPlaying = false,
-                    )
-                    return@launch
+                    android.util.Log.w("PlayerManager", "Language check failed, proceeding with default: ${e.message}")
                 }
             }
-            val mediaItem = MediaItem.Builder()
-                .setUri(audioUri)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(freshEpisode.title)
-                        .setDescription(freshEpisode.description)
-                        .setArtworkUri(if (artworkUrl.isNotEmpty()) Uri.parse(artworkUrl) else null)
-                        .build()
-                )
-                .build()
-            // Use setMediaItem with startPositionMs so the player seeks after prepare
-            val startPos = if (freshEpisode.playbackPosition > 0) freshEpisode.playbackPosition else 0L
-            // Emit clean state immediately to avoid stale position from previous episode
-            _playerState.value = PlayerState(
-                currentEpisode = freshEpisode,
-                isPlaying = false,
-                currentPosition = startPos,
-                duration = 0,
-                podcastArtworkUrl = currentArtworkUrl,
-                podcastSourceType = currentSourceType,
-                volumeNormEnabled = volumeNormEnabled,
-            )
-            controller?.setMediaItem(mediaItem, startPos)
-            controller?.prepare()
-            controller?.play()
-            isChangingMedia = false
-            updateState()
+
+            // No language selection needed — play directly
+            playInternal(freshEpisode, artworkUrl)
         }
+    }
+
+    /**
+     * Called by the UI after the user picks a language from the language selection dialog.
+     */
+    fun playWithLanguage(episode: EpisodeEntity, artworkUrl: String, languageCode: String) {
+        _languageSelectionRequest.value = null
+        isChangingMedia = true
+        scope.launch {
+            val freshEpisode = repository.getEpisodeById(episode.id) ?: episode
+            currentEpisode = freshEpisode
+            val podcast = repository.getPodcastById(freshEpisode.podcastId)
+            currentSourceType = podcast?.sourceType ?: "rss"
+            saveLastEpisode(freshEpisode.id, artworkUrl, currentSourceType)
+
+            // Record in listening history
+            repository.addHistoryEntry(freshEpisode.id, freshEpisode.podcastId)
+            repository.addToPlaylistTop(freshEpisode.id)
+
+            val audioUri = try {
+                val resolved = repository.resolveAudioUrlForLanguage(freshEpisode, languageCode)
+                if (resolved.durationSeconds > 0 && freshEpisode.duration == 0L) {
+                    repository.updateEpisodeDuration(freshEpisode.id, resolved.durationSeconds)
+                }
+                Uri.parse(resolved.url)
+            } catch (e: Exception) {
+                android.util.Log.e("PlayerManager", "Failed to resolve audio URL for language $languageCode", e)
+                isChangingMedia = false
+                _playerState.value = _playerState.value.copy(
+                    currentEpisode = freshEpisode,
+                    isPlaying = false,
+                )
+                return@launch
+            }
+
+            startMediaPlayback(freshEpisode, artworkUrl, audioUri)
+        }
+    }
+
+    /**
+     * Called by the UI if the user dismisses the language selection dialog.
+     */
+    fun dismissLanguageSelection() {
+        _languageSelectionRequest.value = null
+        isChangingMedia = false
+    }
+
+    /**
+     * Internal: play an episode without language check (already determined).
+     */
+    private suspend fun playInternal(freshEpisode: EpisodeEntity, artworkUrl: String) {
+        // Record in listening history
+        repository.addHistoryEntry(freshEpisode.id, freshEpisode.podcastId)
+
+        // Auto-add to top of playlist if not already in it
+        repository.addToPlaylistTop(freshEpisode.id)
+
+        val audioUri = if (freshEpisode.downloadPath != null) {
+            Uri.parse(freshEpisode.downloadPath)
+        } else {
+            // Resolve YouTube URLs at play time (they expire)
+            try {
+                val resolved = repository.resolveAudioUrl(freshEpisode)
+                // If YouTube duration was resolved and episode had no duration, save it
+                if (resolved.durationSeconds > 0 && freshEpisode.duration == 0L) {
+                    repository.updateEpisodeDuration(freshEpisode.id, resolved.durationSeconds)
+                }
+                Uri.parse(resolved.url)
+            } catch (e: Exception) {
+                android.util.Log.e("PlayerManager", "Failed to resolve audio URL for episode ${freshEpisode.id}", e)
+                isChangingMedia = false
+                _playerState.value = _playerState.value.copy(
+                    currentEpisode = freshEpisode,
+                    isPlaying = false,
+                )
+                return
+            }
+        }
+
+        startMediaPlayback(freshEpisode, artworkUrl, audioUri)
+    }
+
+    /**
+     * Internal: actually start playing a media item (shared by playInternal and playWithLanguage).
+     */
+    private fun startMediaPlayback(episode: EpisodeEntity, artworkUrl: String, audioUri: Uri) {
+        val mediaItem = MediaItem.Builder()
+            .setUri(audioUri)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(episode.title)
+                    .setDescription(episode.description)
+                    .setArtworkUri(if (artworkUrl.isNotEmpty()) Uri.parse(artworkUrl) else null)
+                    .build()
+            )
+            .build()
+        // Use setMediaItem with startPositionMs so the player seeks after prepare
+        val startPos = if (episode.playbackPosition > 0) episode.playbackPosition else 0L
+        // Emit clean state immediately to avoid stale position from previous episode
+        _playerState.value = PlayerState(
+            currentEpisode = episode,
+            isPlaying = false,
+            currentPosition = startPos,
+            duration = 0,
+            podcastArtworkUrl = artworkUrl,
+            podcastSourceType = currentSourceType,
+            volumeNormEnabled = volumeNormEnabled,
+        )
+        controller?.setMediaItem(mediaItem, startPos)
+        controller?.prepare()
+        controller?.play()
+        isChangingMedia = false
+        updateState()
     }
 
     fun playMultiple(episodes: List<EpisodeEntity>, startIndex: Int = 0, artworkUrl: String = "") {
