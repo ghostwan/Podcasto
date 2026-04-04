@@ -109,6 +109,8 @@ play {
     // Only publish the 'store' flavor (no YouTube/NewPipe)
     track.set("internal") // internal → alpha → beta → production
     defaultToAppBundles.set(true)
+    // App is still in draft on Play Console — must commit as draft
+    releaseStatus.set(com.github.triplet.gradle.androidpublisher.ReleaseStatus.DRAFT)
 }
 
 dependencies {
