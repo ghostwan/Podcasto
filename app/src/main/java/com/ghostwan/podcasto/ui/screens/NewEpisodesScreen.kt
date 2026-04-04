@@ -1,5 +1,6 @@
 package com.ghostwan.podcasto.ui.screens
 
+import com.ghostwan.podcasto.BuildConfig
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -363,7 +364,7 @@ private fun NewEpisodeRow(
                                 tint = MaterialTheme.colorScheme.primary,
                             )
                         }
-                        if (item.sourceType == "youtube" && !isNowPlaying) {
+                        if (BuildConfig.YOUTUBE_ENABLED && item.sourceType == "youtube" && !isNowPlaying) {
                             YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd))
                         }
                     }

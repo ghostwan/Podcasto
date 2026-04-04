@@ -1,22 +1,29 @@
 #!/bin/bash
 set -e
 
-BUILD_TYPE="${1:-release}"
+FLAVOR="${1:-full}"
+BUILD_TYPE="${2:-release}"
 
-if [[ "$BUILD_TYPE" != "debug" && "$BUILD_TYPE" != "release" ]]; then
-    echo "Usage: ./run.sh [debug|release]"
-    echo "  Default: release"
+if [[ "$FLAVOR" != "full" && "$FLAVOR" != "store" ]]; then
+    echo "Usage: ./run.sh [full|store] [debug|release]"
+    echo "  Default: full release"
     exit 1
 fi
 
-if [ "$BUILD_TYPE" = "release" ]; then
-    TASK="assembleRelease"
-else
-    TASK="assembleDebug"
+if [[ "$BUILD_TYPE" != "debug" && "$BUILD_TYPE" != "release" ]]; then
+    echo "Usage: ./run.sh [full|store] [debug|release]"
+    echo "  Default: full release"
+    exit 1
 fi
-APK_PATH="app/build/outputs/apk/$BUILD_TYPE/app-${BUILD_TYPE}.apk"
 
-echo "=== Building Podcasto ($BUILD_TYPE) ==="
+# Capitalize first letter for Gradle task
+FLAVOR_CAP="$(tr '[:lower:]' '[:upper:]' <<< ${FLAVOR:0:1})${FLAVOR:1}"
+BUILD_TYPE_CAP="$(tr '[:lower:]' '[:upper:]' <<< ${BUILD_TYPE:0:1})${BUILD_TYPE:1}"
+
+TASK="assemble${FLAVOR_CAP}${BUILD_TYPE_CAP}"
+APK_PATH="app/build/outputs/apk/$FLAVOR/$BUILD_TYPE/app-${FLAVOR}-${BUILD_TYPE}.apk"
+
+echo "=== Building Podcasto ($FLAVOR $BUILD_TYPE) ==="
 ./gradlew "$TASK"
 
 echo ""

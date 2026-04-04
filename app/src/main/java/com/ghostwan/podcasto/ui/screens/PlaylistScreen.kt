@@ -1,5 +1,6 @@
 package com.ghostwan.podcasto.ui.screens
 
+import com.ghostwan.podcasto.BuildConfig
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -340,7 +341,7 @@ fun PlaylistEpisodeItem(
                         .clip(RoundedCornerShape(6.dp)),
                     contentScale = ContentScale.Crop,
                 )
-                if (item.sourceType == "youtube") {
+                if (BuildConfig.YOUTUBE_ENABLED && item.sourceType == "youtube") {
                     YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd))
                 }
             }

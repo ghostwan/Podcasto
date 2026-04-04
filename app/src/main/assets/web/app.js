@@ -1,6 +1,21 @@
 // Podcasto Web UI — Full Player & Library Management
 
 // ========================
+// App Config
+// ========================
+let youtubeEnabled = false; // loaded from /api/config at startup
+
+async function loadConfig() {
+    try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        youtubeEnabled = !!data.youtubeEnabled;
+    } catch (e) {
+        youtubeEnabled = false;
+    }
+}
+
+// ========================
 // Authentication
 // ========================
 async function checkAuth() {
@@ -362,9 +377,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') submitLogin();
     });
 
-    // Check authentication before loading
-    checkAuth().then(authenticated => {
-        if (authenticated) loadLibrary();
+    // Load config then check authentication before loading
+    loadConfig().then(() => {
+        checkAuth().then(authenticated => {
+            if (authenticated) loadLibrary();
+        });
     });
 });
 
@@ -1674,12 +1691,12 @@ function clearHistoryConfirm() {
 // YouTube URL helpers
 // ========================
 function isYouTubeUrl(url) {
-    if (!url) return false;
+    if (!youtubeEnabled || !url) return false;
     return url.includes('youtube.com/watch') || url.includes('youtu.be/');
 }
 
 function isYouTubeChannelUrl(query) {
-    if (!query) return false;
+    if (!youtubeEnabled || !query) return false;
     return query.match(/youtube\.com\/(channel\/|@|c\/)/i) ||
            query.match(/youtu\.be\//i) && false; // youtu.be is for videos, not channels
 }
@@ -2401,7 +2418,7 @@ async function performSearch(query) {
     const itunesHeader = document.getElementById('search-itunes-header');
 
     // YouTube channel URL detection
-    if (query.match(/youtube\.com\/(channel\/|@|c\/)/i)) {
+    if (youtubeEnabled && query.match(/youtube\.com\/(channel\/|@|c\/)/i)) {
         empty.style.display = 'none';
         aiResults.style.display = 'none';
         itunesHeader.style.display = 'none';

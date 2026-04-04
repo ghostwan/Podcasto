@@ -13,6 +13,7 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import com.ghostwan.podcasto.BuildConfig
 import com.ghostwan.podcasto.data.local.EpisodeEntity
 import com.ghostwan.podcasto.data.remote.YouTubeExtractor
 import com.ghostwan.podcasto.data.repository.PodcastRepository
@@ -187,7 +188,7 @@ class PlayerManager @Inject constructor(
             saveLastEpisode(freshEpisode.id, artworkUrl, currentSourceType)
 
             // For YouTube episodes without a local download, check for multiple languages
-            if (freshEpisode.downloadPath == null && (YouTubeExtractor.isYouTubeVideoUrl(freshEpisode.audioUrl) || currentSourceType == "youtube")) {
+            if (BuildConfig.YOUTUBE_ENABLED && freshEpisode.downloadPath == null && (YouTubeExtractor.isYouTubeVideoUrl(freshEpisode.audioUrl) || currentSourceType == "youtube")) {
                 try {
                     val langOptions = repository.getAvailableLanguages(freshEpisode)
                     if (langOptions != null && langOptions.availableLanguages.size > 1) {

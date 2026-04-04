@@ -327,10 +327,15 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
     // API routes — with auth interceptor
     route("/api") {
 
+        // Config endpoint (no auth needed)
+        get("/config") {
+            call.respond(mapOf("youtubeEnabled" to BuildConfig.YOUTUBE_ENABLED))
+        }
+
         // Auth interceptor: check session on all /api routes (skip login & auth-check)
         intercept(ApplicationCallPipeline.Call) {
             val path = call.request.path()
-            if (path == "/api/login" || path == "/api/auth-check") return@intercept
+            if (path == "/api/login" || path == "/api/auth-check" || path == "/api/config") return@intercept
 
             val password = getWebPassword()
             if (password != null) {
@@ -988,6 +993,10 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
         // Returns {languages: {code: displayName}, defaultAudioUrl?: string}
         // When only 1 language, returns defaultAudioUrl to avoid a second resolve call
         get("/youtube/languages") {
+            if (!BuildConfig.YOUTUBE_ENABLED) {
+                call.respond(HttpStatusCode.NotFound, ErrorResponse("YouTube is not available in this build"))
+                return@get
+            }
             val videoUrl = call.request.queryParameters["url"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'url' parameter"))
             try {
@@ -1015,6 +1024,10 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
 
         // GET /api/youtube/resolve?url=...&lang=xx — resolve YouTube video to audio stream URL (optionally for a specific language)
         get("/youtube/resolve") {
+            if (!BuildConfig.YOUTUBE_ENABLED) {
+                call.respond(HttpStatusCode.NotFound, ErrorResponse("YouTube is not available in this build"))
+                return@get
+            }
             val videoUrl = call.request.queryParameters["url"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'url' parameter"))
             val lang = call.request.queryParameters["lang"]
@@ -1042,6 +1055,10 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
 
         // POST /api/youtube/subscribe — subscribe to YouTube channel
         post("/youtube/subscribe") {
+            if (!BuildConfig.YOUTUBE_ENABLED) {
+                call.respond(HttpStatusCode.NotFound, ErrorResponse("YouTube is not available in this build"))
+                return@post
+            }
             try {
                 val body = call.receive<Map<String, String>>()
                 val channelUrl = body["channelUrl"]

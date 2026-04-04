@@ -42,6 +42,18 @@ android {
         }
     }
 
+    flavorDimensions += "variant"
+    productFlavors {
+        create("store") {
+            dimension = "variant"
+            buildConfigField("Boolean", "YOUTUBE_ENABLED", "false")
+        }
+        create("full") {
+            dimension = "variant"
+            buildConfigField("Boolean", "YOUTUBE_ENABLED", "true")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -112,8 +124,8 @@ dependencies {
     implementation("androidx.media3:media3-session:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
 
-    // NewPipe Extractor (YouTube audio extraction)
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.0")
+    // NewPipe Extractor (YouTube audio extraction) — only in 'full' flavor
+    "fullImplementation"("com.github.TeamNewPipe:NewPipeExtractor:v0.26.0")
 
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.10.0")

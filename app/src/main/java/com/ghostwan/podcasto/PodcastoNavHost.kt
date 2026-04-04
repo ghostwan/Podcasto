@@ -53,10 +53,10 @@ fun PodcastoNavHost(
         }
     }
 
-    // Navigate to discover screen when a YouTube URL is shared
+    // Navigate to discover screen when a YouTube URL is shared (only in full flavor)
     LaunchedEffect(sharedYouTubeUrl.value) {
         val url = sharedYouTubeUrl.value
-        if (url != null) {
+        if (BuildConfig.YOUTUBE_ENABLED && url != null) {
             navController.navigate("discover?sharedUrl=${java.net.URLEncoder.encode(url, "UTF-8")}") {
                 launchSingleTop = true
             }

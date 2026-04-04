@@ -12,6 +12,7 @@ import com.ghostwan.podcasto.data.remote.RssParser
 import com.ghostwan.podcasto.data.remote.ResolvedAudioStream
 import com.ghostwan.podcasto.data.remote.AudioLanguageOptions
 import com.ghostwan.podcasto.data.remote.YouTubeExtractor
+import com.ghostwan.podcasto.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -89,7 +90,9 @@ class PodcastRepository @Inject constructor(
 
     suspend fun refreshPodcastEpisodes(podcast: PodcastEntity) = withContext(Dispatchers.IO) {
         if (podcast.sourceType == "youtube") {
-            refreshYouTubeEpisodes(podcast)
+            if (BuildConfig.YOUTUBE_ENABLED) {
+                refreshYouTubeEpisodes(podcast)
+            }
             return@withContext
         }
         try {
@@ -160,6 +163,7 @@ class PodcastRepository @Inject constructor(
      * Returns the podcast entity and its episodes without persisting to the database.
      */
     suspend fun fetchYouTubeChannelPreview(channelUrl: String): Pair<PodcastEntity, List<EpisodeEntity>> = withContext(Dispatchers.IO) {
+        check(BuildConfig.YOUTUBE_ENABLED) { "YouTube is not available in this build" }
         val channelInfo = youTubeExtractor.getChannelInfo(channelUrl)
         val podcastId = channelInfo.channelId.hashCode().toLong().let { if (it < 0) -it else it }
         val feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=${channelInfo.channelId}"
@@ -198,6 +202,7 @@ class PodcastRepository @Inject constructor(
     suspend fun fetchYouTubePreviewFromFeed(
         feedUrl: String, podcastId: Long, artworkUrl: String, title: String, author: String
     ): Pair<PodcastEntity, List<EpisodeEntity>> = withContext(Dispatchers.IO) {
+        check(BuildConfig.YOUTUBE_ENABLED) { "YouTube is not available in this build" }
         val channelId = feedUrl.substringAfter("channel_id=", "").takeIf { it.isNotEmpty() }
             ?: throw IllegalStateException("Invalid YouTube feed URL: $feedUrl")
 
@@ -233,6 +238,7 @@ class PodcastRepository @Inject constructor(
      * Uses NewPipe Extractor to get channel info, then YouTube RSS for episodes.
      */
     suspend fun subscribeToYouTubeChannel(channelUrl: String): PodcastEntity = withContext(Dispatchers.IO) {
+        check(BuildConfig.YOUTUBE_ENABLED) { "YouTube is not available in this build" }
         val channelInfo = youTubeExtractor.getChannelInfo(channelUrl)
         // Use channel ID hash as podcast ID to avoid collision with iTunes IDs
         val podcastId = channelInfo.channelId.hashCode().toLong().let { if (it < 0) -it else it }
@@ -295,14 +301,16 @@ class PodcastRepository @Inject constructor(
      * For regular RSS episodes, returns the stored audioUrl directly.
      */
     suspend fun resolveAudioUrl(episode: EpisodeEntity): ResolvedAudioStream {
-        // First check if the URL itself is a YouTube video URL (direct detection)
-        if (YouTubeExtractor.isYouTubeVideoUrl(episode.audioUrl)) {
-            return youTubeExtractor.resolveAudioStreamUrl(episode.audioUrl)
-        }
-        // Fallback: check podcast sourceType
-        val podcast = podcastDao.getPodcastById(episode.podcastId)
-        if (podcast?.sourceType == "youtube") {
-            return youTubeExtractor.resolveAudioStreamUrl(episode.audioUrl)
+        if (BuildConfig.YOUTUBE_ENABLED) {
+            // First check if the URL itself is a YouTube video URL (direct detection)
+            if (YouTubeExtractor.isYouTubeVideoUrl(episode.audioUrl)) {
+                return youTubeExtractor.resolveAudioStreamUrl(episode.audioUrl)
+            }
+            // Fallback: check podcast sourceType
+            val podcast = podcastDao.getPodcastById(episode.podcastId)
+            if (podcast?.sourceType == "youtube") {
+                return youTubeExtractor.resolveAudioStreamUrl(episode.audioUrl)
+            }
         }
         return ResolvedAudioStream(url = episode.audioUrl, durationSeconds = 0)
     }
@@ -312,6 +320,7 @@ class PodcastRepository @Inject constructor(
      * Returns null if the episode is not YouTube-based.
      */
     suspend fun getAvailableLanguages(episode: EpisodeEntity): AudioLanguageOptions? {
+        if (!BuildConfig.YOUTUBE_ENABLED) return null
         if (YouTubeExtractor.isYouTubeVideoUrl(episode.audioUrl)) {
             return youTubeExtractor.getAvailableLanguages(episode.audioUrl)
         }
@@ -327,12 +336,14 @@ class PodcastRepository @Inject constructor(
      * For non-YouTube episodes, ignores the language parameter.
      */
     suspend fun resolveAudioUrlForLanguage(episode: EpisodeEntity, languageCode: String): ResolvedAudioStream {
-        if (YouTubeExtractor.isYouTubeVideoUrl(episode.audioUrl)) {
-            return youTubeExtractor.resolveAudioStreamForLanguage(episode.audioUrl, languageCode)
-        }
-        val podcast = podcastDao.getPodcastById(episode.podcastId)
-        if (podcast?.sourceType == "youtube") {
-            return youTubeExtractor.resolveAudioStreamForLanguage(episode.audioUrl, languageCode)
+        if (BuildConfig.YOUTUBE_ENABLED) {
+            if (YouTubeExtractor.isYouTubeVideoUrl(episode.audioUrl)) {
+                return youTubeExtractor.resolveAudioStreamForLanguage(episode.audioUrl, languageCode)
+            }
+            val podcast = podcastDao.getPodcastById(episode.podcastId)
+            if (podcast?.sourceType == "youtube") {
+                return youTubeExtractor.resolveAudioStreamForLanguage(episode.audioUrl, languageCode)
+            }
         }
         return ResolvedAudioStream(url = episode.audioUrl, durationSeconds = 0)
     }

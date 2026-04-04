@@ -1,5 +1,6 @@
 package com.ghostwan.podcasto.ui.screens
 
+import com.ghostwan.podcasto.BuildConfig
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -463,7 +464,7 @@ fun SubscriptionItem(
                         .clip(RoundedCornerShape(8.dp)),
                     contentScale = ContentScale.Crop,
                 )
-                if (podcast.sourceType == "youtube") {
+                if (BuildConfig.YOUTUBE_ENABLED && podcast.sourceType == "youtube") {
                     YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd))
                 }
             }

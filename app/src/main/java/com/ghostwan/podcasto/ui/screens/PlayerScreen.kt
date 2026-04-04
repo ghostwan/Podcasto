@@ -1,5 +1,6 @@
 package com.ghostwan.podcasto.ui.screens
 
+import com.ghostwan.podcasto.BuildConfig
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -61,7 +62,7 @@ fun MiniPlayer(
                         .clip(RoundedCornerShape(6.dp)),
                     contentScale = ContentScale.Crop,
                 )
-                if (playerState.podcastSourceType == "youtube") {
+                if (BuildConfig.YOUTUBE_ENABLED && playerState.podcastSourceType == "youtube") {
                     YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd))
                 }
             }
@@ -178,7 +179,7 @@ fun PlayerScreen(
                             .clickable { onGoToPodcast(episode.podcastId) },
                         contentScale = ContentScale.Crop,
                     )
-                    if (playerState.podcastSourceType == "youtube") {
+                    if (BuildConfig.YOUTUBE_ENABLED && playerState.podcastSourceType == "youtube") {
                         YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp))
                     }
                 }

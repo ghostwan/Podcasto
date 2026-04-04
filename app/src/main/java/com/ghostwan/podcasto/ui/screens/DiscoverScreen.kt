@@ -160,7 +160,7 @@ class DiscoverViewModel @Inject constructor(
         if (query.isEmpty()) return
 
         // Check if query is a YouTube channel URL
-        if (YouTubeExtractor.isYouTubeChannelUrl(query)) {
+        if (BuildConfig.YOUTUBE_ENABLED && YouTubeExtractor.isYouTubeChannelUrl(query)) {
             previewYouTubeChannel(query)
             return
         }
@@ -353,7 +353,7 @@ fun DiscoverScreen(
 
     // Handle shared YouTube URL — set search query and trigger subscription
     LaunchedEffect(sharedUrl) {
-        if (sharedUrl.isNotEmpty()) {
+        if (BuildConfig.YOUTUBE_ENABLED && sharedUrl.isNotEmpty()) {
             viewModel.onQueryChange(sharedUrl)
             viewModel.search()
         }
@@ -378,7 +378,7 @@ fun DiscoverScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            placeholder = { Text(stringResource(R.string.search_podcasts_or_youtube_hint)) },
+            placeholder = { Text(stringResource(if (BuildConfig.YOUTUBE_ENABLED) R.string.search_podcasts_or_youtube_hint else R.string.search_podcasts_hint)) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search)) },
             singleLine = true,
             shape = RoundedCornerShape(28.dp),
@@ -432,8 +432,8 @@ fun DiscoverScreen(
             Text(stringResource(R.string.search))
         }
 
-        // YouTube loading status
-        if (youtubeLoading) {
+        // YouTube loading status (only in full flavor)
+        if (BuildConfig.YOUTUBE_ENABLED && youtubeLoading) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -449,67 +449,69 @@ fun DiscoverScreen(
             }
         }
 
-        youtubePreview?.let { preview ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .clickable { onYouTubeChannelClick(preview) },
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                ),
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+        if (BuildConfig.YOUTUBE_ENABLED) {
+            youtubePreview?.let { preview ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clickable { onYouTubeChannelClick(preview) },
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
                 ) {
-                    AsyncImage(
-                        model = preview.artworkUrl,
-                        contentDescription = preview.title,
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop,
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = preview.title,
-                            style = MaterialTheme.typography.titleSmall,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AsyncImage(
+                            model = preview.artworkUrl,
+                            contentDescription = preview.title,
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop,
                         )
-                        if (preview.description.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = preview.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                text = preview.title,
+                                style = MaterialTheme.typography.titleSmall,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                             )
+                            if (preview.description.isNotEmpty()) {
+                                Text(
+                                    text = preview.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        youtubeError?.let { error ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .clickable { viewModel.clearYoutubeState() },
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                ),
-            ) {
-                Text(
-                    text = stringResource(R.string.youtube_subscribe_error, error),
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+            youtubeError?.let { error ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clickable { viewModel.clearYoutubeState() },
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                ) {
+                    Text(
+                        text = stringResource(R.string.youtube_subscribe_error, error),
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         }
 

@@ -205,4 +205,7 @@
     <string name="youtube_loading">YouTube-Kanal wird geladen…</string>
     <string name="youtube_subscribe_error">YouTube-Kanal konnte nicht geladen werden: %1$s</string>
     <string name="select_audio_language">Audiosprache auswählen</string>
+
+    <!-- Version -->
+    <string name="version_label">Version %1$s</string>
 </resources>
