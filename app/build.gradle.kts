@@ -9,6 +9,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Load local.properties once (not committed to git)
+val localProps = Properties()
+val localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) localPropsFile.inputStream().use { localProps.load(it) }
+
 android {
     namespace = "com.ghostwan.podcasto"
     compileSdk = 36
@@ -21,13 +26,24 @@ android {
         versionName = project.findProperty("APP_VERSION_NAME") as String
 
         // Gemini API key — from local.properties, gradle.properties, or environment
-        val localProps = Properties()
-        val localPropsFile = rootProject.file("local.properties")
-        if (localPropsFile.exists()) localPropsFile.inputStream().use { localProps.load(it) }
         val geminiKey = localProps.getProperty("GEMINI_API_KEY")
             ?: project.findProperty("GEMINI_API_KEY") as? String
             ?: System.getenv("GEMINI_API_KEY") ?: ""
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
+    }
+
+    // Release signing — from local.properties (not committed)
+    val hasReleaseSigning = localProps.getProperty("RELEASE_STORE_FILE") != null
+
+    if (hasReleaseSigning) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(localProps.getProperty("RELEASE_STORE_FILE"))
+                storePassword = localProps.getProperty("RELEASE_STORE_PASSWORD")
+                keyAlias = localProps.getProperty("RELEASE_KEY_ALIAS")
+                keyPassword = localProps.getProperty("RELEASE_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -38,7 +54,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
