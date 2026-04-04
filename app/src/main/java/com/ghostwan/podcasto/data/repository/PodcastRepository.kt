@@ -4,13 +4,16 @@ import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
+import android.util.Log
 import com.ghostwan.podcasto.data.local.*
 import com.ghostwan.podcasto.data.remote.ApplePodcastsScraper
 import com.ghostwan.podcasto.data.remote.ITunesApiService
 import com.ghostwan.podcasto.data.remote.ITunesPodcast
 import com.ghostwan.podcasto.data.remote.RssParser
 import com.ghostwan.podcasto.data.remote.ResolvedAudioStream
+import com.ghostwan.podcasto.data.remote.ResolvedVideoStream
 import com.ghostwan.podcasto.data.remote.AudioLanguageOptions
+import com.ghostwan.podcasto.data.remote.StreamSizeInfo
 import com.ghostwan.podcasto.data.remote.YouTubeExtractor
 import com.ghostwan.podcasto.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -21,6 +24,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import com.ghostwan.podcasto.R
 import java.io.File
 import javax.inject.Inject
@@ -32,6 +37,7 @@ class PodcastRepository @Inject constructor(
     private val rssParser: RssParser,
     private val applePodcastsScraper: ApplePodcastsScraper,
     private val youTubeExtractor: YouTubeExtractor,
+    private val okHttpClient: OkHttpClient,
     private val podcastDao: PodcastDao,
     private val episodeDao: EpisodeDao,
     private val playlistDao: PlaylistDao,
@@ -291,6 +297,7 @@ class PodcastRepository @Inject constructor(
                     pubDateTimestamp = video.pubDateTimestamp,
                     duration = 0, // YouTube RSS doesn't provide duration
                     downloadPath = existingEpisode?.downloadPath,
+                    videoDownloadPath = existingEpisode?.videoDownloadPath,
                     played = existingEpisode?.played ?: false,
                     playbackPosition = existingEpisode?.playbackPosition ?: 0,
                 )
@@ -355,6 +362,40 @@ class PodcastRepository @Inject constructor(
         return ResolvedAudioStream(url = episode.audioUrl, durationSeconds = 0)
     }
 
+    /**
+     * Resolve the video stream URL for a YouTube episode.
+     * Returns separate video-only and audio-only DASH URLs that the player must merge.
+     * If languageCode is specified, the audio stream will match that language.
+     * Returns null for non-YouTube episodes.
+     */
+    suspend fun resolveVideoUrl(episode: EpisodeEntity, languageCode: String? = null): ResolvedVideoStream? {
+        if (!BuildConfig.YOUTUBE_ENABLED) return null
+        if (YouTubeExtractor.isYouTubeVideoUrl(episode.audioUrl)) {
+            return youTubeExtractor.resolveVideoStreamUrl(episode.audioUrl, languageCode)
+        }
+        val podcast = podcastDao.getPodcastById(episode.podcastId)
+        if (podcast?.sourceType == "youtube") {
+            return youTubeExtractor.resolveVideoStreamUrl(episode.audioUrl, languageCode)
+        }
+        return null
+    }
+
+    /**
+     * Get estimated download sizes for a YouTube episode's audio and video streams.
+     * Returns null for non-YouTube episodes.
+     */
+    suspend fun getStreamSizes(episode: EpisodeEntity): StreamSizeInfo? {
+        if (!BuildConfig.YOUTUBE_ENABLED) return null
+        if (YouTubeExtractor.isYouTubeVideoUrl(episode.audioUrl)) {
+            return youTubeExtractor.getStreamSizes(episode.audioUrl)
+        }
+        val podcast = podcastDao.getPodcastById(episode.podcastId)
+        if (podcast?.sourceType == "youtube") {
+            return youTubeExtractor.getStreamSizes(episode.audioUrl)
+        }
+        return null
+    }
+
     // --- Episodes ---
     fun getEpisodesForPodcast(podcastId: Long): Flow<List<EpisodeEntity>> =
         episodeDao.getEpisodesForPodcast(podcastId)
@@ -391,8 +432,6 @@ class PodcastRepository @Inject constructor(
 
     // --- Playlist ---
     fun getPlaylistEpisodes(): Flow<List<EpisodeEntity>> = playlistDao.getPlaylistEpisodes()
-
-    suspend fun getPlaylistEpisodesList(): List<EpisodeEntity> = playlistDao.getPlaylistEpisodesList()
 
     suspend fun getPlaylistEpisodesWithArtworkList(): List<EpisodeWithArtwork> = playlistDao.getPlaylistEpisodesWithArtworkList()
 
@@ -475,40 +514,107 @@ class PodcastRepository @Inject constructor(
     suspend fun deleteBookmarkById(id: Long) = bookmarkDao.deleteBookmarkById(id)
 
     // --- Download ---
-    suspend fun downloadEpisode(episode: EpisodeEntity): Long = withContext(Dispatchers.IO) {
+    /**
+     * Download mode for YouTube episodes.
+     */
+    enum class DownloadMode { AUDIO, VIDEO, BOTH }
+
+    suspend fun downloadEpisode(episode: EpisodeEntity, downloadMode: DownloadMode = DownloadMode.BOTH): Long = withContext(Dispatchers.IO) {
         val downloadDir = File(context.getExternalFilesDir(Environment.DIRECTORY_PODCASTS), "episodes")
         downloadDir.mkdirs()
-        val fileName = "episode_${episode.id}.mp3"
-        val destFile = File(downloadDir, fileName)
 
-        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val request = DownloadManager.Request(Uri.parse(episode.audioUrl))
-            .setTitle(episode.title)
-            .setDescription(context.getString(R.string.downloading_episode))
-            .setDestinationUri(Uri.fromFile(destFile))
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+        // Check if this is a YouTube episode that needs URL resolution
+        val isYouTube = BuildConfig.YOUTUBE_ENABLED && (
+            YouTubeExtractor.isYouTubeVideoUrl(episode.audioUrl) ||
+            podcastDao.getPodcastById(episode.podcastId)?.sourceType == "youtube"
+        )
 
-        val downloadId = dm.enqueue(request)
-        episodeDao.updateDownloadPath(episode.id, destFile.absolutePath)
-        downloadId
+        if (isYouTube) {
+            // Download audio stream if requested
+            if (downloadMode == DownloadMode.AUDIO || downloadMode == DownloadMode.BOTH) {
+                val audioStream = youTubeExtractor.resolveAudioStreamUrl(episode.audioUrl)
+                val audioFile = File(downloadDir, "episode_${episode.id}_audio.m4a")
+                downloadFileWithOkHttp(audioStream.url, audioFile)
+                episodeDao.updateDownloadPath(episode.id, audioFile.absolutePath)
+            }
+
+            // Download video stream if requested
+            if (downloadMode == DownloadMode.VIDEO || downloadMode == DownloadMode.BOTH) {
+                try {
+                    val videoStream = youTubeExtractor.resolveVideoStreamUrl(episode.audioUrl)
+                    val videoFile = File(downloadDir, "episode_${episode.id}_video.mp4")
+                    downloadFileWithOkHttp(videoStream.videoUrl, videoFile)
+                    episodeDao.updateVideoDownloadPath(episode.id, videoFile.absolutePath)
+                    // If video-only mode, also download audio for the video player's audio track
+                    if (downloadMode == DownloadMode.VIDEO) {
+                        val audioStream = youTubeExtractor.resolveAudioStreamUrl(episode.audioUrl)
+                        val audioFile = File(downloadDir, "episode_${episode.id}_audio.m4a")
+                        downloadFileWithOkHttp(audioStream.url, audioFile)
+                        episodeDao.updateDownloadPath(episode.id, audioFile.absolutePath)
+                    }
+                } catch (e: Exception) {
+                    Log.w("PodcastRepository", "Failed to download video stream: ${e.message}")
+                }
+            }
+
+            0L // No DownloadManager ID for OkHttp downloads
+        } else {
+            // Regular RSS episode — use DownloadManager
+            val fileName = "episode_${episode.id}.mp3"
+            val destFile = File(downloadDir, fileName)
+
+            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val request = DownloadManager.Request(Uri.parse(episode.audioUrl))
+                .setTitle(episode.title)
+                .setDescription(context.getString(R.string.downloading_episode))
+                .setDestinationUri(Uri.fromFile(destFile))
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+
+            val downloadId = dm.enqueue(request)
+            episodeDao.updateDownloadPath(episode.id, destFile.absolutePath)
+            downloadId
+        }
+    }
+
+    /**
+     * Download a file from a URL directly using OkHttp (for YouTube resolved stream URLs).
+     */
+    private fun downloadFileWithOkHttp(url: String, destFile: File) {
+        val request = Request.Builder().url(url).build()
+        okHttpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw Exception("Download failed: ${response.code}")
+            response.body?.byteStream()?.use { input ->
+                destFile.outputStream().use { output ->
+                    input.copyTo(output, bufferSize = 8192)
+                }
+            } ?: throw Exception("Empty response body")
+        }
     }
 
     suspend fun deleteDownload(episodeId: Long) = withContext(Dispatchers.IO) {
         val episode = episodeDao.getEpisodeById(episodeId) ?: return@withContext
-        val path = episode.downloadPath ?: return@withContext
-        val file = File(path)
-        if (file.exists()) {
-            file.delete()
+        // Delete audio file
+        val audioPath = episode.downloadPath
+        if (audioPath != null) {
+            val file = File(audioPath)
+            if (file.exists()) file.delete()
         }
         episodeDao.updateDownloadPath(episodeId, null)
+        // Delete video file
+        val videoPath = episode.videoDownloadPath
+        if (videoPath != null) {
+            val file = File(videoPath)
+            if (file.exists()) file.delete()
+        }
+        episodeDao.updateVideoDownloadPath(episodeId, null)
     }
-
-    fun getDownloadedEpisodes(): Flow<List<EpisodeEntity>> = episodeDao.getDownloadedEpisodes()
 
     // --- History ---
     fun getHistoryWithDetails(): Flow<List<HistoryWithDetails>> = historyDao.getHistoryWithDetails()
 
     suspend fun addHistoryEntry(episodeId: Long, podcastId: Long) {
+        // Remove existing entry for this episode so it appears only once (with the latest timestamp)
+        historyDao.deleteHistoryForEpisode(episodeId)
         historyDao.insertHistoryEntry(HistoryEntity(episodeId = episodeId, podcastId = podcastId))
     }
 

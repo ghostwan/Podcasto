@@ -11,32 +11,34 @@ A full-featured podcast player for Android with YouTube channel support, an embe
 ### Android App
 - **Discover** -- Search for podcasts via the iTunes Search API, filter by country (FR, US, GB, DE, ES, IT, BR, JP), AI-powered search suggestions via Gemini (opt-in)
 - **AI Discovery** -- Generate personalized podcast recommendations based on your library using Gemini 2.0 Flash
-- **YouTube Channels** -- Subscribe to YouTube channels as audio podcasts, with multi-language audio track selection (full flavor only)
+- **YouTube Channels** -- Subscribe to YouTube channels as audio podcasts, with multi-language audio track selection and video mode with fullscreen support (full flavor only)
+- **YouTube Downloads** -- Download YouTube episodes as audio, video, or both with size estimation before download
 - **Subscribe** -- Follow your favorite podcasts and organize them with custom tags
-- **Browse episodes** -- View episode lists sorted by date, filter played/unplayed, now-playing indicator, stale podcast detection (3+ months without new episodes)
-- **Playback** -- Stream or play downloaded episodes with Media3 (ExoPlayer), background playback with media notification and custom seek buttons (rewind 10s / forward 30s), volume normalization (LoudnessEnhancer)
+- **Browse episodes** -- View episode lists sorted by date, filter played/unplayed, now-playing indicator, stale podcast detection (3+ months without new episodes), playback progress bars
+- **Playback** -- Stream or play downloaded episodes with Media3 (ExoPlayer), background playback with media notification and custom seek buttons (rewind 10s / forward 30s), volume normalization (LoudnessEnhancer), video mode for YouTube with fullscreen landscape support
 - **Playlist** -- Queue episodes, drag-to-reorder, long press to play directly, auto-fill with the latest unplayed episode from each subscription (or filtered by tag), auto-advance to next episode, live progress bars
-- **New Episodes** -- Dedicated screen showing latest episodes from all subscriptions, with tag filtering and played/unplayed toggle
-- **Listening History** -- Track all listened episodes with timestamps
+- **New Episodes** -- Dedicated screen showing latest episodes from all subscriptions, with tag filtering, played/unplayed toggle, and playback progress bars
+- **Listening History** -- Track all listened episodes with timestamps, deduplicated (most recent only), with playback progress bars
 - **Downloads** -- Download episodes for offline listening, delete downloaded files
 - **Bookmarks** -- Bookmark moments in episodes with comments, tap to seek
-- **Progress tracking** -- Playback position is saved and restored (including when switching episodes or using "Play All"), episodes are marked as played on completion and removed from playlist
+- **Progress tracking** -- Playback position is saved and restored (including when switching episodes or using "Play All"), episodes are marked as played on completion and removed from playlist. Progress bars shown on all episode lists
 - **Hidden podcasts** -- Long press on a subscription to hide it from the library (toggle visibility with the eye icon)
 - **Backup & Restore** -- Export all data (podcasts, episodes, tags, bookmarks, playlist, history, settings) to a local JSON file, or import from a previous backup. Google Drive backup with optional auto-backup every 24h via WorkManager
 - **Settings** -- Configure Gemini API key, Google Drive backup, volume normalization, web server password, and version info (long press to open GitHub) from the overflow menu
 - **SSH Tunnel** -- Expose the web server to the internet via localhost.run (JSch SSH tunnel, no signup required), accessible from a unified server button with Local/Tunnel mode selection
 - **Apple Podcasts fallback** -- Podcasts without a feed URL in the iTunes API (e.g. Radio France) are resolved by scraping the Apple Podcasts web page
+- **Firebase Crashlytics** -- Crash reporting for production builds
 - **Internationalization** -- Full English, French, German, Spanish, Italian, Dutch, Japanese, Swedish, and Chinese (Simplified) translations
 
 ### Web Interface
 - **Embedded web server** -- Access your podcast library from any browser on the local network (Ktor CIO)
 - **Full library management** -- Browse subscriptions, episodes, subscribe/unsubscribe, tag management, hidden podcasts toggle
-- **Web player** -- Play episodes directly in the browser with progress tracking, volume normalization (DynamicsCompressor)
+- **Web player** -- Play episodes directly in the browser with progress tracking, volume normalization (DynamicsCompressor), video mode for YouTube with fullscreen support
 - **Playlist management** -- View, reorder (drag & drop), auto-add episodes
-- **YouTube support** -- Subscribe to YouTube channels, multi-language audio selection (when YouTube is enabled)
+- **YouTube support** -- Subscribe to YouTube channels, multi-language audio selection, video toggle, download with audio/video/both choice and size estimation (when YouTube is enabled)
 - **AI search & discovery** -- Same Gemini-powered features as the Android app
-- **Listening history** -- View and track listening history from the web
-- **New episodes** -- Browse latest episodes across all subscriptions
+- **Listening history** -- View and track listening history from the web, with playback progress bars
+- **New episodes** -- Browse latest episodes across all subscriptions with progress bars
 - **Backup & Restore** -- Export/import all data as JSON directly from the web settings
 - **Settings** -- Configure Gemini API key from the web interface
 - **Password protection** -- Optional password authentication with rate limiting (3 attempts, 15-minute lockout), session-based via cookie
@@ -83,7 +85,7 @@ Podcasto ships with two build flavors:
 | **`store`** | Disabled | Not included | Yes |
 | **`full`** | Enabled | Included | No (ToS risk) |
 
-- **`full`** (default) -- Includes YouTube channel subscription via NewPipe Extractor for audio stream resolution. Suitable for direct distribution (GitHub, sideloading).
+- **`full`** (default) -- Includes YouTube channel subscription via NewPipe Extractor for audio stream resolution, video mode, and download. Suitable for direct distribution (GitHub, sideloading).
 - **`store`** -- Excludes NewPipe Extractor entirely from the binary. All YouTube UI and API paths are gated behind `BuildConfig.YOUTUBE_ENABLED`. Safe for Google Play Store submission.
 
 ## Tech Stack
@@ -93,7 +95,7 @@ Podcasto ships with two build flavors:
 | UI | Jetpack Compose, Material 3 |
 | Navigation | Navigation Compose |
 | DI | Hilt |
-| Database | Room (SQLite) v7 with versioned migrations |
+| Database | Room (SQLite) v8 with versioned migrations |
 | Network | Retrofit, OkHttp |
 | Media | Media3 / ExoPlayer |
 | Images | Coil |
@@ -104,19 +106,22 @@ Podcasto ships with two build flavors:
 | SSH Tunnel | JSch (mwiede fork) + localhost.run |
 | Backup | Google Drive API (App Data folder), WorkManager |
 | Auth | Google Sign-In (Play Services Auth) |
+| Crash reporting | Firebase Crashlytics |
 
 ## Project Structure
 
 ```
 app/src/main/java/com/ghostwan/podcasto/
   data/
-    local/         -- Room entities, DAOs, database (v7 with migrations)
+    local/         -- Room entities, DAOs, database (v8 with migrations)
     remote/        -- iTunes API service, RSS parser, Apple Podcasts scraper
-    repository/    -- PodcastRepository (single source of truth, backup export/import)
+    repository/    -- PodcastRepository (single source of truth, backup export/import, downloads)
     backup/        -- GoogleDriveBackupManager, AutoBackupWorker (WorkManager + Hilt)
   di/              -- Hilt AppModule
-  player/          -- PlayerManager (position saving, polling, auto-advance, volume normalization),
-                      PlaybackService (Media3 with custom notification buttons, LoudnessEnhancer)
+  player/          -- PlayerManager (position saving, polling, auto-advance, volume normalization,
+                      video mode, language selection),
+                      PlaybackService (Media3 with custom notification buttons, LoudnessEnhancer,
+                      MergingMediaSource for video)
   ui/screens/      -- Compose screens (Discover, Subscriptions, PodcastDetail,
                       EpisodeDetail, Playlist, Player, NewEpisodes, History, Settings)
   web/             -- WebServerService, WebRoutes (Ktor REST API), TunnelManager (SSH tunnel)
@@ -126,14 +131,15 @@ app/src/main/java/com/ghostwan/podcasto/
   NavHostViewModel.kt
 
 app/src/full/java/com/ghostwan/podcasto/data/remote/
-  YouTubeExtractor.kt  -- Real implementation using NewPipe Extractor
+  YouTubeExtractor.kt  -- Real implementation using NewPipe Extractor (stream resolution,
+                           video streams, multi-language, size estimation)
 
 app/src/store/java/com/ghostwan/podcasto/data/remote/
   YouTubeExtractor.kt  -- Stub (same interface, methods throw UnsupportedOperationException)
 
 app/src/main/assets/web/  -- Web UI (HTML/CSS/JS single-page app)
 app/src/main/res/
-  values/          -- English strings (default)
+  values/          -- English strings (default, ~173 strings)
   values-fr/       -- French translations
   values-de/       -- German translations
   values-es/       -- Spanish translations
@@ -166,7 +172,7 @@ adb shell am start -n com.ghostwan.podcasto/.MainActivity
 Version is configured in `gradle.properties`:
 ```properties
 APP_VERSION_NAME=1.0.0
-APP_VERSION_CODE=1
+APP_VERSION_CODE=2
 ```
 
 ### Web Interface

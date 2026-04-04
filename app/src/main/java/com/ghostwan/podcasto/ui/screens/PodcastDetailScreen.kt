@@ -1,7 +1,6 @@
 package com.ghostwan.podcasto.ui.screens
 
 import com.ghostwan.podcasto.BuildConfig
-import android.text.Html
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable

@@ -1,8 +1,15 @@
 package com.ghostwan.podcasto.ui.screens
 
 import com.ghostwan.podcasto.BuildConfig
+import android.app.Activity
+import android.content.pm.ActivityInfo
+import android.view.ViewGroup
+import android.view.WindowInsets
+import android.view.WindowInsetsController
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -10,21 +17,29 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Forward30
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import com.ghostwan.podcasto.R
 import com.ghostwan.podcasto.data.repository.PodcastRepository
@@ -107,11 +122,62 @@ fun PlayerScreen(
     val playerState by playerManager.playerState.collectAsState()
     val episode = playerState.currentEpisode
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val activity = context as? Activity
 
     var showBookmarkDialog by remember { mutableStateOf(false) }
+    var isFullscreen by remember { mutableStateOf(false) }
 
-    // Intercept system back gesture to close player overlay
-    BackHandler { onBack() }
+    // Single shared PlayerView — reused between inline and fullscreen to avoid
+    // surface re-attachment issues that cause the video to disappear.
+    val sharedPlayerView = remember(context) {
+        PlayerView(context).apply {
+            useController = false
+            setBackgroundColor(android.graphics.Color.BLACK)
+        }
+    }
+    // Keep the player reference in sync
+    LaunchedEffect(playerManager.getController()) {
+        sharedPlayerView.player = playerManager.getController()
+    }
+
+    // Intercept system back gesture — exit fullscreen first, then close player
+    BackHandler {
+        if (isFullscreen) {
+            isFullscreen = false
+        } else {
+            onBack()
+        }
+    }
+
+    // Manage orientation and system bars for fullscreen
+    DisposableEffect(isFullscreen) {
+        if (isFullscreen && activity != null) {
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            activity.window?.let { window ->
+                window.insetsController?.let { controller ->
+                    controller.hide(WindowInsets.Type.systemBars())
+                    controller.systemBarsBehavior =
+                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                }
+            }
+        }
+        onDispose {
+            if (activity != null) {
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                activity.window?.let { window ->
+                    window.insetsController?.show(WindowInsets.Type.systemBars())
+                }
+            }
+        }
+    }
+
+    // Exit fullscreen if video mode is turned off
+    LaunchedEffect(playerState.isVideoMode) {
+        if (!playerState.isVideoMode) {
+            isFullscreen = false
+        }
+    }
 
     if (showBookmarkDialog && repository != null && episode != null) {
         AddBookmarkDialog(
@@ -124,6 +190,17 @@ fun PlayerScreen(
             },
             onDismiss = { showBookmarkDialog = false },
         )
+    }
+
+    // Fullscreen video mode
+    if (isFullscreen && playerState.isVideoMode && episode != null) {
+        FullscreenVideoPlayer(
+            playerManager = playerManager,
+            playerState = playerState,
+            sharedPlayerView = sharedPlayerView,
+            onExitFullscreen = { isFullscreen = false },
+        )
+        return
     }
 
     Surface(
@@ -168,19 +245,56 @@ fun PlayerScreen(
             ) {
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Artwork — tap to go to podcast
-                Box {
-                    AsyncImage(
-                        model = playerState.podcastArtworkUrl,
-                        contentDescription = stringResource(R.string.go_to_podcast),
+                // Artwork or Video
+                if (playerState.isVideoMode) {
+                    // Video player view with fullscreen button
+                    Box(
                         modifier = Modifier
-                            .size(280.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .clickable { onGoToPodcast(episode.podcastId) },
-                        contentScale = ContentScale.Crop,
-                    )
-                    if (BuildConfig.YOUTUBE_ENABLED && playerState.podcastSourceType == "youtube") {
-                        YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp))
+                            .fillMaxWidth()
+                            .aspectRatio(16f / 9f)
+                            .clip(RoundedCornerShape(16.dp)),
+                    ) {
+                        AndroidView(
+                            factory = {
+                                (sharedPlayerView.parent as? ViewGroup)?.removeView(sharedPlayerView)
+                                sharedPlayerView
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        // Fullscreen button overlay
+                        IconButton(
+                            onClick = { isFullscreen = true },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(4.dp)
+                                .size(36.dp),
+                            colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = Color.Black.copy(alpha = 0.5f),
+                                contentColor = Color.White,
+                            ),
+                        ) {
+                            Icon(
+                                Icons.Default.Fullscreen,
+                                contentDescription = stringResource(R.string.fullscreen),
+                                modifier = Modifier.size(24.dp),
+                            )
+                        }
+                    }
+                } else {
+                    // Artwork — tap to go to podcast
+                    Box {
+                        AsyncImage(
+                            model = playerState.podcastArtworkUrl,
+                            contentDescription = stringResource(R.string.go_to_podcast),
+                            modifier = Modifier
+                                .size(280.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable { onGoToPodcast(episode.podcastId) },
+                            contentScale = ContentScale.Crop,
+                        )
+                        if (BuildConfig.YOUTUBE_ENABLED && playerState.podcastSourceType == "youtube") {
+                            YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp))
+                        }
                     }
                 }
 
@@ -291,7 +405,7 @@ fun PlayerScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Volume normalization toggle
+                // Volume normalization toggle + Video toggle
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
@@ -309,9 +423,206 @@ fun PlayerScreen(
                             )
                         },
                     )
+                    // Video/Audio toggle — only for YouTube episodes
+                    if (BuildConfig.YOUTUBE_ENABLED && playerState.podcastSourceType == "youtube") {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        FilterChip(
+                            selected = playerState.isVideoMode,
+                            onClick = { playerManager.toggleVideoMode() },
+                            label = {
+                                Text(
+                                    if (playerState.isVideoMode) stringResource(R.string.switch_to_audio)
+                                    else stringResource(R.string.switch_to_video)
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    if (playerState.isVideoMode) Icons.Default.MusicNote else Icons.Default.Videocam,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }
     }
+    }
+}
+
+/**
+ * Fullscreen video player — fills the entire screen in landscape with immersive mode.
+ * Controls are shown as an overlay that auto-hides after a few seconds.
+ */
+@Composable
+fun FullscreenVideoPlayer(
+    playerManager: PlayerManager,
+    playerState: PlayerState,
+    sharedPlayerView: PlayerView,
+    onExitFullscreen: () -> Unit,
+) {
+    var showControls by remember { mutableStateOf(true) }
+
+    // Auto-hide controls after 3 seconds
+    LaunchedEffect(showControls) {
+        if (showControls) {
+            delay(4000)
+            showControls = false
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+            ) {
+                showControls = !showControls
+            },
+    ) {
+        // Video player fills entire screen
+        AndroidView(
+            factory = {
+                (sharedPlayerView.parent as? ViewGroup)?.removeView(sharedPlayerView)
+                sharedPlayerView
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        // Controls overlay
+        if (showControls) {
+            // Semi-transparent background
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.4f)),
+            )
+
+            // Top bar: title + exit fullscreen
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopStart)
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onExitFullscreen) {
+                    Icon(
+                        Icons.Default.FullscreenExit,
+                        contentDescription = stringResource(R.string.exit_fullscreen),
+                        tint = Color.White,
+                    )
+                }
+                Text(
+                    text = playerState.currentEpisode?.title ?: "",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            // Center: play/pause + skip controls
+            Row(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(
+                    onClick = {
+                        playerManager.skipBackward()
+                        showControls = true
+                    },
+                    modifier = Modifier.size(48.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Replay10,
+                        contentDescription = stringResource(R.string.rewind_10s),
+                        tint = Color.White,
+                        modifier = Modifier.size(36.dp),
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        playerManager.togglePlayPause()
+                        showControls = true
+                    },
+                    modifier = Modifier.size(64.dp),
+                ) {
+                    Icon(
+                        if (playerState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (playerState.isPlaying) stringResource(R.string.pause) else stringResource(R.string.play),
+                        tint = Color.White,
+                        modifier = Modifier.size(48.dp),
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        playerManager.skipForward()
+                        showControls = true
+                    },
+                    modifier = Modifier.size(48.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Forward30,
+                        contentDescription = stringResource(R.string.forward_30s),
+                        tint = Color.White,
+                        modifier = Modifier.size(36.dp),
+                    )
+                }
+            }
+
+            // Bottom: progress bar + time
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                val progress = if (playerState.duration > 0) {
+                    (playerState.currentPosition.toFloat() / playerState.duration).coerceIn(0f, 1f)
+                } else 0f
+
+                Slider(
+                    value = progress,
+                    onValueChange = { newValue ->
+                        if (playerState.duration > 0) {
+                            playerManager.seekTo((newValue * playerState.duration).toLong())
+                        }
+                        showControls = true
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color.White,
+                        activeTrackColor = Color.White,
+                        inactiveTrackColor = Color.White.copy(alpha = 0.3f),
+                    ),
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = formatDuration(playerState.currentPosition / 1000),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                    )
+                    Text(
+                        text = formatDuration(playerState.duration / 1000),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                    )
+                }
+            }
+        }
     }
 }

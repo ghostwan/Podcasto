@@ -164,4 +164,13 @@
     <string name="youtube_subscribe_error">Laden van YouTube-kanaal mislukt: %1$s</string>
     <string name="select_audio_language">Audiotaal selecteren</string>
     <string name="version_label">Versie %1$s</string>
+    <string name="switch_to_video">Video</string>
+    <string name="switch_to_audio">Audio</string>
+    <string name="fullscreen">Volledig scherm</string>
+    <string name="exit_fullscreen">Volledig scherm sluiten</string>
+    <string name="loading">Laden…</string>
+    <string name="download_choice_title">Downloadopties</string>
+    <string name="download_audio_only">Alleen audio</string>
+    <string name="download_video_only">Alleen video</string>
+    <string name="download_both">Audio + Video</string>
 </resources>

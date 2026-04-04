@@ -6,6 +6,20 @@ import javax.inject.Singleton
 
 data class ResolvedAudioStream(val url: String, val durationSeconds: Long)
 
+data class ResolvedVideoStream(
+    val videoUrl: String,
+    val audioUrl: String,
+    val durationSeconds: Long,
+    val width: Int,
+    val height: Int,
+)
+
+data class StreamSizeInfo(
+    val audioSize: Long,
+    val videoSize: Long,
+    val videoResolution: String,
+)
+
 data class AudioLanguageOptions(
     val videoUrl: String,
     val durationSeconds: Long,
@@ -62,6 +76,14 @@ class YouTubeExtractor @Inject constructor(
     }
 
     suspend fun resolveAudioStreamForLanguage(videoUrl: String, languageCode: String): ResolvedAudioStream {
+        throw UnsupportedOperationException("YouTube is not available in this build")
+    }
+
+    suspend fun resolveVideoStreamUrl(videoUrl: String, languageCode: String? = null): ResolvedVideoStream {
+        throw UnsupportedOperationException("YouTube is not available in this build")
+    }
+
+    suspend fun getStreamSizes(videoUrl: String): StreamSizeInfo {
         throw UnsupportedOperationException("YouTube is not available in this build")
     }
 }

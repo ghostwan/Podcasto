@@ -112,9 +112,6 @@ class RssParser @Inject constructor(
         var epPubDateTimestamp = 0L
         var epDuration = ""
 
-        fun currentLocalName(): String = tagStack.lastOrNull()?.second ?: ""
-        fun currentNamespace(): String = tagStack.lastOrNull()?.first ?: ""
-
         var eventType = parser.eventType
         while (eventType != XmlPullParser.END_DOCUMENT) {
             when (eventType) {

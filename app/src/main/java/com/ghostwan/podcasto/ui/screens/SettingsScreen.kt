@@ -312,7 +312,7 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             HorizontalDivider()
 
@@ -392,7 +392,7 @@ fun SettingsScreen(
                 Text(stringResource(R.string.backup_import))
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             HorizontalDivider()
 
@@ -480,7 +480,7 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             HorizontalDivider()
 
@@ -541,7 +541,7 @@ fun SettingsScreen(
                 Text(stringResource(R.string.save))
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Guide section
             HorizontalDivider()
@@ -589,7 +589,7 @@ fun SettingsScreen(
                 Text(stringResource(R.string.gemini_guide_link))
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // ==========================================
             // Version
@@ -622,7 +622,7 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }

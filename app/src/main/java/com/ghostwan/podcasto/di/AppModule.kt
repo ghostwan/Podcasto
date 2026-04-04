@@ -94,12 +94,18 @@ object AppModule {
             }
         }
 
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE episodes ADD COLUMN videoDownloadPath TEXT DEFAULT NULL")
+            }
+        }
+
         return Room.databaseBuilder(
             context,
             PodcastoDatabase::class.java,
             "podcasto.db",
         )
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
     }

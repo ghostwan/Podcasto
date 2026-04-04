@@ -392,6 +392,19 @@ private fun NewEpisodeRow(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                        // Playback progress bar (only if episode has been started)
+                        if (!item.episode.played && item.episode.playbackPosition > 0 && item.episode.duration > 0) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { (item.episode.playbackPosition.toFloat() / (item.episode.duration * 1000)).coerceIn(0f, 1f) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp)),
+                                color = if (isNowPlaying) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                            )
+                        }
                     }
                 },
                 trailingContent = {

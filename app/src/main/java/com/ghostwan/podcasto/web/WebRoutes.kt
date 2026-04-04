@@ -3,9 +3,6 @@ package com.ghostwan.podcasto.web
 import android.content.Context
 import com.google.ai.client.generativeai.GenerativeModel
 import com.ghostwan.podcasto.BuildConfig
-import com.ghostwan.podcasto.data.local.PodcastEntity
-import com.ghostwan.podcasto.data.local.PodcastTagCrossRef
-import com.ghostwan.podcasto.data.local.TagEntity
 import com.ghostwan.podcasto.data.repository.PodcastRepository
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -108,6 +105,7 @@ data class EpisodeResponse(
     val played: Boolean,
     val playbackPosition: Long,
     val downloadPath: String?,
+    val videoDownloadPath: String? = null,
     val artworkUrl: String = "",
     val sourceType: String = "rss",
 )
@@ -125,6 +123,7 @@ data class PlaylistItemResponse(
     val played: Boolean,
     val playbackPosition: Long,
     val downloadPath: String?,
+    val videoDownloadPath: String? = null,
     val artworkUrl: String,
     val podcastTitle: String,
     val sourceType: String = "rss",
@@ -159,6 +158,9 @@ data class HistoryResponse(
     val podcastTitle: String,
     val artworkUrl: String,
     val listenedAt: Long,
+    val playbackPosition: Long = 0,
+    val duration: Long = 0,
+    val played: Boolean = false,
 )
 
 @Serializable
@@ -412,6 +414,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                     played = e.played,
                     playbackPosition = e.playbackPosition,
                     downloadPath = e.downloadPath,
+                    videoDownloadPath = e.videoDownloadPath,
                     artworkUrl = podcast.artworkUrl,
                     sourceType = podcast.sourceType,
                 )
@@ -495,7 +498,8 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                                 pubDate = e.pubDate, pubDateTimestamp = e.pubDateTimestamp,
                                 duration = e.duration, played = e.played,
                                 playbackPosition = e.playbackPosition,
-                                downloadPath = e.downloadPath, artworkUrl = existing.artworkUrl,
+                                downloadPath = e.downloadPath, videoDownloadPath = e.videoDownloadPath,
+                                artworkUrl = existing.artworkUrl,
                                 sourceType = existing.sourceType,
                             )
                         },
@@ -527,7 +531,8 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                             pubDate = e.pubDate, pubDateTimestamp = e.pubDateTimestamp,
                             duration = e.duration, played = e.played,
                             playbackPosition = e.playbackPosition,
-                            downloadPath = e.downloadPath, artworkUrl = podcast.artworkUrl,
+                            downloadPath = e.downloadPath, videoDownloadPath = e.videoDownloadPath,
+                            artworkUrl = podcast.artworkUrl,
                         )
                     },
                 ))
@@ -582,7 +587,7 @@ Suggère 4 podcasts qui correspondent à cette recherche. Les suggestions doiven
 Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdown, sans blocs de code :
 {"intro": "Une courte phrase expliquant tes suggestions par rapport à la recherche", "suggestions": [{"name": "Nom du Podcast", "reason": "Courte raison pour laquelle il correspond à la recherche", "searchQuery": "requête de recherche pour le trouver sur iTunes"}]}"""
 
-                val (text, parsed) = withContext(Dispatchers.IO) {
+                val (_, parsed) = withContext(Dispatchers.IO) {
                     val model = GenerativeModel(
                         modelName = "gemini-2.0-flash",
                         apiKey = apiKey,
@@ -632,6 +637,7 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                 played = episode.played,
                 playbackPosition = episode.playbackPosition,
                 downloadPath = episode.downloadPath,
+                videoDownloadPath = episode.videoDownloadPath,
                 artworkUrl = podcast?.artworkUrl ?: "",
                 sourceType = podcast?.sourceType ?: "rss",
             ))
@@ -662,7 +668,7 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
             call.respond(HttpStatusCode.OK, mapOf("status" to "unplayed"))
         }
 
-        // GET /api/episodes/:id/stream — stream locally downloaded episode
+        // GET /api/episodes/:id/stream — stream locally downloaded episode (audio)
         get("/episodes/{id}/stream") {
             val episodeId = call.parameters["id"]?.toLongOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
@@ -675,6 +681,23 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
             val file = File(path)
             if (!file.exists()) {
                 return@get call.respond(HttpStatusCode.NotFound, ErrorResponse("Local file not found"))
+            }
+            call.respondFile(file)
+        }
+
+        // GET /api/episodes/:id/stream-video — stream locally downloaded video file
+        get("/episodes/{id}/stream-video") {
+            val episodeId = call.parameters["id"]?.toLongOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            val episode = repository.getEpisodeById(episodeId)
+                ?: return@get call.respond(HttpStatusCode.NotFound, ErrorResponse("Episode not found"))
+            val path = episode.videoDownloadPath
+            if (path.isNullOrEmpty()) {
+                return@get call.respond(HttpStatusCode.NotFound, ErrorResponse("Video not downloaded locally"))
+            }
+            val file = File(path)
+            if (!file.exists()) {
+                return@get call.respond(HttpStatusCode.NotFound, ErrorResponse("Local video file not found"))
             }
             call.respondFile(file)
         }
@@ -737,6 +760,7 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                     played = ewa.episode.played,
                     playbackPosition = ewa.episode.playbackPosition,
                     downloadPath = ewa.episode.downloadPath,
+                    videoDownloadPath = ewa.episode.videoDownloadPath,
                     artworkUrl = ewa.artworkUrl,
                     podcastTitle = podcast?.title ?: "",
                     sourceType = podcast?.sourceType ?: "rss",
@@ -878,7 +902,7 @@ $libraryDesc
 Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdown, sans blocs de code :
 {"intro": "Une courte phrase d'introduction personnalisée sur ses goûts", "suggestions": [{"name": "Nom du Podcast", "reason": "Courte raison pour laquelle il aimerait", "searchQuery": "requête de recherche pour le trouver sur iTunes"}]}"""
 
-                val (text, parsed) = withContext(Dispatchers.IO) {
+                val (_, parsed) = withContext(Dispatchers.IO) {
                     val model = GenerativeModel(
                         modelName = "gemini-2.0-flash",
                         apiKey = apiKey,
@@ -932,6 +956,7 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                         played = ewa.episode.played,
                         playbackPosition = ewa.episode.playbackPosition,
                         downloadPath = ewa.episode.downloadPath,
+                        videoDownloadPath = ewa.episode.videoDownloadPath,
                         artworkUrl = ewa.artworkUrl,
                         sourceType = podcast?.sourceType ?: "rss",
                     )
@@ -956,6 +981,9 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                         podcastTitle = h.podcastTitle,
                         artworkUrl = h.artworkUrl,
                         listenedAt = h.history.listenedAt,
+                        playbackPosition = h.playbackPosition,
+                        duration = h.duration,
+                        played = h.played,
                     )
                 })
             } catch (e: Exception) {
@@ -1050,6 +1078,87 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                 call.respond(mapOf("audioUrl" to resolved.url))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, ErrorResponse("Failed to resolve YouTube audio: ${e.message}"))
+            }
+        }
+
+        // GET /api/youtube/resolve-video?url=... — resolve YouTube video to separate video + audio stream URLs
+        get("/youtube/resolve-video") {
+            if (!BuildConfig.YOUTUBE_ENABLED) {
+                call.respond(HttpStatusCode.NotFound, ErrorResponse("YouTube is not available in this build"))
+                return@get
+            }
+            val videoUrl = call.request.queryParameters["url"]
+                ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'url' parameter"))
+            try {
+                if (!com.ghostwan.podcasto.data.remote.YouTubeExtractor.isYouTubeVideoUrl(videoUrl)) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("Not a YouTube URL"))
+                    return@get
+                }
+                val episode = com.ghostwan.podcasto.data.local.EpisodeEntity(
+                    id = 0, podcastId = 0, title = "", description = "",
+                    audioUrl = videoUrl, pubDate = "", pubDateTimestamp = 0,
+                )
+                val videoStream = repository.resolveVideoUrl(episode)
+                if (videoStream != null) {
+                    call.respond(mapOf(
+                        "videoUrl" to videoStream.videoUrl,
+                        "audioUrl" to videoStream.audioUrl,
+                        "durationSeconds" to videoStream.durationSeconds.toString(),
+                        "width" to videoStream.width.toString(),
+                        "height" to videoStream.height.toString(),
+                    ))
+                } else {
+                    call.respond(HttpStatusCode.NotFound, ErrorResponse("No video stream available"))
+                }
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ErrorResponse("Failed to resolve YouTube video: ${e.message}"))
+            }
+        }
+
+        // GET /api/youtube/stream-sizes?episodeId=... — get audio and video stream sizes for download choice
+        get("/youtube/stream-sizes") {
+            if (!BuildConfig.YOUTUBE_ENABLED) {
+                call.respond(HttpStatusCode.NotFound, ErrorResponse("YouTube is not available in this build"))
+                return@get
+            }
+            val episodeId = call.request.queryParameters["episodeId"]?.toLongOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'episodeId' parameter"))
+            try {
+                val episode = repository.getEpisodeById(episodeId)
+                    ?: return@get call.respond(HttpStatusCode.NotFound, ErrorResponse("Episode not found"))
+                val sizes = repository.getStreamSizes(episode)
+                if (sizes != null) {
+                    call.respond(mapOf(
+                        "audioSize" to sizes.audioSize.toString(),
+                        "videoSize" to sizes.videoSize.toString(),
+                        "videoResolution" to sizes.videoResolution,
+                    ))
+                } else {
+                    call.respond(HttpStatusCode.NotFound, ErrorResponse("Not a YouTube episode"))
+                }
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ErrorResponse("Failed to get stream sizes: ${e.message}"))
+            }
+        }
+
+        // POST /api/episodes/:id/download — download episode with mode (audio/video/both)
+        post("/episodes/{id}/download") {
+            val episodeId = call.parameters["id"]?.toLongOrNull()
+                ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            try {
+                val episode = repository.getEpisodeById(episodeId)
+                    ?: return@post call.respond(HttpStatusCode.NotFound, ErrorResponse("Episode not found"))
+                val body = try { call.receive<Map<String, String>>() } catch (_: Exception) { emptyMap() }
+                val modeStr = body["mode"] ?: "both"
+                val mode = when (modeStr) {
+                    "audio" -> PodcastRepository.DownloadMode.AUDIO
+                    "video" -> PodcastRepository.DownloadMode.VIDEO
+                    else -> PodcastRepository.DownloadMode.BOTH
+                }
+                repository.downloadEpisode(episode, mode)
+                call.respond(mapOf("status" to "ok"))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, ErrorResponse("Download failed: ${e.message}"))
             }
         }
 

@@ -4,10 +4,17 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.media.audiofx.LoudnessEnhancer
+import android.net.Uri
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.MergingMediaSource
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -26,7 +33,10 @@ class PlaybackService : MediaSessionService() {
         private val SEEK_BACKWARD_COMMAND = SessionCommand("SEEK_BACKWARD_10", android.os.Bundle.EMPTY)
         private val SEEK_FORWARD_COMMAND = SessionCommand("SEEK_FORWARD_30", android.os.Bundle.EMPTY)
         private val VOLUME_NORM_TOGGLE_COMMAND = SessionCommand("VOLUME_NORM_TOGGLE", android.os.Bundle.EMPTY)
+        val SET_VIDEO_MODE_COMMAND = SessionCommand("SET_VIDEO_MODE", android.os.Bundle.EMPTY)
     }
+
+    private var exoPlayer: ExoPlayer? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -39,6 +49,7 @@ class PlaybackService : MediaSessionService() {
         val player = ExoPlayer.Builder(this)
             .setAudioAttributes(audioAttributes, /* handleAudioFocus= */ true)
             .build()
+        exoPlayer = player
 
         // Attach LoudnessEnhancer after player is created
         player.addListener(object : Player.Listener {
@@ -77,6 +88,7 @@ class PlaybackService : MediaSessionService() {
                         .add(SEEK_BACKWARD_COMMAND)
                         .add(SEEK_FORWARD_COMMAND)
                         .add(VOLUME_NORM_TOGGLE_COMMAND)
+                        .add(SET_VIDEO_MODE_COMMAND)
                         .build()
                     return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                         .setAvailableSessionCommands(sessionCommands)
@@ -102,6 +114,17 @@ class PlaybackService : MediaSessionService() {
                         "VOLUME_NORM_TOGGLE" -> {
                             val enabled = args.getBoolean("enabled", false)
                             setVolumeNormalization(enabled)
+                        }
+                        "SET_VIDEO_MODE" -> {
+                            val videoUrl = args.getString("video_url")
+                            val audioUrl = args.getString("audio_url")
+                            val positionMs = args.getLong("position_ms", 0)
+                            val title = args.getString("title", "")
+                            val artworkUrl = args.getString("artwork_url", "")
+                            val isLocal = args.getBoolean("is_local", false)
+                            if (videoUrl != null && audioUrl != null) {
+                                setVideoMode(videoUrl, audioUrl, positionMs, title, artworkUrl, isLocal)
+                            }
                         }
                     }
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
@@ -138,6 +161,38 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    /**
+     * Switch to video mode by creating a MergingMediaSource with separate video-only
+     * and audio-only streams. Uses DefaultDataSource.Factory for local files (file:// URIs)
+     * and DefaultHttpDataSource.Factory for remote URLs.
+     */
+    private fun setVideoMode(videoUrl: String, audioUrl: String, positionMs: Long, title: String, artworkUrl: String, isLocal: Boolean = false) {
+        val player = exoPlayer ?: return
+        val dataSourceFactory = if (isLocal) {
+            DefaultDataSource.Factory(this)
+        } else {
+            DefaultHttpDataSource.Factory()
+        }
+        val videoSource = ProgressiveMediaSource.Factory(dataSourceFactory)
+            .createMediaSource(
+                MediaItem.Builder()
+                    .setUri(Uri.parse(videoUrl))
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(title)
+                            .setArtworkUri(if (artworkUrl.isNotEmpty()) Uri.parse(artworkUrl) else null)
+                            .build()
+                    )
+                    .build()
+            )
+        val audioSource = ProgressiveMediaSource.Factory(dataSourceFactory)
+            .createMediaSource(MediaItem.fromUri(Uri.parse(audioUrl)))
+        val mergedSource = MergingMediaSource(videoSource, audioSource)
+        player.setMediaSource(mergedSource, positionMs)
+        player.prepare()
+        player.play()
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         return mediaSession
     }
@@ -157,6 +212,7 @@ class PlaybackService : MediaSessionService() {
             release()
         }
         mediaSession = null
+        exoPlayer = null
         super.onDestroy()
     }
 }

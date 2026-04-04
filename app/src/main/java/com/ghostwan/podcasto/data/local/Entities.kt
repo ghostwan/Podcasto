@@ -28,6 +28,7 @@ data class EpisodeEntity(
     val pubDateTimestamp: Long = 0,
     val duration: Long = 0,
     val downloadPath: String? = null,
+    val videoDownloadPath: String? = null,
     val played: Boolean = false,
     val playbackPosition: Long = 0,
 )
@@ -80,6 +81,9 @@ data class HistoryWithDetails(
     val episodeTitle: String,
     val podcastTitle: String,
     val artworkUrl: String,
+    val playbackPosition: Long = 0,
+    val duration: Long = 0,
+    val played: Boolean = false,
 )
 
 data class PodcastLatestTimestamp(

@@ -164,4 +164,13 @@
     <string name="youtube_subscribe_error">YouTube 频道加载失败：%1$s</string>
     <string name="select_audio_language">选择音频语言</string>
     <string name="version_label">版本 %1$s</string>
+    <string name="switch_to_video">视频</string>
+    <string name="switch_to_audio">音频</string>
+    <string name="fullscreen">全屏</string>
+    <string name="exit_fullscreen">退出全屏</string>
+    <string name="loading">加载中…</string>
+    <string name="download_choice_title">下载选项</string>
+    <string name="download_audio_only">仅音频</string>
+    <string name="download_video_only">仅视频</string>
+    <string name="download_both">音频 + 视频</string>
 </resources>

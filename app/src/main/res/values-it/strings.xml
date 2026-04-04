@@ -164,4 +164,13 @@
     <string name="youtube_subscribe_error">Caricamento canale YouTube fallito: %1$s</string>
     <string name="select_audio_language">Seleziona lingua audio</string>
     <string name="version_label">Versione %1$s</string>
+    <string name="switch_to_video">Video</string>
+    <string name="switch_to_audio">Audio</string>
+    <string name="fullscreen">Schermo intero</string>
+    <string name="exit_fullscreen">Esci dallo schermo intero</string>
+    <string name="loading">Caricamento…</string>
+    <string name="download_choice_title">Opzioni di download</string>
+    <string name="download_audio_only">Solo audio</string>
+    <string name="download_video_only">Solo video</string>
+    <string name="download_both">Audio + Video</string>
 </resources>

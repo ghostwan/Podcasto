@@ -291,7 +291,6 @@ let allTags = [];
 let selectedTagId = null;
 let allPodcasts = [];
 let searchDebounceTimer = null;
-let dialogCallback = null;
 let showHidden = false;
 
 // Podcast/Episode detail state
@@ -323,6 +322,9 @@ let audioContext = null;
 let sourceNode = null;
 let compressorNode = null;
 let gainNode = null;
+
+// Video mode state
+let isVideoMode = false;
 
 // Navigation stack for back navigation
 let navStack = [];
@@ -367,6 +369,14 @@ document.addEventListener('DOMContentLoaded', () => {
     audio.addEventListener('play', () => { isPlaying = true; updatePlayButton(); });
     audio.addEventListener('pause', () => { isPlaying = false; updatePlayButton(); });
     audio.addEventListener('loadedmetadata', onAudioLoaded);
+
+    // Video element events (for video mode)
+    const video = document.getElementById('video-element');
+    if (video) {
+        video.addEventListener('timeupdate', onAudioTimeUpdate);
+        video.addEventListener('play', () => { if (isVideoMode) { isPlaying = true; updatePlayButton(); } });
+        video.addEventListener('pause', () => { if (isVideoMode) { isPlaying = false; updatePlayButton(); } });
+    }
 
     // Progress bar seek
     const progressInput = document.getElementById('player-progress-input');
@@ -958,14 +968,15 @@ function updateEpisodeDetailButtons() {
         : '<span class="material-icons-round">check_circle_outline</span> Non lu';
     playedBtn.classList.toggle('active', e.played);
 
-    // Download button — only show if episode is downloaded
+    // Download button — show download or delete
     const dlBtn = document.getElementById('ep-download-btn');
     if (dlBtn) {
         if (e.downloadPath) {
             dlBtn.style.display = '';
             dlBtn.innerHTML = '<span class="material-icons-round">delete_outline</span> Supprimer le téléchargement';
         } else {
-            dlBtn.style.display = 'none';
+            dlBtn.style.display = '';
+            dlBtn.innerHTML = '<span class="material-icons-round">download</span> Télécharger';
         }
     }
 }
@@ -1003,12 +1014,101 @@ async function togglePlayedCurrentEpisode() {
 
 async function toggleDownloadCurrentEpisode() {
     if (!currentEpisodeDetail) return;
-    if (!currentEpisodeDetail.downloadPath) return;
+    if (currentEpisodeDetail.downloadPath) {
+        // Delete existing download
+        try {
+            await fetch(`/api/episodes/${currentEpisodeDetail.id}/download`, { method: 'DELETE' });
+            currentEpisodeDetail.downloadPath = null;
+            currentEpisodeDetail.videoDownloadPath = null;
+            updateEpisodeDetailButtons();
+            showToast('Téléchargement supprimé');
+        } catch (e) {
+            showToast('Erreur: ' + e.message);
+        }
+    } else {
+        // Start download — check if YouTube for choice dialog
+        const isYouTube = currentEpisodeDetail.sourceType === 'youtube';
+        if (isYouTube) {
+            showYouTubeDownloadDialog(currentEpisodeDetail.id);
+        } else {
+            doDownloadEpisode(currentEpisodeDetail.id, 'both');
+        }
+    }
+}
+
+async function showYouTubeDownloadDialog(episodeId) {
+    showToast('Récupération des tailles...');
     try {
-        await fetch(`/api/episodes/${currentEpisodeDetail.id}/download`, { method: 'DELETE' });
-        currentEpisodeDetail.downloadPath = null;
-        updateEpisodeDetailButtons();
-        showToast('Téléchargement supprimé');
+        const res = await fetch(`/api/youtube/stream-sizes?episodeId=${episodeId}`);
+        if (!res.ok) {
+            // Fallback: download audio only
+            doDownloadEpisode(episodeId, 'audio');
+            return;
+        }
+        const sizes = await res.json();
+        const audioMB = (parseInt(sizes.audioSize) / (1024 * 1024)).toFixed(1);
+        const videoMB = (parseInt(sizes.videoSize) / (1024 * 1024)).toFixed(1);
+        const bothMB = ((parseInt(sizes.audioSize) + parseInt(sizes.videoSize)) / (1024 * 1024)).toFixed(1);
+
+        // Show modal dialog
+        const overlay = document.createElement('div');
+        overlay.className = 'download-choice-overlay';
+        overlay.innerHTML = `
+            <div class="download-choice-dialog">
+                <h3>Options de téléchargement</h3>
+                <button class="download-choice-btn" data-mode="audio">
+                    <span class="material-icons-round">audiotrack</span>
+                    Audio uniquement (${audioMB} MB)
+                </button>
+                <button class="download-choice-btn" data-mode="video">
+                    <span class="material-icons-round">videocam</span>
+                    Vidéo uniquement (${videoMB} MB, ${sizes.videoResolution})
+                </button>
+                <button class="download-choice-btn" data-mode="both">
+                    <span class="material-icons-round">library_music</span>
+                    Audio + Vidéo (${bothMB} MB)
+                </button>
+                <button class="download-choice-cancel">Annuler</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        overlay.querySelector('.download-choice-cancel').onclick = () => overlay.remove();
+        overlay.querySelectorAll('.download-choice-btn').forEach(btn => {
+            btn.onclick = () => {
+                overlay.remove();
+                doDownloadEpisode(episodeId, btn.dataset.mode);
+            };
+        });
+        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+        doDownloadEpisode(episodeId, 'audio');
+    }
+}
+
+async function doDownloadEpisode(episodeId, mode) {
+    showToast('Téléchargement en cours...');
+    try {
+        const res = await fetch(`/api/episodes/${episodeId}/download`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: mode }),
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            showToast('Erreur: ' + (err.error || 'Échec du téléchargement'));
+            return;
+        }
+        showToast('Téléchargement terminé !');
+        // Refresh episode detail
+        if (currentEpisodeDetail && currentEpisodeDetail.id === episodeId) {
+            const epRes = await fetch(`/api/episodes/${episodeId}`);
+            if (epRes.ok) {
+                currentEpisodeDetail = await epRes.json();
+                updateEpisodeDetailButtons();
+            }
+        }
     } catch (e) {
         showToast('Erreur: ' + e.message);
     }
@@ -1580,6 +1680,8 @@ async function loadHistory() {
         list.innerHTML = history.map(h => {
             const dateStr = new Date(h.listenedAt).toLocaleString();
             const isNowPlaying = playerEpisode && playerEpisode.id === h.episodeId;
+            const hasProgress = !h.played && h.playbackPosition > 0 && h.duration > 0;
+            const progressPct = hasProgress ? Math.min(100, (h.playbackPosition / (h.duration * 1000)) * 100) : 0;
 
             return `
             <div class="history-item ${isNowPlaying ? 'now-playing' : ''}" onclick="openHistoryEpisodeDetail(${h.episodeId}, '${escJs(h.artworkUrl)}', '${escJs(h.podcastTitle)}')">
@@ -1588,6 +1690,7 @@ async function loadHistory() {
                     <div class="history-item-title">${esc(h.episodeTitle)}</div>
                     <div class="history-item-podcast">${esc(h.podcastTitle)}</div>
                     <div class="history-item-date">${dateStr}</div>
+                    ${hasProgress ? `<div class="episode-progress"><div class="episode-progress-fill" style="width:${progressPct.toFixed(1)}%"></div></div>` : ''}
                 </div>
                 <div class="history-item-actions">
                     <button class="episode-action-btn" onclick="event.stopPropagation(); playHistoryEpisode(${h.episodeId}, '${escJs(h.artworkUrl)}', '${escJs(h.podcastTitle)}')" title="Lire">
@@ -1718,6 +1821,138 @@ async function resolveAudioUrl(episode, lang) {
 }
 
 /**
+ * Resolve YouTube video + audio DASH streams for video mode.
+ * Returns { videoUrl, audioUrl, width, height } or throws.
+ */
+async function resolveVideoUrl(episode) {
+    if (!episode || !episode.audioUrl) throw new Error('No episode URL');
+    if (!isYouTubeUrl(episode.audioUrl)) throw new Error('Not a YouTube episode');
+    const res = await authFetch(`/api/youtube/resolve-video?url=${encodeURIComponent(episode.audioUrl)}`);
+    const data = await res.json();
+    if (data.videoUrl && data.audioUrl) return data;
+    throw new Error(data.error || 'Failed to resolve video');
+}
+
+/**
+ * Toggle between audio-only and video playback for the current YouTube episode.
+ * Preserves playback position across the switch.
+ * Uses locally downloaded files when available, otherwise resolves from YouTube.
+ */
+async function toggleVideoMode() {
+    if (!playerEpisode) return;
+    if (!isYouTubeUrl(playerEpisode.audioUrl)) return;
+
+    const audio = document.getElementById('audio-element');
+    const video = document.getElementById('video-element');
+    const overlay = document.getElementById('video-overlay');
+    const videoBtn = document.getElementById('player-video-btn');
+
+    if (isVideoMode) {
+        // Switch back to audio mode
+        const currentTime = video.currentTime;
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        overlay.style.display = 'none';
+
+        audio.currentTime = currentTime;
+        audio.play();
+        isVideoMode = false;
+        if (videoBtn) {
+            videoBtn.classList.remove('active');
+            videoBtn.innerHTML = '<span class="material-icons-round">videocam</span>';
+            videoBtn.title = 'Basculer en vidéo';
+        }
+    } else {
+        // Switch to video mode
+        const currentTime = audio.currentTime;
+        try {
+            let videoSrc, audioSrc;
+
+            // Check if locally downloaded video + audio are available
+            if (playerEpisode.videoDownloadPath && playerEpisode.downloadPath) {
+                showToast('Chargement vidéo locale...');
+                videoSrc = `/api/episodes/${playerEpisode.id}/stream-video`;
+                audioSrc = `/api/episodes/${playerEpisode.id}/stream`;
+            } else {
+                showToast('Chargement vidéo...');
+                const streams = await resolveVideoUrl(playerEpisode);
+                videoSrc = streams.videoUrl;
+                audioSrc = streams.audioUrl;
+            }
+
+            audio.pause();
+
+            // On web, we use dual elements: video-only + audio-only with periodic time sync.
+            video.src = videoSrc;
+            video.currentTime = currentTime;
+
+            const audioEl = document.getElementById('audio-element');
+            audioEl.src = audioSrc;
+            audioEl.currentTime = currentTime;
+
+            video.play();
+            audioEl.play();
+
+            // Sync video and audio times periodically
+            if (window._videoSyncInterval) clearInterval(window._videoSyncInterval);
+            window._videoSyncInterval = setInterval(() => {
+                if (Math.abs(video.currentTime - audioEl.currentTime) > 0.5) {
+                    audioEl.currentTime = video.currentTime;
+                }
+            }, 2000);
+
+            document.getElementById('video-overlay-title').textContent = playerEpisode.title;
+            overlay.style.display = 'flex';
+            isVideoMode = true;
+            if (videoBtn) {
+                videoBtn.classList.add('active');
+                videoBtn.innerHTML = '<span class="material-icons-round">music_note</span>';
+                videoBtn.title = 'Basculer en audio';
+            }
+        } catch (e) {
+            showToast('Erreur vidéo: ' + e.message);
+        }
+    }
+}
+
+function closeVideoOverlay() {
+    // Switch back to audio mode when closing the overlay
+    if (isVideoMode) {
+        toggleVideoMode();
+    }
+}
+
+/**
+ * Toggle fullscreen for the video overlay using the Fullscreen API.
+ */
+function toggleVideoFullscreen() {
+    const overlay = document.getElementById('video-overlay');
+    const btn = document.getElementById('video-fullscreen-btn');
+    if (!overlay) return;
+
+    if (document.fullscreenElement) {
+        document.exitFullscreen().then(() => {
+            if (btn) btn.innerHTML = '<span class="material-icons-round">fullscreen</span>';
+        }).catch(() => {});
+    } else {
+        overlay.requestFullscreen().then(() => {
+            if (btn) btn.innerHTML = '<span class="material-icons-round">fullscreen_exit</span>';
+        }).catch(() => {});
+    }
+}
+
+// Update fullscreen button icon when user exits fullscreen via Escape key
+document.addEventListener('fullscreenchange', () => {
+    const btn = document.getElementById('video-fullscreen-btn');
+    if (btn) {
+        btn.innerHTML = document.fullscreenElement
+            ? '<span class="material-icons-round">fullscreen_exit</span>'
+            : '<span class="material-icons-round">fullscreen</span>';
+    }
+});
+
+/**
  * Check if a YouTube episode has multiple audio languages.
  * Returns {languages: {code: displayName}, defaultAudioUrl?: string} or null.
  * If multiple languages, languages will have >1 entry.
@@ -1784,6 +2019,22 @@ async function playEpisode(episodeId, seekTo) {
         // Save position of currently playing episode before switching
         await saveCurrentPosition();
 
+        // Exit video mode if active
+        if (isVideoMode) {
+            const video = document.getElementById('video-element');
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            document.getElementById('video-overlay').style.display = 'none';
+            if (window._videoSyncInterval) clearInterval(window._videoSyncInterval);
+            isVideoMode = false;
+            const videoBtn = document.getElementById('player-video-btn');
+            if (videoBtn) {
+                videoBtn.classList.remove('active');
+                videoBtn.innerHTML = '<span class="material-icons-round">videocam</span>';
+            }
+        }
+
         const res = await fetch(`/api/episodes/${episodeId}`);
         const episode = await res.json();
 
@@ -1836,6 +2087,22 @@ async function playEpisodeFromPlaylist(episodeId, artworkUrl, podcastTitle) {
     try {
         await saveCurrentPosition();
 
+        // Exit video mode if active
+        if (isVideoMode) {
+            const video = document.getElementById('video-element');
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            document.getElementById('video-overlay').style.display = 'none';
+            if (window._videoSyncInterval) clearInterval(window._videoSyncInterval);
+            isVideoMode = false;
+            const videoBtn = document.getElementById('player-video-btn');
+            if (videoBtn) {
+                videoBtn.classList.remove('active');
+                videoBtn.innerHTML = '<span class="material-icons-round">videocam</span>';
+            }
+        }
+
         const res = await fetch(`/api/episodes/${episodeId}`);
         const episode = await res.json();
 
@@ -1878,6 +2145,19 @@ function playerTogglePlay() {
     const audio = document.getElementById('audio-element');
     if (!playerEpisode) return;
 
+    if (isVideoMode) {
+        const video = document.getElementById('video-element');
+        if (video.paused) {
+            video.play();
+            audio.play();
+        } else {
+            video.pause();
+            audio.pause();
+            saveCurrentPosition();
+        }
+        return;
+    }
+
     if (audio.paused) {
         audio.play();
     } else {
@@ -1887,8 +2167,15 @@ function playerTogglePlay() {
 }
 
 function playerSeek(seconds) {
-    const audio = document.getElementById('audio-element');
     if (!playerEpisode) return;
+    if (isVideoMode) {
+        const video = document.getElementById('video-element');
+        video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + seconds));
+        // Also sync audio element
+        document.getElementById('audio-element').currentTime = video.currentTime;
+        return;
+    }
+    const audio = document.getElementById('audio-element');
     audio.currentTime = Math.max(0, Math.min(audio.duration || 0, audio.currentTime + seconds));
 }
 
@@ -2002,14 +2289,6 @@ function updateAudioPipeline() {
     }
 }
 
-function toggleVolumeNorm() {
-    volumeNormEnabled = !volumeNormEnabled;
-    localStorage.setItem('volumeNormEnabled', volumeNormEnabled);
-    updateAudioPipeline();
-    updateVolumeNormButton();
-    showToast(volumeNormEnabled ? 'Normalisation du volume activ\u00e9e' : 'Normalisation du volume d\u00e9sactiv\u00e9e');
-}
-
 function updateVolumeNormButton() {
     const btn = document.getElementById('player-norm-btn');
     if (btn) {
@@ -2039,6 +2318,11 @@ function updatePlayerUI() {
     if (ytBadge) {
         ytBadge.style.display = (playerEpisode.sourceType === 'youtube') ? '' : 'none';
     }
+    // Video toggle button — only for YouTube episodes
+    const videoBtn = document.getElementById('player-video-btn');
+    if (videoBtn) {
+        videoBtn.style.display = (youtubeEnabled && isYouTubeUrl(playerEpisode.audioUrl)) ? '' : 'none';
+    }
     updatePlayButton();
 }
 
@@ -2048,6 +2332,17 @@ function updatePlayButton() {
 }
 
 function onAudioTimeUpdate() {
+    // In video mode, sync from video element instead
+    if (isVideoMode) {
+        const video = document.getElementById('video-element');
+        if (!video.duration || isNaN(video.duration)) return;
+        const pct = (video.currentTime / video.duration) * 100;
+        document.getElementById('player-progress-fill').style.width = pct + '%';
+        document.getElementById('player-progress-input').value = Math.round(pct * 10);
+        document.getElementById('player-current-time').textContent = formatTime(video.currentTime);
+        document.getElementById('player-duration').textContent = formatTime(video.duration);
+        return;
+    }
     const audio = document.getElementById('audio-element');
     if (!audio.duration || isNaN(audio.duration)) return;
 
@@ -2100,9 +2395,16 @@ async function onAudioEnded() {
 }
 
 function onProgressSeek() {
+    const value = parseInt(document.getElementById('player-progress-input').value);
+    if (isVideoMode) {
+        const video = document.getElementById('video-element');
+        if (!video.duration || isNaN(video.duration)) return;
+        video.currentTime = (value / 1000) * video.duration;
+        document.getElementById('audio-element').currentTime = video.currentTime;
+        return;
+    }
     const audio = document.getElementById('audio-element');
     if (!audio.duration || isNaN(audio.duration)) return;
-    const value = parseInt(document.getElementById('player-progress-input').value);
     audio.currentTime = (value / 1000) * audio.duration;
 }
 
@@ -2160,8 +2462,14 @@ async function addToHistory(episodeId) {
 
 async function saveCurrentPosition() {
     if (!playerEpisode) return;
-    const audio = document.getElementById('audio-element');
-    const posMs = Math.round(audio.currentTime * 1000);
+    let posMs;
+    if (isVideoMode) {
+        const video = document.getElementById('video-element');
+        posMs = Math.round(video.currentTime * 1000);
+    } else {
+        const audio = document.getElementById('audio-element');
+        posMs = Math.round(audio.currentTime * 1000);
+    }
     if (posMs <= 0 && !isPlaying) return; // Don't overwrite with 0
 
     try {
@@ -2199,7 +2507,6 @@ function confirmUnsubscribe(podcastId, title) {
 function closeDialog() {
     document.getElementById('dialog-overlay').style.display = 'none';
     document.getElementById('dialog-confirm').style.display = '';
-    dialogCallback = null;
 }
 
 // ========================

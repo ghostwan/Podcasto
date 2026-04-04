@@ -38,6 +38,7 @@ data class PlayerState(
     val podcastArtworkUrl: String = "",
     val podcastSourceType: String = "rss",
     val volumeNormEnabled: Boolean = false,
+    val isVideoMode: Boolean = false,
 )
 
 /**
@@ -75,6 +76,9 @@ class PlayerManager @Inject constructor(
     // Guard flag: true while switching media items, to ignore spurious STATE_ENDED
     // that Media3 fires when replacing the current media item.
     private var isChangingMedia: Boolean = false
+    private var isVideoMode: Boolean = false
+    /** Remembers the language code selected by the user (for audio↔video switch preservation). */
+    private var currentLanguageCode: String? = null
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("player_prefs", Context.MODE_PRIVATE)
@@ -124,6 +128,7 @@ class PlayerManager @Inject constructor(
                         podcastArtworkUrl = lastArtwork,
                         podcastSourceType = lastSourceType,
                         volumeNormEnabled = volumeNormEnabled,
+                        isVideoMode = false,
                     )
                 }
             }
@@ -228,6 +233,7 @@ class PlayerManager @Inject constructor(
     fun playWithLanguage(episode: EpisodeEntity, artworkUrl: String, languageCode: String) {
         _languageSelectionRequest.value = null
         isChangingMedia = true
+        currentLanguageCode = languageCode
         scope.launch {
             val freshEpisode = repository.getEpisodeById(episode.id) ?: episode
             currentEpisode = freshEpisode
@@ -271,6 +277,9 @@ class PlayerManager @Inject constructor(
      * Internal: play an episode without language check (already determined).
      */
     private suspend fun playInternal(freshEpisode: EpisodeEntity, artworkUrl: String) {
+        // Reset language code when playing without explicit language selection
+        currentLanguageCode = null
+
         // Record in listening history
         repository.addHistoryEntry(freshEpisode.id, freshEpisode.podcastId)
 
@@ -306,6 +315,8 @@ class PlayerManager @Inject constructor(
      * Internal: actually start playing a media item (shared by playInternal and playWithLanguage).
      */
     private fun startMediaPlayback(episode: EpisodeEntity, artworkUrl: String, audioUri: Uri) {
+        // Reset video mode when starting a new episode
+        isVideoMode = false
         val mediaItem = MediaItem.Builder()
             .setUri(audioUri)
             .setMediaMetadata(
@@ -327,6 +338,7 @@ class PlayerManager @Inject constructor(
             podcastArtworkUrl = artworkUrl,
             podcastSourceType = currentSourceType,
             volumeNormEnabled = volumeNormEnabled,
+            isVideoMode = false,
         )
         controller?.setMediaItem(mediaItem, startPos)
         controller?.prepare()
@@ -404,6 +416,7 @@ class PlayerManager @Inject constructor(
     fun stop() {
         saveCurrentPosition()
         isChangingMedia = true
+        isVideoMode = false
         controller?.stop()
         isChangingMedia = false
         currentEpisode = null
@@ -425,6 +438,107 @@ class PlayerManager @Inject constructor(
         updateState()
     }
 
+    /**
+     * Toggle between audio-only and video mode for the current YouTube episode.
+     * Preserves the current playback position across the switch.
+     * Uses local files when available (offline), otherwise resolves URLs from YouTube.
+     */
+    fun toggleVideoMode() {
+        val ep = currentEpisode ?: return
+        if (currentSourceType != "youtube") return
+
+        val currentPos = controller?.currentPosition ?: 0L
+        isChangingMedia = true
+
+        if (isVideoMode) {
+            // Switch back to audio-only mode
+            isVideoMode = false
+            scope.launch {
+                try {
+                    // Reload from DB to get latest download paths
+                    val freshEp = repository.getEpisodeById(ep.id) ?: ep
+                    val audioUri = if (freshEp.downloadPath != null) {
+                        Uri.parse(freshEp.downloadPath)
+                    } else if (currentLanguageCode != null) {
+                        // Preserve selected language when switching back to audio
+                        val resolved = repository.resolveAudioUrlForLanguage(freshEp, currentLanguageCode!!)
+                        Uri.parse(resolved.url)
+                    } else {
+                        val resolved = repository.resolveAudioUrl(freshEp)
+                        Uri.parse(resolved.url)
+                    }
+                    val mediaItem = MediaItem.Builder()
+                        .setUri(audioUri)
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle(ep.title)
+                                .setDescription(ep.description)
+                                .setArtworkUri(if (currentArtworkUrl.isNotEmpty()) Uri.parse(currentArtworkUrl) else null)
+                                .build()
+                        )
+                        .build()
+                    controller?.setMediaItem(mediaItem, currentPos)
+                    controller?.prepare()
+                    controller?.play()
+                } catch (e: Exception) {
+                    android.util.Log.e("PlayerManager", "Failed to switch to audio mode", e)
+                }
+                isChangingMedia = false
+                updateState()
+            }
+        } else {
+            // Switch to video mode — need MergingMediaSource via PlaybackService custom command
+            isVideoMode = true
+            scope.launch {
+                try {
+                    // Reload from DB to get latest download paths
+                    val freshEp = repository.getEpisodeById(ep.id) ?: ep
+
+                    // Check for local offline video + audio files first
+                    if (freshEp.videoDownloadPath != null && freshEp.downloadPath != null) {
+                        val args = Bundle().apply {
+                            putString("video_url", freshEp.videoDownloadPath)
+                            putString("audio_url", freshEp.downloadPath)
+                            putLong("position_ms", currentPos)
+                            putString("title", ep.title)
+                            putString("artwork_url", currentArtworkUrl)
+                            putBoolean("is_local", true)
+                        }
+                        controller?.sendCustomCommand(
+                            PlaybackService.SET_VIDEO_MODE_COMMAND,
+                            args,
+                        )
+                    } else {
+                        // Resolve from YouTube, preserving language selection
+                        val videoStream = repository.resolveVideoUrl(freshEp, currentLanguageCode)
+                        if (videoStream != null) {
+                            val args = Bundle().apply {
+                                putString("video_url", videoStream.videoUrl)
+                                putString("audio_url", videoStream.audioUrl)
+                                putLong("position_ms", currentPos)
+                                putString("title", ep.title)
+                                putString("artwork_url", currentArtworkUrl)
+                                putBoolean("is_local", false)
+                            }
+                            controller?.sendCustomCommand(
+                                PlaybackService.SET_VIDEO_MODE_COMMAND,
+                                args,
+                            )
+                        } else {
+                            isVideoMode = false
+                            android.util.Log.w("PlayerManager", "No video stream available for episode")
+                        }
+                    }
+                } catch (e: Exception) {
+                    isVideoMode = false
+                    android.util.Log.e("PlayerManager", "Failed to switch to video mode", e)
+                }
+                isChangingMedia = false
+                updateState()
+            }
+        }
+    }
+
     fun updateState() {
         _playerState.value = PlayerState(
             currentEpisode = currentEpisode,
@@ -434,6 +548,7 @@ class PlayerManager @Inject constructor(
             podcastArtworkUrl = currentArtworkUrl,
             podcastSourceType = currentSourceType,
             volumeNormEnabled = volumeNormEnabled,
+            isVideoMode = isVideoMode,
         )
     }
 

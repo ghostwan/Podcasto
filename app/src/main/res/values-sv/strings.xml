@@ -164,4 +164,13 @@
     <string name="youtube_subscribe_error">Laddning av YouTube-kanal misslyckades: %1$s</string>
     <string name="select_audio_language">Välj ljudspråk</string>
     <string name="version_label">Version %1$s</string>
+    <string name="switch_to_video">Video</string>
+    <string name="switch_to_audio">Ljud</string>
+    <string name="fullscreen">Helsk\u00e4rm</string>
+    <string name="exit_fullscreen">Avsluta helsk\u00e4rm</string>
+    <string name="loading">Laddar…</string>
+    <string name="download_choice_title">Nedladdningsalternativ</string>
+    <string name="download_audio_only">Endast ljud</string>
+    <string name="download_video_only">Endast video</string>
+    <string name="download_both">Ljud + Video</string>
 </resources>

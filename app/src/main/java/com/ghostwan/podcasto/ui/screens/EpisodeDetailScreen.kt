@@ -6,8 +6,6 @@ import android.text.Spanned
 import android.text.style.StyleSpan
 import android.text.style.URLSpan
 import android.text.style.UnderlineSpan
-import android.text.style.BulletSpan
-import android.text.style.ForegroundColorSpan
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -53,7 +51,9 @@ import com.ghostwan.podcasto.data.local.BookmarkEntity
 import com.ghostwan.podcasto.data.local.EpisodeEntity
 import com.ghostwan.podcasto.data.local.PodcastEntity
 import com.ghostwan.podcasto.data.repository.PodcastRepository
+import com.ghostwan.podcasto.data.remote.StreamSizeInfo
 import com.ghostwan.podcasto.player.PlayerManager
+import com.ghostwan.podcasto.BuildConfig
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -83,6 +83,16 @@ class EpisodeDetailViewModel @Inject constructor(
 
     private val _isDownloaded = MutableStateFlow(false)
     val isDownloaded: StateFlow<Boolean> = _isDownloaded.asStateFlow()
+
+    private val _isDownloading = MutableStateFlow(false)
+    val isDownloading: StateFlow<Boolean> = _isDownloading.asStateFlow()
+
+    /** Non-null when the YouTube download choice dialog should be shown. */
+    private val _streamSizeInfo = MutableStateFlow<StreamSizeInfo?>(null)
+    val streamSizeInfo: StateFlow<StreamSizeInfo?> = _streamSizeInfo.asStateFlow()
+
+    private val _isFetchingSizes = MutableStateFlow(false)
+    val isFetchingSizes: StateFlow<Boolean> = _isFetchingSizes.asStateFlow()
 
     val bookmarks: StateFlow<List<BookmarkEntity>> = repository.getBookmarksForEpisode(episodeId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -125,10 +135,58 @@ class EpisodeDetailViewModel @Inject constructor(
     fun download() {
         viewModelScope.launch {
             val ep = _episode.value ?: return@launch
-            if (ep.downloadPath == null) {
-                repository.downloadEpisode(ep)
-                _isDownloaded.value = true
+            if (ep.downloadPath != null || _isDownloading.value) return@launch
+
+            // Check if this is a YouTube episode — show choice dialog with sizes
+            val isYouTube = BuildConfig.YOUTUBE_ENABLED && (
+                com.ghostwan.podcasto.data.remote.YouTubeExtractor.isYouTubeVideoUrl(ep.audioUrl) ||
+                _podcast.value?.sourceType == "youtube"
+            )
+            if (isYouTube) {
+                _isFetchingSizes.value = true
+                try {
+                    val sizes = repository.getStreamSizes(ep)
+                    if (sizes != null) {
+                        _streamSizeInfo.value = sizes
+                    } else {
+                        // Fallback: download audio only without dialog
+                        doDownload(PodcastRepository.DownloadMode.AUDIO)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("EpisodeDetailVM", "Failed to get stream sizes", e)
+                    // Fallback: download audio only
+                    doDownload(PodcastRepository.DownloadMode.AUDIO)
+                } finally {
+                    _isFetchingSizes.value = false
+                }
+            } else {
+                // Regular RSS episode — download directly
+                doDownload(PodcastRepository.DownloadMode.BOTH)
             }
+        }
+    }
+
+    fun dismissDownloadDialog() {
+        _streamSizeInfo.value = null
+    }
+
+    fun downloadWithMode(mode: PodcastRepository.DownloadMode) {
+        _streamSizeInfo.value = null
+        viewModelScope.launch {
+            doDownload(mode)
+        }
+    }
+
+    private suspend fun doDownload(mode: PodcastRepository.DownloadMode) {
+        val ep = _episode.value ?: return
+        _isDownloading.value = true
+        try {
+            repository.downloadEpisode(ep, mode)
+            _isDownloaded.value = true
+        } catch (e: Exception) {
+            android.util.Log.e("EpisodeDetailVM", "Download failed", e)
+        } finally {
+            _isDownloading.value = false
         }
     }
 
@@ -192,9 +250,21 @@ fun EpisodeDetailScreen(
     val podcast by viewModel.podcast.collectAsState()
     val isInPlaylist by viewModel.isInPlaylist.collectAsState()
     val isDownloaded by viewModel.isDownloaded.collectAsState()
+    val isDownloading by viewModel.isDownloading.collectAsState()
     val bookmarks by viewModel.bookmarks.collectAsState()
+    val streamSizeInfo by viewModel.streamSizeInfo.collectAsState()
+    val isFetchingSizes by viewModel.isFetchingSizes.collectAsState()
 
     var showBookmarkDialog by remember { mutableStateOf(false) }
+
+    // YouTube download choice dialog
+    if (streamSizeInfo != null) {
+        YouTubeDownloadChoiceDialog(
+            sizeInfo = streamSizeInfo!!,
+            onChoose = { mode -> viewModel.downloadWithMode(mode) },
+            onDismiss = { viewModel.dismissDownloadDialog() },
+        )
+    }
 
     if (showBookmarkDialog) {
         AddBookmarkDialog(
@@ -286,11 +356,31 @@ fun EpisodeDetailScreen(
                     label = if (isInPlaylist) stringResource(R.string.remove) else stringResource(R.string.queue),
                     onClick = viewModel::togglePlaylist,
                 )
-                ActionIconButton(
-                    icon = if (isDownloaded) Icons.Default.Delete else Icons.Default.Download,
-                    label = if (isDownloaded) stringResource(R.string.delete_download) else stringResource(R.string.download),
-                    onClick = if (isDownloaded) viewModel::deleteDownload else viewModel::download,
-                )
+                if (isDownloading || isFetchingSizes) {
+                    // Show loading indicator during download or size fetching
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.width(64.dp),
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(if (isFetchingSizes) R.string.loading else R.string.downloading_episode),
+                            style = MaterialTheme.typography.labelSmall,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                        )
+                    }
+                } else {
+                    ActionIconButton(
+                        icon = if (isDownloaded) Icons.Default.Delete else Icons.Default.Download,
+                        label = if (isDownloaded) stringResource(R.string.delete_download) else stringResource(R.string.download),
+                        onClick = if (isDownloaded) viewModel::deleteDownload else viewModel::download,
+                    )
+                }
                 ActionIconButton(
                     icon = if (episode?.played == true) Icons.Default.RadioButtonUnchecked else Icons.Default.Check,
                     label = if (episode?.played == true) stringResource(R.string.unplayed) else stringResource(R.string.played),
@@ -353,6 +443,58 @@ fun EpisodeDetailScreen(
             }
         }
     }
+}
+
+@Composable
+fun YouTubeDownloadChoiceDialog(
+    sizeInfo: StreamSizeInfo,
+    onChoose: (PodcastRepository.DownloadMode) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    fun formatSize(bytes: Long): String {
+        return when {
+            bytes <= 0 -> "?"
+            bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+            else -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
+        }
+    }
+
+    val audioLabel = "${stringResource(R.string.download_audio_only)} (${formatSize(sizeInfo.audioSize)})"
+    val videoLabel = "${stringResource(R.string.download_video_only)} (${formatSize(sizeInfo.videoSize)}, ${sizeInfo.videoResolution})"
+    val bothLabel = "${stringResource(R.string.download_both)} (${formatSize(sizeInfo.audioSize + sizeInfo.videoSize)})"
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.download_choice_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(
+                    onClick = { onChoose(PodcastRepository.DownloadMode.AUDIO) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(audioLabel, modifier = Modifier.fillMaxWidth())
+                }
+                TextButton(
+                    onClick = { onChoose(PodcastRepository.DownloadMode.VIDEO) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(videoLabel, modifier = Modifier.fillMaxWidth())
+                }
+                TextButton(
+                    onClick = { onChoose(PodcastRepository.DownloadMode.BOTH) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(bothLabel, modifier = Modifier.fillMaxWidth())
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
 }
 
 @Composable

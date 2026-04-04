@@ -111,10 +111,6 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
-    fun moveItem(fromIndex: Int, toIndex: Int) {
-        // This is handled by the UI with a local mutable list
-    }
-
     fun saveOrder(reorderedEpisodes: List<EpisodeWithArtwork>) {
         viewModelScope.launch {
             repository.updatePlaylistPositions(reorderedEpisodes.map { it.episode.id })

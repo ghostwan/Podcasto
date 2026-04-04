@@ -164,4 +164,13 @@
     <string name="youtube_subscribe_error">YouTubeチャンネルの読み込みに失敗しました: %1$s</string>
     <string name="select_audio_language">音声言語を選択</string>
     <string name="version_label">バージョン %1$s</string>
+    <string name="switch_to_video">動画</string>
+    <string name="switch_to_audio">音声</string>
+    <string name="fullscreen">フルスクリーン</string>
+    <string name="exit_fullscreen">フルスクリーンを終了</string>
+    <string name="loading">読み込み中…</string>
+    <string name="download_choice_title">ダウンロードオプション</string>
+    <string name="download_audio_only">音声のみ</string>
+    <string name="download_video_only">動画のみ</string>
+    <string name="download_both">音声 + 動画</string>
 </resources>

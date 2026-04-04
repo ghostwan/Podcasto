@@ -26,8 +26,6 @@ interface PodcastDao {
     @Query("SELECT id FROM podcasts WHERE hidden = 1")
     fun getHiddenPodcastIds(): Flow<List<Long>>
 
-    @Query("DELETE FROM podcasts WHERE id = :id")
-    suspend fun deletePodcast(id: Long)
 }
 
 @Dao
@@ -53,8 +51,8 @@ interface EpisodeDao {
     @Query("UPDATE episodes SET downloadPath = :path WHERE id = :id")
     suspend fun updateDownloadPath(id: Long, path: String?)
 
-    @Query("SELECT * FROM episodes WHERE downloadPath IS NOT NULL")
-    fun getDownloadedEpisodes(): Flow<List<EpisodeEntity>>
+    @Query("UPDATE episodes SET videoDownloadPath = :path WHERE id = :id")
+    suspend fun updateVideoDownloadPath(id: Long, path: String?)
 
     @Query("UPDATE episodes SET played = :played WHERE id = :id")
     suspend fun updatePlayed(id: Long, played: Boolean)
@@ -128,13 +126,6 @@ interface PlaylistDao {
         ORDER BY p.position ASC
     """)
     fun getPlaylistEpisodes(): Flow<List<EpisodeEntity>>
-
-    @Query("""
-        SELECT e.* FROM episodes e 
-        INNER JOIN playlist_items p ON e.id = p.episodeId 
-        ORDER BY p.position ASC
-    """)
-    suspend fun getPlaylistEpisodesList(): List<EpisodeEntity>
 
     @Query("""
         SELECT e.*, pod.artworkUrl, pod.sourceType FROM episodes e 
@@ -254,7 +245,7 @@ interface BookmarkDao {
 @Dao
 interface HistoryDao {
     @Query("""
-        SELECT h.*, e.title AS episodeTitle, p.title AS podcastTitle, p.artworkUrl
+        SELECT h.*, e.title AS episodeTitle, e.playbackPosition, e.duration, e.played, p.title AS podcastTitle, p.artworkUrl
         FROM listening_history h
         INNER JOIN episodes e ON h.episodeId = e.id
         INNER JOIN podcasts p ON h.podcastId = p.id
@@ -264,6 +255,9 @@ interface HistoryDao {
 
     @Insert
     suspend fun insertHistoryEntry(entry: HistoryEntity)
+
+    @Query("DELETE FROM listening_history WHERE episodeId = :episodeId")
+    suspend fun deleteHistoryForEpisode(episodeId: Long)
 
     @Query("SELECT * FROM listening_history")
     suspend fun getAllHistory(): List<HistoryEntity>

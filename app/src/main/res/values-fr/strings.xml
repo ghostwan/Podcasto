@@ -208,4 +208,15 @@
 
     <!-- Version -->
     <string name="version_label">Version %1$s</string>
+
+    <!-- Video toggle -->
+    <string name="switch_to_video">Vidéo</string>
+    <string name="switch_to_audio">Audio</string>
+    <string name="fullscreen">Plein \u00e9cran</string>
+    <string name="exit_fullscreen">Quitter le plein \u00e9cran</string>
+    <string name="loading">Chargement…</string>
+    <string name="download_choice_title">Options de téléchargement</string>
+    <string name="download_audio_only">Audio uniquement</string>
+    <string name="download_video_only">Vidéo uniquement</string>
+    <string name="download_both">Audio + Vidéo</string>
 </resources>

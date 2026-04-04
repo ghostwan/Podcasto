@@ -12,7 +12,6 @@ import org.schabi.newpipe.extractor.channel.ChannelInfo
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Response
 import org.schabi.newpipe.extractor.exceptions.ExtractionException
-import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
@@ -21,6 +20,27 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 data class ResolvedAudioStream(val url: String, val durationSeconds: Long)
+
+/**
+ * Resolved video stream with both video and audio URLs.
+ * Video streams on YouTube are often separate (DASH), so we need both.
+ */
+data class ResolvedVideoStream(
+    val videoUrl: String,
+    val audioUrl: String,
+    val durationSeconds: Long,
+    val width: Int,
+    val height: Int,
+)
+
+/**
+ * Stream sizes in bytes for download choice dialog.
+ */
+data class StreamSizeInfo(
+    val audioSize: Long,
+    val videoSize: Long,
+    val videoResolution: String,
+)
 
 /**
  * Represents available audio languages for a YouTube video.
@@ -61,8 +81,6 @@ class YouTubeExtractor @Inject constructor(
         private const val TAG = "YouTubeExtractor"
         private const val YT_RSS_BASE = "https://www.youtube.com/feeds/videos.xml?channel_id="
         private val CHANNEL_ID_REGEX = Regex("""youtube\.com/channel/([a-zA-Z0-9_-]+)""")
-        private val HANDLE_REGEX = Regex("""youtube\.com/@([a-zA-Z0-9._-]+)""")
-        private val CUSTOM_URL_REGEX = Regex("""youtube\.com/c/([a-zA-Z0-9._-]+)""")
 
         @Volatile
         private var initialized = false
@@ -287,6 +305,103 @@ class YouTubeExtractor @Inject constructor(
 
         Log.d(TAG, "Resolved audio stream for '$languageCode': ${bestStream.content} (${bestStream.averageBitrate}kbps, locale=${bestStream.audioLocale}, duration=${info.duration}s)")
         ResolvedAudioStream(url = bestStream.content, durationSeconds = info.duration)
+    }
+
+    /**
+     * Resolve the video stream URL for a YouTube video.
+     * Returns the best video stream (up to 720p for bandwidth) + best audio stream.
+     * YouTube DASH streams are separate: video-only + audio-only must be merged by the player.
+     */
+    suspend fun resolveVideoStreamUrl(videoUrl: String, languageCode: String? = null): ResolvedVideoStream = withContext(Dispatchers.IO) {
+        Log.d(TAG, "Resolving video stream for: $videoUrl (language=$languageCode)")
+        val info = getStreamInfo(videoUrl)
+
+        // Get video-only streams, prefer up to 720p, sorted by resolution descending
+        val videoStreams = info.videoOnlyStreams
+            .filter { it.resolution != null }
+            .sortedByDescending { it.getResolutionInt() }
+
+        // Pick best stream at or below 720p, or the lowest available if all are > 720p
+        val bestVideo = videoStreams.firstOrNull { it.getResolutionInt() <= 720 }
+            ?: videoStreams.lastOrNull()
+            ?: throw Exception("No video streams found for $videoUrl")
+
+        // Also need audio — filter by language if specified
+        val audioStreams = info.audioStreams
+        val bestAudio = if (languageCode != null) {
+            // Try matching language first, then fall back to highest bitrate
+            audioStreams
+                .filter { it.audioLocale?.language == languageCode }
+                .sortedByDescending { it.averageBitrate }
+                .firstOrNull()
+                ?: audioStreams.sortedByDescending { it.averageBitrate }.firstOrNull()
+        } else {
+            audioStreams.sortedByDescending { it.averageBitrate }.firstOrNull()
+        } ?: throw Exception("No audio streams found for $videoUrl")
+
+        Log.d(TAG, "Resolved video: ${bestVideo.resolution} + audio: ${bestAudio.averageBitrate}kbps (locale=${bestAudio.audioLocale}), duration=${info.duration}s")
+        ResolvedVideoStream(
+            videoUrl = bestVideo.content,
+            audioUrl = bestAudio.content,
+            durationSeconds = info.duration,
+            width = bestVideo.width,
+            height = bestVideo.height,
+        )
+    }
+
+    /**
+     * Get estimated download sizes for audio and video streams.
+     * Uses HTTP HEAD requests to get Content-Length headers.
+     */
+    suspend fun getStreamSizes(videoUrl: String): StreamSizeInfo = withContext(Dispatchers.IO) {
+        Log.d(TAG, "Getting stream sizes for: $videoUrl")
+        val info = getStreamInfo(videoUrl)
+
+        val bestAudio = info.audioStreams
+            .sortedByDescending { it.averageBitrate }
+            .firstOrNull()
+            ?: throw Exception("No audio streams found for $videoUrl")
+
+        val videoStreams = info.videoOnlyStreams
+            .filter { it.resolution != null }
+            .sortedByDescending { it.getResolutionInt() }
+        val bestVideo = videoStreams.firstOrNull { it.getResolutionInt() <= 720 }
+            ?: videoStreams.lastOrNull()
+            ?: throw Exception("No video streams found for $videoUrl")
+
+        val audioSize = getContentLength(bestAudio.content)
+        val videoSize = getContentLength(bestVideo.content)
+
+        Log.d(TAG, "Stream sizes — audio: ${audioSize / 1024}KB, video: ${videoSize / 1024}KB (${bestVideo.resolution})")
+        StreamSizeInfo(
+            audioSize = audioSize,
+            videoSize = videoSize,
+            videoResolution = bestVideo.resolution ?: "?",
+        )
+    }
+
+    /**
+     * Get Content-Length of a URL via HTTP HEAD request.
+     * Falls back to 0 if the request fails or Content-Length is not present.
+     */
+    private fun getContentLength(url: String): Long {
+        return try {
+            val request = Request.Builder().url(url).head().build()
+            val response = okHttpClient.newCall(request).execute()
+            response.use {
+                it.header("Content-Length")?.toLongOrNull() ?: 0L
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to get content length for $url: ${e.message}")
+            0L
+        }
+    }
+
+    /**
+     * Helper to extract resolution as int from stream resolution string like "720p".
+     */
+    private fun org.schabi.newpipe.extractor.stream.VideoStream.getResolutionInt(): Int {
+        return resolution?.replace("p", "")?.toIntOrNull() ?: 0
     }
 
     /**
