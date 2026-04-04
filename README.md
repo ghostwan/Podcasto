@@ -1,24 +1,25 @@
 # Podcasto
 
-A full-featured podcast player for Android with an embedded web management interface, built with Kotlin and Jetpack Compose.
+A full-featured podcast player for Android with YouTube channel support, an embedded web management interface, and AI-powered discovery -- built with Kotlin and Jetpack Compose.
 
 ## Features
 
 ### Android App
 - **Discover** -- Search for podcasts via the iTunes Search API, filter by country (FR, US, GB, DE, ES, IT, BR, JP), AI-powered search suggestions via Gemini (opt-in)
 - **AI Discovery** -- Generate personalized podcast recommendations based on your library using Gemini 2.0 Flash
+- **YouTube Channels** -- Subscribe to YouTube channels as audio podcasts, with multi-language audio track selection (full flavor only)
 - **Subscribe** -- Follow your favorite podcasts and organize them with custom tags
 - **Browse episodes** -- View episode lists sorted by date, filter played/unplayed, now-playing indicator, stale podcast detection (3+ months without new episodes)
 - **Playback** -- Stream or play downloaded episodes with Media3 (ExoPlayer), background playback with media notification and custom seek buttons (rewind 10s / forward 30s), volume normalization (LoudnessEnhancer)
 - **Playlist** -- Queue episodes, drag-to-reorder, long press to play directly, auto-fill with the latest unplayed episode from each subscription (or filtered by tag), auto-advance to next episode, live progress bars
 - **New Episodes** -- Dedicated screen showing latest episodes from all subscriptions, with tag filtering and played/unplayed toggle
 - **Listening History** -- Track all listened episodes with timestamps
-- **Downloads** -- Download episodes for offline listening
+- **Downloads** -- Download episodes for offline listening, delete downloaded files
 - **Bookmarks** -- Bookmark moments in episodes with comments, tap to seek
 - **Progress tracking** -- Playback position is saved and restored (including when switching episodes or using "Play All"), episodes are marked as played on completion and removed from playlist
 - **Hidden podcasts** -- Long press on a subscription to hide it from the library (toggle visibility with the eye icon)
-- **Backup & Restore** -- Export all data (podcasts, episodes, tags, bookmarks, playlist, settings) to a local JSON file, or import from a previous backup. Google Drive backup with optional auto-backup every 24h via WorkManager
-- **Settings** -- Configure Gemini API key, Google Drive backup, volume normalization, and web server password from the overflow menu
+- **Backup & Restore** -- Export all data (podcasts, episodes, tags, bookmarks, playlist, history, settings) to a local JSON file, or import from a previous backup. Google Drive backup with optional auto-backup every 24h via WorkManager
+- **Settings** -- Configure Gemini API key, Google Drive backup, volume normalization, web server password, and version info (long press to open GitHub) from the overflow menu
 - **SSH Tunnel** -- Expose the web server to the internet via localhost.run (JSch SSH tunnel, no signup required), accessible from a unified server button with Local/Tunnel mode selection
 - **Apple Podcasts fallback** -- Podcasts without a feed URL in the iTunes API (e.g. Radio France) are resolved by scraping the Apple Podcasts web page
 - **Internationalization** -- Full English, French, German, and Spanish translations
@@ -28,6 +29,7 @@ A full-featured podcast player for Android with an embedded web management inter
 - **Full library management** -- Browse subscriptions, episodes, subscribe/unsubscribe, tag management, hidden podcasts toggle
 - **Web player** -- Play episodes directly in the browser with progress tracking, volume normalization (DynamicsCompressor)
 - **Playlist management** -- View, reorder (drag & drop), auto-add episodes
+- **YouTube support** -- Subscribe to YouTube channels, multi-language audio selection (when YouTube is enabled)
 - **AI search & discovery** -- Same Gemini-powered features as the Android app
 - **Listening history** -- View and track listening history from the web
 - **New episodes** -- Browse latest episodes across all subscriptions
@@ -65,6 +67,18 @@ A full-featured podcast player for Android with an embedded web management inter
 
 The app uses a fixed Material 3 purple theme with a three-tab layout (Library, Playlist, New). Discover is accessed via a FAB button in the Library screen. The web server can be started/stopped from the Library toolbar.
 
+## Build Flavors
+
+Podcasto ships with two build flavors:
+
+| Flavor | YouTube | NewPipe Extractor | Play Store safe |
+|--------|---------|-------------------|-----------------|
+| **`store`** | Disabled | Not included | Yes |
+| **`full`** | Enabled | Included | No (ToS risk) |
+
+- **`full`** (default) -- Includes YouTube channel subscription via NewPipe Extractor for audio stream resolution. Suitable for direct distribution (GitHub, sideloading).
+- **`store`** -- Excludes NewPipe Extractor entirely from the binary. All YouTube UI and API paths are gated behind `BuildConfig.YOUTUBE_ENABLED`. Safe for Google Play Store submission.
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -72,10 +86,11 @@ The app uses a fixed Material 3 purple theme with a three-tab layout (Library, P
 | UI | Jetpack Compose, Material 3 |
 | Navigation | Navigation Compose |
 | DI | Hilt |
-| Database | Room (SQLite) v5 with versioned migrations |
+| Database | Room (SQLite) v7 with versioned migrations |
 | Network | Retrofit, OkHttp |
 | Media | Media3 / ExoPlayer |
 | Images | Coil |
+| YouTube | NewPipe Extractor v0.26.0 (full flavor only) |
 | Drag & drop | sh.calvin.reorderable |
 | Web Server | Ktor CIO 2.3.12 |
 | AI | Google Generative AI (Gemini 2.0 Flash) |
@@ -88,7 +103,7 @@ The app uses a fixed Material 3 purple theme with a three-tab layout (Library, P
 ```
 app/src/main/java/com/ghostwan/podcasto/
   data/
-    local/         -- Room entities, DAOs, database (v5 with migrations)
+    local/         -- Room entities, DAOs, database (v7 with migrations)
     remote/        -- iTunes API service, RSS parser, Apple Podcasts scraper
     repository/    -- PodcastRepository (single source of truth, backup export/import)
     backup/        -- GoogleDriveBackupManager, AutoBackupWorker (WorkManager + Hilt)
@@ -103,6 +118,12 @@ app/src/main/java/com/ghostwan/podcasto/
   PodcastoNavHost.kt
   NavHostViewModel.kt
 
+app/src/full/java/com/ghostwan/podcasto/data/remote/
+  YouTubeExtractor.kt  -- Real implementation using NewPipe Extractor
+
+app/src/store/java/com/ghostwan/podcasto/data/remote/
+  YouTubeExtractor.kt  -- Stub (same interface, methods throw UnsupportedOperationException)
+
 app/src/main/assets/web/  -- Web UI (HTML/CSS/JS single-page app)
 app/src/main/res/
   values/          -- English strings (default)
@@ -116,13 +137,24 @@ app/src/main/res/
 Requirements: Android SDK, a connected device or emulator (minSdk 26).
 
 ```bash
-# Build, install, and launch in one step
+# Build, install, and launch (full flavor, release mode)
 ./run.sh
 
+# Specify flavor and build type
+./run.sh full release    # default
+./run.sh store release   # Play Store variant (no YouTube)
+./run.sh full debug      # debug build with YouTube
+
 # Or manually
-./gradlew assembleRelease
-adb install -r app/build/outputs/apk/release/app-release.apk
+./gradlew assembleFullRelease
+adb install -r app/build/outputs/apk/full/release/app-full-release.apk
 adb shell am start -n com.ghostwan.podcasto/.MainActivity
+```
+
+Version is configured in `gradle.properties`:
+```properties
+APP_VERSION_NAME=1.0.0
+APP_VERSION_CODE=1
 ```
 
 ### Web Interface

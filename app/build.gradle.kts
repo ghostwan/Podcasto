@@ -17,8 +17,8 @@ android {
         applicationId = "com.ghostwan.podcasto"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = (project.findProperty("APP_VERSION_CODE") as String).toInt()
+        versionName = project.findProperty("APP_VERSION_NAME") as String
 
         // Gemini API key — from local.properties, gradle.properties, or environment
         val localProps = Properties()
