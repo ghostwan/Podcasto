@@ -8,6 +8,66 @@ SCREENSHOT_DIR="screenshots"
 DEVICE_TMP="/sdcard/podcasto_screenshot.png"
 README="README.md"
 
+# --- Fonction : mettre à jour le README depuis le dossier screenshots ---
+update_readme_from_dir() {
+    local dir="$1"
+    local readme="$2"
+
+    # Lister les PNG triés par nom
+    local files=()
+    while IFS= read -r f; do
+        files+=("$(basename "$f")")
+    done < <(find "$dir" -maxdepth 1 -name '*.png' | sort)
+
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "Aucun screenshot trouvé dans $dir"
+        return 1
+    fi
+
+    echo "Screenshots trouvés : ${#files[@]}"
+    for f in "${files[@]}"; do echo "  - $f"; done
+
+    # Construire le bloc d'images
+    local img_block='<p align="center">'
+    for f in "${files[@]}"; do
+        local alt_name
+        alt_name=$(echo "$f" | sed 's/^[0-9]*_//; s/\.png$//' | sed 's/_/ /g')
+        alt_name="$(echo "${alt_name:0:1}" | tr '[:lower:]' '[:upper:]')${alt_name:1}"
+        img_block+=$'\n'"  <img src=\"screenshots/${f}\" width=\"180\" alt=\"${alt_name}\" />"
+    done
+    img_block+=$'\n''</p>'
+
+    if grep -q '<!-- SCREENSHOTS_START -->' "$readme"; then
+        # Écrire le bloc dans un fichier temporaire pour éviter les problèmes awk avec les newlines
+        local block_file
+        block_file=$(mktemp)
+        echo "$img_block" > "$block_file"
+
+        awk -v blockfile="$block_file" '
+            /<!-- SCREENSHOTS_START -->/ { print; while ((getline line < blockfile) > 0) print line; close(blockfile); skip=1; next }
+            /<!-- SCREENSHOTS_END -->/ { skip=0; print; next }
+            !skip { print }
+        ' "$readme" > "${readme}.tmp"
+        rm -f "$block_file"
+        mv "${readme}.tmp" "$readme"
+        echo "README mis à jour avec ${#files[@]} screenshot(s)."
+    else
+        echo "ATTENTION: Marqueurs SCREENSHOTS non trouvés dans le README."
+        echo "Ajoutez les marqueurs:"
+        echo "  <!-- SCREENSHOTS_START -->"
+        echo "  <!-- SCREENSHOTS_END -->"
+        return 1
+    fi
+}
+
+# --- Option --update-readme : mise à jour depuis le dossier existant ---
+if [ "${1:-}" = "--update-readme" ]; then
+    echo "=== Mise à jour du README depuis $SCREENSHOT_DIR ==="
+    update_readme_from_dir "$SCREENSHOT_DIR" "$README"
+    exit $?
+fi
+
+# --- Mode capture interactive ---
 echo "=== Podcasto — Capture de screenshots interactive ==="
 echo ""
 
@@ -82,34 +142,7 @@ else
     read -rp "Mettre à jour le README avec ces screenshots ? (o/n) " update_readme
     case "$update_readme" in
         [oOyY]*)
-            echo "Mise à jour du README..."
-
-            # Construire le bloc d'images avec noms descriptifs
-            img_block='<p align="center">'
-            for f in "${captured_files[@]}"; do
-                # Extraire le nom sans extension et sans le préfixe numérique pour l'alt text
-                alt_name=$(echo "$f" | sed 's/^[0-9]*_//; s/\.png$//' | sed 's/_/ /g')
-                # Capitaliser la première lettre
-                alt_name="$(echo "${alt_name:0:1}" | tr '[:lower:]' '[:upper:]')${alt_name:1}"
-                img_block+=$'\n'"  <img src=\"screenshots/${f}\" width=\"180\" alt=\"${alt_name}\" />"
-            done
-            img_block+=$'\n''</p>'
-
-            # Remplacer le bloc entre <!-- SCREENSHOTS_START --> et <!-- SCREENSHOTS_END -->
-            if grep -q '<!-- SCREENSHOTS_START -->' "$README"; then
-                awk -v block="$img_block" '
-                    /<!-- SCREENSHOTS_START -->/ { print; print block; skip=1; next }
-                    /<!-- SCREENSHOTS_END -->/ { skip=0 }
-                    !skip { print }
-                ' "$README" > "${README}.tmp"
-                mv "${README}.tmp" "$README"
-                echo "README mis à jour (marqueurs SCREENSHOTS trouvés)."
-            else
-                echo "ATTENTION: Marqueurs SCREENSHOTS non trouvés dans le README."
-                echo "Ajoutez manuellement les screenshots ou ajoutez les marqueurs:"
-                echo "  <!-- SCREENSHOTS_START -->"
-                echo "  <!-- SCREENSHOTS_END -->"
-            fi
+            update_readme_from_dir "$SCREENSHOT_DIR" "$README"
             ;;
         *)
             echo "README non modifié."

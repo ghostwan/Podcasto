@@ -44,15 +44,20 @@ A full-featured podcast player for Android with YouTube channel support, an embe
 <!-- SCREENSHOTS_START -->
 <p align="center">
   <img src="screenshots/01_library.png" width="180" alt="Library" />
-  <img src="screenshots/02_playlist.png" width="180" alt="Playlist" />
-  <img src="screenshots/03_new_episodes.png" width="180" alt="New Episodes" />
-  <img src="screenshots/04_history.png" width="180" alt="History" />
-  <img src="screenshots/05_podcast_detail.png" width="180" alt="Podcast Detail" />
+  <img src="screenshots/02_new.png" width="180" alt="New" />
+  <img src="screenshots/03_playlist.png" width="180" alt="Playlist" />
+  <img src="screenshots/03_settings.png" width="180" alt="Settings" />
+  <img src="screenshots/04_player.png" width="180" alt="Player" />
+  <img src="screenshots/05_history.png" width="180" alt="History" />
+  <img src="screenshots/05_podcast_detail.png" width="180" alt="Podcast detail" />
+  <img src="screenshots/06_details.png" width="180" alt="Details" />
   <img src="screenshots/06_tags.png" width="180" alt="Tags" />
-  <img src="screenshots/07_discover.png" width="180" alt="Discover" />
-  <img src="screenshots/08_search_results.png" width="180" alt="Search Results" />
-  <img src="screenshots/09_settings.png" width="180" alt="Settings" />
-  <img src="screenshots/10_web_server.png" width="180" alt="Web Server" />
+  <img src="screenshots/07_search.png" width="180" alt="Search" />
+  <img src="screenshots/08_server.png" width="180" alt="Server" />
+  <img src="screenshots/11_web_playlist.png" width="180" alt="Web playlist" />
+  <img src="screenshots/12_web_history.png" width="180" alt="Web history" />
+  <img src="screenshots/13_web_search.png" width="180" alt="Web search" />
+  <img src="screenshots/14_web_ai_discovery.png" width="180" alt="Web ai discovery" />
 </p>
 <!-- SCREENSHOTS_END -->
 
