@@ -23,4 +23,27 @@
         android:fillColor="#6750A4"
         android:pathData="M79,50 A5,5 0,0 1,84,55 L84,65 A5,5 0,0 1,79,70 L74,70 L74,50 Z"/>
 
+    <!-- Dog nose (purple circle in the center) -->
+    <path
+        android:fillColor="#6750A4"
+        android:pathData="M54,60 m-7,0 a7,7 0,1 1,14,0 a7,7 0,1 1,-14,0"/>
+
+    <!-- Left eye -->
+    <path
+        android:fillColor="#6750A4"
+        android:pathData="M44,53 m-3,0 a3,3 0,1 1,6,0 a3,3 0,1 1,-6,0"/>
+
+    <!-- Right eye -->
+    <path
+        android:fillColor="#6750A4"
+        android:pathData="M64,53 m-3,0 a3,3 0,1 1,6,0 a3,3 0,1 1,-6,0"/>
+
+    <!-- Smile (arc below nose) -->
+    <path
+        android:pathData="M44,66 A12,8 0,0 0,64,66"
+        android:strokeColor="#6750A4"
+        android:strokeWidth="2.5"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"/>
+
 </vector>
