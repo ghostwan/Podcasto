@@ -154,6 +154,79 @@ class PodcastRepository @Inject constructor(
     // --- YouTube ---
 
     /**
+     * Preview a YouTube channel as a podcast without subscribing.
+     * Returns the podcast entity and its episodes without persisting to the database.
+     */
+    suspend fun fetchYouTubeChannelPreview(channelUrl: String): Pair<PodcastEntity, List<EpisodeEntity>> = withContext(Dispatchers.IO) {
+        val channelInfo = youTubeExtractor.getChannelInfo(channelUrl)
+        val podcastId = channelInfo.channelId.hashCode().toLong().let { if (it < 0) -it else it }
+        val feedUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=${channelInfo.channelId}"
+
+        val entity = PodcastEntity(
+            id = podcastId,
+            title = channelInfo.name,
+            author = channelInfo.name,
+            description = channelInfo.description,
+            feedUrl = feedUrl,
+            artworkUrl = channelInfo.avatarUrl,
+            subscribed = false,
+            sourceType = "youtube",
+        )
+
+        val videos = youTubeExtractor.fetchChannelVideos(channelInfo.channelId)
+        val episodes = videos.mapIndexed { index, video ->
+            EpisodeEntity(
+                id = podcastId * 100000 + index,
+                podcastId = podcastId,
+                title = video.title,
+                description = video.description,
+                audioUrl = video.videoUrl,
+                pubDate = video.pubDate,
+                pubDateTimestamp = video.pubDateTimestamp,
+                duration = 0,
+            )
+        }
+        Pair(entity, episodes)
+    }
+
+    /**
+     * Preview a YouTube channel from its feed URL (used when navigating from discover preview).
+     * Extracts the channel ID from the feed URL and fetches videos without persisting.
+     */
+    suspend fun fetchYouTubePreviewFromFeed(
+        feedUrl: String, podcastId: Long, artworkUrl: String, title: String, author: String
+    ): Pair<PodcastEntity, List<EpisodeEntity>> = withContext(Dispatchers.IO) {
+        val channelId = feedUrl.substringAfter("channel_id=", "").takeIf { it.isNotEmpty() }
+            ?: throw IllegalStateException("Invalid YouTube feed URL: $feedUrl")
+
+        val entity = PodcastEntity(
+            id = podcastId,
+            title = title,
+            author = author,
+            description = "",
+            feedUrl = feedUrl,
+            artworkUrl = artworkUrl,
+            subscribed = false,
+            sourceType = "youtube",
+        )
+
+        val videos = youTubeExtractor.fetchChannelVideos(channelId)
+        val episodes = videos.mapIndexed { index, video ->
+            EpisodeEntity(
+                id = podcastId * 100000 + index,
+                podcastId = podcastId,
+                title = video.title,
+                description = video.description,
+                audioUrl = video.videoUrl,
+                pubDate = video.pubDate,
+                pubDateTimestamp = video.pubDateTimestamp,
+                duration = 0,
+            )
+        }
+        Pair(entity, episodes)
+    }
+
+    /**
      * Subscribe to a YouTube channel as a podcast.
      * Uses NewPipe Extractor to get channel info, then YouTube RSS for episodes.
      */

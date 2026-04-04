@@ -28,6 +28,7 @@ fun PodcastoNavHost(
     repository: com.ghostwan.podcasto.data.repository.PodcastRepository = navHostViewModel.repository,
     driveBackupManager: com.ghostwan.podcasto.data.backup.GoogleDriveBackupManager = navHostViewModel.driveBackupManager,
     openPlayerRequest: MutableState<Boolean> = mutableStateOf(false),
+    sharedYouTubeUrl: MutableState<String?> = mutableStateOf(null),
 ) {
     val navController = rememberNavController()
     val playerState by playerManager.playerState.collectAsState()
@@ -46,6 +47,17 @@ fun PodcastoNavHost(
         if (openPlayerRequest.value) {
             showPlayer = true
             openPlayerRequest.value = false
+        }
+    }
+
+    // Navigate to discover screen when a YouTube URL is shared
+    LaunchedEffect(sharedYouTubeUrl.value) {
+        val url = sharedYouTubeUrl.value
+        if (url != null) {
+            navController.navigate("discover?sharedUrl=${java.net.URLEncoder.encode(url, "UTF-8")}") {
+                launchSingleTop = true
+            }
+            sharedYouTubeUrl.value = null
         }
     }
 
@@ -110,7 +122,13 @@ fun PodcastoNavHost(
                 startDestination = "subscriptions",
                 modifier = Modifier.padding(innerPadding),
             ) {
-                composable("discover") {
+                composable(
+                    route = "discover?sharedUrl={sharedUrl}",
+                    arguments = listOf(
+                        navArgument("sharedUrl") { type = NavType.StringType; defaultValue = "" },
+                    ),
+                ) { backStackEntry ->
+                    val sharedUrl = backStackEntry.arguments?.getString("sharedUrl") ?: ""
                     DiscoverScreen(
                         onPodcastClick = { podcast ->
                             val feedUrl = java.net.URLEncoder.encode(podcast.feedUrl ?: "", "UTF-8")
@@ -121,7 +139,17 @@ fun PodcastoNavHost(
                                 launchSingleTop = true
                             }
                         },
+                        onYouTubeChannelClick = { preview ->
+                            val feedUrl = java.net.URLEncoder.encode(preview.feedUrl, "UTF-8")
+                            val artworkUrl = java.net.URLEncoder.encode(preview.artworkUrl, "UTF-8")
+                            val name = java.net.URLEncoder.encode(preview.title, "UTF-8")
+                            val artist = java.net.URLEncoder.encode(preview.author, "UTF-8")
+                            navController.navigate("podcast/${preview.id}?feedUrl=$feedUrl&artworkUrl=$artworkUrl&collectionName=$name&artistName=$artist") {
+                                launchSingleTop = true
+                            }
+                        },
                         onBack = { navController.popBackStack() },
+                        sharedUrl = sharedUrl,
                     )
                 }
 

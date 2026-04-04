@@ -53,6 +53,9 @@ class PlayerManager @Inject constructor(
     private var currentArtworkUrl: String = ""
     private var positionPollingJob: Job? = null
     private var volumeNormEnabled: Boolean = false
+    // Guard flag: true while switching media items, to ignore spurious STATE_ENDED
+    // that Media3 fires when replacing the current media item.
+    private var isChangingMedia: Boolean = false
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("player_prefs", Context.MODE_PRIVATE)
@@ -124,8 +127,12 @@ class PlayerManager @Inject constructor(
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     updateState()
-                    // Only mark as played if we actually had media loaded and playing
-                    if (playbackState == Player.STATE_ENDED && (controller?.duration ?: 0) > 0) {
+                    // Only mark as played when episode genuinely ended — ignore spurious
+                    // STATE_ENDED events fired by Media3 when replacing the media item.
+                    if (playbackState == Player.STATE_ENDED
+                        && !isChangingMedia
+                        && (controller?.duration ?: 0) > 0
+                    ) {
                         markCurrentAsPlayed()
                     }
                 }
@@ -141,6 +148,9 @@ class PlayerManager @Inject constructor(
     fun play(episode: EpisodeEntity, artworkUrl: String = "") {
         // Save position of currently playing episode before switching
         saveCurrentPosition()
+
+        // Prevent spurious STATE_ENDED from marking the outgoing episode as played
+        isChangingMedia = true
 
         currentArtworkUrl = artworkUrl
         saveLastEpisode(episode.id, artworkUrl)
@@ -165,6 +175,7 @@ class PlayerManager @Inject constructor(
                     Uri.parse(resolvedUrl)
                 } catch (e: Exception) {
                     android.util.Log.e("PlayerManager", "Failed to resolve audio URL for episode ${freshEpisode.id}", e)
+                    isChangingMedia = false
                     _playerState.value = _playerState.value.copy(
                         currentEpisode = freshEpisode,
                         isPlaying = false,
@@ -196,6 +207,7 @@ class PlayerManager @Inject constructor(
             controller?.setMediaItem(mediaItem, startPos)
             controller?.prepare()
             controller?.play()
+            isChangingMedia = false
             updateState()
         }
     }
@@ -268,7 +280,9 @@ class PlayerManager @Inject constructor(
 
     fun stop() {
         saveCurrentPosition()
+        isChangingMedia = true
         controller?.stop()
+        isChangingMedia = false
         currentEpisode = null
         prefs.edit().remove("last_episode_id").remove("last_artwork_url").apply()
         updateState()

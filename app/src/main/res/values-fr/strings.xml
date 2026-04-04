@@ -198,7 +198,6 @@
 
     <!-- YouTube -->
     <string name="search_podcasts_or_youtube_hint">Rechercher des podcasts ou coller une URL de chaîne YouTube…</string>
-    <string name="youtube_subscribing">Abonnement à la chaîne YouTube…</string>
-    <string name="youtube_subscribed_success">Abonné à %1$s</string>
-    <string name="youtube_subscribe_error">Échec de l\'abonnement YouTube : %1$s</string>
+    <string name="youtube_loading">Chargement de la chaîne YouTube…</string>
+    <string name="youtube_subscribe_error">Échec du chargement YouTube : %1$s</string>
 </resources>

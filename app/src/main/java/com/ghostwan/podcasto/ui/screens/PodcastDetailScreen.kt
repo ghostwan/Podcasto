@@ -125,6 +125,15 @@ class PodcastDetailViewModel @Inject constructor(
                         repository.refreshPodcastEpisodes(existing)
                     }
                     collectEpisodes()
+                } else if (feedUrl.contains("youtube.com/feeds/videos.xml")) {
+                    // YouTube channel preview
+                    val (pod, eps) = repository.fetchYouTubePreviewFromFeed(
+                        feedUrl, podcastId, artworkUrl, collectionName, artistName
+                    )
+                    _podcast.value = pod
+                    _episodes.value = eps
+                    _isSubscribed.value = false
+                    _isLoading.value = false
                 } else {
                     // feedUrl may be empty for some podcasts (e.g. Radio France);
                     // fetchPodcastPreview will use ApplePodcastsScraper as fallback

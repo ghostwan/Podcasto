@@ -198,7 +198,6 @@
 
     <!-- YouTube -->
     <string name="search_podcasts_or_youtube_hint">Buscar podcasts o pegar URL de canal de YouTube…</string>
-    <string name="youtube_subscribing">Suscribiéndose al canal de YouTube…</string>
-    <string name="youtube_subscribed_success">Suscrito a %1$s</string>
-    <string name="youtube_subscribe_error">Error en la suscripción de YouTube: %1$s</string>
+    <string name="youtube_loading">Cargando canal de YouTube…</string>
+    <string name="youtube_subscribe_error">Error al cargar el canal de YouTube: %1$s</string>
 </resources>

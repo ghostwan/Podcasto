@@ -30,6 +30,7 @@ import coil.compose.AsyncImage
 import com.google.ai.client.generativeai.GenerativeModel
 import com.ghostwan.podcasto.BuildConfig
 import com.ghostwan.podcasto.R
+import com.ghostwan.podcasto.data.local.PodcastEntity
 import com.ghostwan.podcasto.data.remote.ITunesPodcast
 import com.ghostwan.podcasto.data.remote.YouTubeExtractor
 import com.ghostwan.podcasto.data.repository.PodcastRepository
@@ -127,12 +128,12 @@ class DiscoverViewModel @Inject constructor(
     private val _aiSearchEnabled = MutableStateFlow(true)
     val aiSearchEnabled: StateFlow<Boolean> = _aiSearchEnabled.asStateFlow()
 
-    // YouTube subscription state
+    // YouTube preview state
     private val _youtubeLoading = MutableStateFlow(false)
     val youtubeLoading: StateFlow<Boolean> = _youtubeLoading.asStateFlow()
 
-    private val _youtubeSuccess = MutableStateFlow<String?>(null)
-    val youtubeSuccess: StateFlow<String?> = _youtubeSuccess.asStateFlow()
+    private val _youtubePreview = MutableStateFlow<PodcastEntity?>(null)
+    val youtubePreview: StateFlow<PodcastEntity?> = _youtubePreview.asStateFlow()
 
     private val _youtubeError = MutableStateFlow<String?>(null)
     val youtubeError: StateFlow<String?> = _youtubeError.asStateFlow()
@@ -160,7 +161,7 @@ class DiscoverViewModel @Inject constructor(
 
         // Check if query is a YouTube channel URL
         if (YouTubeExtractor.isYouTubeChannelUrl(query)) {
-            subscribeToYouTubeChannel(query)
+            previewYouTubeChannel(query)
             return
         }
 
@@ -225,14 +226,14 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
         }
     }
 
-    private fun subscribeToYouTubeChannel(channelUrl: String) {
+    private fun previewYouTubeChannel(channelUrl: String) {
         viewModelScope.launch {
             _youtubeLoading.value = true
-            _youtubeSuccess.value = null
+            _youtubePreview.value = null
             _youtubeError.value = null
             try {
-                val podcast = repository.subscribeToYouTubeChannel(channelUrl)
-                _youtubeSuccess.value = podcast.title
+                val (podcast, _) = repository.fetchYouTubeChannelPreview(channelUrl)
+                _youtubePreview.value = podcast
                 _youtubeLoading.value = false
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -243,7 +244,7 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
     }
 
     fun clearYoutubeState() {
-        _youtubeSuccess.value = null
+        _youtubePreview.value = null
         _youtubeError.value = null
     }
 
@@ -323,7 +324,9 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
 @Composable
 fun DiscoverScreen(
     onPodcastClick: (ITunesPodcast) -> Unit,
+    onYouTubeChannelClick: (PodcastEntity) -> Unit = {},
     onBack: () -> Unit,
+    sharedUrl: String = "",
     viewModel: DiscoverViewModel = hiltViewModel(),
 ) {
     val query by viewModel.searchQuery.collectAsState()
@@ -345,8 +348,16 @@ fun DiscoverScreen(
 
     // YouTube state
     val youtubeLoading by viewModel.youtubeLoading.collectAsState()
-    val youtubeSuccess by viewModel.youtubeSuccess.collectAsState()
+    val youtubePreview by viewModel.youtubePreview.collectAsState()
     val youtubeError by viewModel.youtubeError.collectAsState()
+
+    // Handle shared YouTube URL — set search query and trigger subscription
+    LaunchedEffect(sharedUrl) {
+        if (sharedUrl.isNotEmpty()) {
+            viewModel.onQueryChange(sharedUrl)
+            viewModel.search()
+        }
+    }
 
     val showAiSection = query.isBlank() && results.isEmpty()
 
@@ -421,7 +432,7 @@ fun DiscoverScreen(
             Text(stringResource(R.string.search))
         }
 
-        // YouTube subscription status
+        // YouTube loading status
         if (youtubeLoading) {
             Row(
                 modifier = Modifier
@@ -432,28 +443,54 @@ fun DiscoverScreen(
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = stringResource(R.string.youtube_subscribing),
+                    text = stringResource(R.string.youtube_loading),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
         }
 
-        youtubeSuccess?.let { channelName ->
+        youtubePreview?.let { preview ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .clickable { viewModel.clearYoutubeState() },
+                    .clickable { onYouTubeChannelClick(preview) },
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                 ),
             ) {
-                Text(
-                    text = stringResource(R.string.youtube_subscribed_success, channelName),
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AsyncImage(
+                        model = preview.artworkUrl,
+                        contentDescription = preview.title,
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop,
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = preview.title,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                        if (preview.description.isNotEmpty()) {
+                            Text(
+                                text = preview.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
             }
         }
 
