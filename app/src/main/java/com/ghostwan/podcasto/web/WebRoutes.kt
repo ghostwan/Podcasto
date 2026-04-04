@@ -674,6 +674,14 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
             call.respondFile(file)
         }
 
+        // DELETE /api/episodes/:id/download — delete downloaded episode file
+        delete("/episodes/{id}/download") {
+            val episodeId = call.parameters["id"]?.toLongOrNull()
+                ?: return@delete call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            repository.deleteDownload(episodeId)
+            call.respond(HttpStatusCode.OK, mapOf("status" to "deleted"))
+        }
+
         // === Bookmarks ===
 
         // GET /api/episodes/:id/bookmarks

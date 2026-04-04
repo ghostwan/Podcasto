@@ -132,6 +132,17 @@ class EpisodeDetailViewModel @Inject constructor(
         }
     }
 
+    fun deleteDownload() {
+        viewModelScope.launch {
+            val ep = _episode.value ?: return@launch
+            if (ep.downloadPath != null) {
+                repository.deleteDownload(ep.id)
+                _isDownloaded.value = false
+                _episode.value = ep.copy(downloadPath = null)
+            }
+        }
+    }
+
     fun togglePlayed() {
         viewModelScope.launch {
             val ep = _episode.value ?: return@launch
@@ -276,10 +287,9 @@ fun EpisodeDetailScreen(
                     onClick = viewModel::togglePlaylist,
                 )
                 ActionIconButton(
-                    icon = Icons.Default.Download,
-                    label = if (isDownloaded) stringResource(R.string.saved) else stringResource(R.string.download),
-                    onClick = viewModel::download,
-                    enabled = !isDownloaded,
+                    icon = if (isDownloaded) Icons.Default.Delete else Icons.Default.Download,
+                    label = if (isDownloaded) stringResource(R.string.delete_download) else stringResource(R.string.download),
+                    onClick = if (isDownloaded) viewModel::deleteDownload else viewModel::download,
                 )
                 ActionIconButton(
                     icon = if (episode?.played == true) Icons.Default.RadioButtonUnchecked else Icons.Default.Check,

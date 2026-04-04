@@ -940,6 +940,17 @@ function updateEpisodeDetailButtons() {
         ? '<span class="material-icons-round">check_circle</span> Lu'
         : '<span class="material-icons-round">check_circle_outline</span> Non lu';
     playedBtn.classList.toggle('active', e.played);
+
+    // Download button — only show if episode is downloaded
+    const dlBtn = document.getElementById('ep-download-btn');
+    if (dlBtn) {
+        if (e.downloadPath) {
+            dlBtn.style.display = '';
+            dlBtn.innerHTML = '<span class="material-icons-round">delete_outline</span> Supprimer le téléchargement';
+        } else {
+            dlBtn.style.display = 'none';
+        }
+    }
 }
 
 function playCurrentEpisode() {
@@ -968,6 +979,19 @@ async function togglePlayedCurrentEpisode() {
         }
         updateEpisodeDetailButtons();
         showToast(currentEpisodeDetail.played ? 'Marqu\u00e9 comme lu' : 'Marqu\u00e9 comme non lu');
+    } catch (e) {
+        showToast('Erreur: ' + e.message);
+    }
+}
+
+async function toggleDownloadCurrentEpisode() {
+    if (!currentEpisodeDetail) return;
+    if (!currentEpisodeDetail.downloadPath) return;
+    try {
+        await fetch(`/api/episodes/${currentEpisodeDetail.id}/download`, { method: 'DELETE' });
+        currentEpisodeDetail.downloadPath = null;
+        updateEpisodeDetailButtons();
+        showToast('Téléchargement supprimé');
     } catch (e) {
         showToast('Erreur: ' + e.message);
     }

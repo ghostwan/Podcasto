@@ -106,6 +106,7 @@
 
     <!-- Download -->
     <string name="downloading_episode">Downloading episode…</string>
+    <string name="delete_download">Delete</string>
 
     <!-- Country filter -->
     <string name="country_all">All</string>

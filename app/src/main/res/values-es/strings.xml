@@ -67,6 +67,7 @@
     <string name="download">Descargar</string>
     <string name="downloaded">Descargado</string>
     <string name="filter_downloaded_only">Solo descargados</string>
+    <string name="delete_download">Eliminar</string>
     <string name="saved">Guardado</string>
     <string name="unplayed">No escuchado</string>
     <string name="bookmark">Marcador</string>

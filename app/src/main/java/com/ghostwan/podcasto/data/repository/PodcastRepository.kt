@@ -444,6 +444,16 @@ class PodcastRepository @Inject constructor(
         downloadId
     }
 
+    suspend fun deleteDownload(episodeId: Long) = withContext(Dispatchers.IO) {
+        val episode = episodeDao.getEpisodeById(episodeId) ?: return@withContext
+        val path = episode.downloadPath ?: return@withContext
+        val file = File(path)
+        if (file.exists()) {
+            file.delete()
+        }
+        episodeDao.updateDownloadPath(episodeId, null)
+    }
+
     fun getDownloadedEpisodes(): Flow<List<EpisodeEntity>> = episodeDao.getDownloadedEpisodes()
 
     // --- History ---
