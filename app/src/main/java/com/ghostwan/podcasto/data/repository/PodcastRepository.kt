@@ -103,9 +103,12 @@ class PodcastRepository @Inject constructor(
                 author = feed.author.ifEmpty { podcast.author },
             )
             podcastDao.insertPodcast(updatedPodcast)
+            // Load existing episodes once, indexed by audioUrl for O(1) lookups
+            val existingByAudioUrl = episodeDao.getEpisodesForPodcastList(podcast.id)
+                .associateBy { it.audioUrl }
             val episodes = feed.episodes.mapIndexed { index, rssEpisode ->
-                // Preserve played state and position if episode already exists
-                val existingEpisode = episodeDao.getEpisodeById(podcast.id * 100000 + index)
+                // Match existing episode by audioUrl (stable) instead of by index (shifts when new episodes are added)
+                val existingEpisode = existingByAudioUrl[rssEpisode.audioUrl]
                 EpisodeEntity(
                     id = (podcast.id * 100000 + index),
                     podcastId = podcast.id,
@@ -271,9 +274,13 @@ class PodcastRepository @Inject constructor(
                 ?: return
 
             val videos = youTubeExtractor.fetchChannelVideos(channelId)
+            // Load existing episodes once, indexed by audioUrl for O(1) lookups
+            val existingByAudioUrl = episodeDao.getEpisodesForPodcastList(podcast.id)
+                .associateBy { it.audioUrl }
             val episodes = videos.mapIndexed { index, video ->
                 val episodeId = podcast.id * 100000 + index
-                val existingEpisode = episodeDao.getEpisodeById(episodeId)
+                // Match existing episode by audioUrl (stable) instead of by index
+                val existingEpisode = existingByAudioUrl[video.videoUrl]
                 EpisodeEntity(
                     id = episodeId,
                     podcastId = podcast.id,
