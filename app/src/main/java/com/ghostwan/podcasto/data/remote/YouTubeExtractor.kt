@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.channel.ChannelInfo
@@ -82,7 +83,7 @@ class YouTubeExtractor @Inject constructor(
                 .url(request.url())
                 .method(
                     request.httpMethod(),
-                    request.dataToSend()?.let { okhttp3.RequestBody.create(null, it) }
+                    request.dataToSend()?.let { it.toRequestBody(null) }
                 )
 
             // Add headers from the NewPipe request
@@ -162,14 +163,35 @@ class YouTubeExtractor @Inject constructor(
     }
 
     /**
+     * Force re-initialization of NewPipe Extractor.
+     * Useful when YouTube changes its API and cached state becomes stale.
+     */
+    private fun reinitialize() {
+        synchronized(this) {
+            initialized = false
+            NewPipe.init(OkHttpDownloader())
+            initialized = true
+            Log.d(TAG, "NewPipe Extractor re-initialized")
+        }
+    }
+
+    /**
      * Resolve the audio stream URL for a YouTube video.
      * Uses NewPipe Extractor to get the best audio-only stream.
      * These URLs expire, so they must be resolved at play time.
+     * Retries once with a full re-initialization if the first attempt fails.
      */
     suspend fun resolveAudioStreamUrl(videoUrl: String): String = withContext(Dispatchers.IO) {
         ensureInitialized()
         Log.d(TAG, "Resolving audio stream for: $videoUrl")
-        val info = StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
+
+        val info = try {
+            StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
+        } catch (e: Exception) {
+            Log.w(TAG, "First attempt failed, re-initializing and retrying: ${e.message}")
+            reinitialize()
+            StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
+        }
 
         // Prefer audio-only streams, sorted by bitrate (highest first)
         val audioStreams = info.audioStreams

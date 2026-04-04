@@ -153,6 +153,9 @@ class PlayerManager @Inject constructor(
             // Record in listening history
             repository.addHistoryEntry(freshEpisode.id, freshEpisode.podcastId)
 
+            // Auto-add to top of playlist if not already in it
+            repository.addToPlaylistTop(freshEpisode.id)
+
             val audioUri = if (freshEpisode.downloadPath != null) {
                 Uri.parse(freshEpisode.downloadPath)
             } else {
@@ -199,53 +202,10 @@ class PlayerManager @Inject constructor(
 
     fun playMultiple(episodes: List<EpisodeEntity>, startIndex: Int = 0, artworkUrl: String = "") {
         if (episodes.isEmpty()) return
-        // Save position of currently playing episode before switching
-        saveCurrentPosition()
-
-        currentArtworkUrl = artworkUrl
-        saveLastEpisode(episodes[startIndex].id, artworkUrl)
-
-        scope.launch {
-            // Reload episodes from DB to get fresh playback positions
-            val freshEpisodes = episodes.map { ep ->
-                repository.getEpisodeById(ep.id) ?: ep
-            }
-            currentEpisode = freshEpisodes[startIndex]
-
-            // Emit clean state immediately to avoid stale position from previous episode
-            val startPosition = freshEpisodes[startIndex].playbackPosition
-            _playerState.value = PlayerState(
-                currentEpisode = freshEpisodes[startIndex],
-                isPlaying = false,
-                currentPosition = startPosition,
-                duration = 0,
-                podcastArtworkUrl = currentArtworkUrl,
-                volumeNormEnabled = volumeNormEnabled,
-            )
-
-            val mediaItems = freshEpisodes.map { episode ->
-                val audioUri = if (episode.downloadPath != null) {
-                    Uri.parse(episode.downloadPath)
-                } else {
-                    // Note: for playMultiple, YouTube URLs will be resolved individually
-                    // when each track starts playing via the single play() method
-                    Uri.parse(episode.audioUrl)
-                }
-                MediaItem.Builder()
-                    .setUri(audioUri)
-                    .setMediaMetadata(
-                        MediaMetadata.Builder()
-                            .setTitle(episode.title)
-                            .setDescription(episode.description)
-                            .build()
-                    )
-                    .build()
-            }
-            controller?.setMediaItems(mediaItems, startIndex, startPosition)
-            controller?.prepare()
-            controller?.play()
-            updateState()
-        }
+        // Play only the first episode; auto-advance (markCurrentAsPlayed) will
+        // chain to the next playlist item. This ensures YouTube URLs are resolved
+        // individually at play time instead of passing raw URLs to Media3's internal playlist.
+        play(episodes[startIndex], artworkUrl)
     }
 
     fun togglePlayPause() {

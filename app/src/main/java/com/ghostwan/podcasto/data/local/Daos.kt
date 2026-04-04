@@ -172,6 +172,9 @@ interface PlaylistDao {
 
     @Query("UPDATE playlist_items SET position = :position WHERE episodeId = :episodeId")
     suspend fun updatePosition(episodeId: Long, position: Int)
+
+    @Query("UPDATE playlist_items SET position = position + 1")
+    suspend fun shiftAllPositions()
 }
 
 @Dao

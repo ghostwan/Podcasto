@@ -1430,6 +1430,8 @@ async function playNewEpisode(episodeId, artworkUrl) {
         startPositionSync();
         updatePlayerUI();
         addToHistory(episodeId);
+        // Auto-add to top of playlist
+        try { await fetch(`/api/playlist/${episodeId}/top`, { method: 'POST' }); } catch(e) {}
         loadNewEpisodes();
     } catch (e) {
         showToast('Erreur lecture: ' + e.message);
@@ -1545,6 +1547,8 @@ async function playHistoryEpisode(episodeId, artworkUrl, podcastTitle) {
         startPositionSync();
         updatePlayerUI();
         addToHistory(episodeId);
+        // Auto-add to top of playlist
+        try { await fetch(`/api/playlist/${episodeId}/top`, { method: 'POST' }); } catch(e) {}
         loadHistory();
     } catch (e) {
         showToast('Erreur lecture: ' + e.message);
@@ -1658,6 +1662,8 @@ async function playEpisode(episodeId, seekTo) {
         startPositionSync();
         updatePlayerUI();
         addToHistory(episodeId);
+        // Auto-add to top of playlist
+        try { await fetch(`/api/playlist/${episodeId}/top`, { method: 'POST' }); } catch(e) {}
         // Update episode lists if visible
         renderEpisodes();
         updateEpisodeDetailButtons();

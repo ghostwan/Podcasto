@@ -113,7 +113,7 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.5.1")
 
     // NewPipe Extractor (YouTube audio extraction)
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.24.5")
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.0")
 
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.10.0")

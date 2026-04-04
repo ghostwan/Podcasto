@@ -279,6 +279,13 @@ class PodcastRepository @Inject constructor(
         }
     }
 
+    suspend fun addToPlaylistTop(episodeId: Long) {
+        if (!playlistDao.isInPlaylist(episodeId)) {
+            playlistDao.shiftAllPositions()
+            playlistDao.insertPlaylistItem(PlaylistItemEntity(episodeId = episodeId, position = 0))
+        }
+    }
+
     suspend fun removeFromPlaylist(episodeId: Long) = playlistDao.removeFromPlaylist(episodeId)
 
     suspend fun isInPlaylist(episodeId: Long): Boolean = playlistDao.isInPlaylist(episodeId)

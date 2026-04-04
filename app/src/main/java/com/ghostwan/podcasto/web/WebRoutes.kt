@@ -732,6 +732,14 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
             call.respond(HttpStatusCode.OK, mapOf("status" to "added"))
         }
 
+        // POST /api/playlist/:episodeId/top — add to top of playlist
+        post("/playlist/{episodeId}/top") {
+            val episodeId = call.parameters["episodeId"]?.toLongOrNull()
+                ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid episode ID"))
+            repository.addToPlaylistTop(episodeId)
+            call.respond(HttpStatusCode.OK, mapOf("status" to "added"))
+        }
+
         // DELETE /api/playlist/:episodeId — remove from playlist
         delete("/playlist/{episodeId}") {
             val episodeId = call.parameters["episodeId"]?.toLongOrNull()
