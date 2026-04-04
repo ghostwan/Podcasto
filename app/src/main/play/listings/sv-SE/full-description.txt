@@ -1,0 +1,39 @@
+Podcasto är en komplett poddspelare med öppen källkod för Android som ger dig full kontroll över din lyssningsupplevelse.
+
+🎧 LYSSNA PÅ DITT SÄTT
+Sök och prenumerera på tusentals poddar via iTunes-katalogen. Bläddra bland avsnitt, läs fullständiga beskrivningar och fortsätt exakt där du slutade tack vare automatisk spårning av uppspelningspositionen. Den inbyggda ljudspelaren erbjuder 30s framåt, 10s bakåt, föregående/nästa avsnitt och volymutjämning för jämna ljudnivåer i alla dina poddar.
+
+📋 SMARTA SPELLISTOR
+Bygg din lyssningskö med dra-för-att-ordna stöd. Lägg automatiskt till det senaste olyssnade avsnittet från varje prenumeration — filtrera efter tagg för att bara lägga till från specifika grupper. Rensa, spela alla eller hantera enskilda avsnitt med lätthet.
+
+🏷️ ORGANISERA MED TAGGAR
+Skapa anpassade taggar för att kategorisera dina prenumerationer. Filtrera ditt bibliotek och nya avsnitt efter tagg. Ordna om taggar med dra-och-släpp för att hålla dina favoriter överst.
+
+📥 LYSSNA OFFLINE
+Ladda ner avsnitt för att lyssna utan internetanslutning. Filtrera ditt bibliotek för att bara visa nedladdade avsnitt. Ta bort nedladdningar när du inte längre behöver dem.
+
+🔖 BOKMÄRKEN
+Markera specifika ögonblick i valfritt avsnitt med valfria kommentarer. Hoppa tillbaka till sparade positioner direkt. Perfekt för att notera viktiga insikter, citat eller roliga ögonblick.
+
+🤖 AI-DRIVEN UPPTÄCKT
+Anslut din Gemini API-nyckel för att låsa upp AI-drivna poddrekommendationer baserade på dina befintliga prenumerationer. Få personliga förslag och sök med naturligt språk.
+
+🌐 INBYGGD WEBBSERVER
+Styr Podcasto från vilken enhet som helst i ditt nätverk med det responsiva webbgränssnittet. Starta webbservern från inställningar och öppna URL:en i valfri webbläsare. Full funktionsparitet: bläddra, söka, spela, hantera spellistor och mer — allt från din dator eller surfplatta.
+
+🔒 SÄKER FJÄRRÅTKOMST
+Aktivera offentlig tunnelåtkomst via localhost.run för att styra dina poddar var som helst på internet. Skydda webbgränssnittet med ett lösenord. Sessionsbaserad autentisering med brute-force-skydd (3 försök, 15 minuters låsning).
+
+💾 SÄKERHETSKOPIERING OCH ÅTERSTÄLLNING
+Exportera alla dina data (prenumerationer, avsnitt, taggar, bokmärken, spellista, lyssningshistorik, inställningar) till en JSON-fil i Nedladdningar. Återställ från en tidigare säkerhetskopia när som helst. Eller logga in med Google för säkerhetskopiering till Google Drive med valfri automatisk daglig säkerhetskopiering.
+
+📊 LYSSNINGSHISTORIK
+Spåra varje avsnitt du lyssnar på. Bläddra i din fullständiga lyssningshistorik och rensa den vid behov.
+
+👁️ BIBLIOTEKSHANTERING
+Långtryck på en podd för att dölja den från ditt bibliotek utan att avprenumerera. Visa dolda poddar när som helst från inställningar.
+
+🌍 FLERSPRÅKIG
+Tillgänglig på 9 språk: engelska, franska, tyska, spanska, italienska, nederländska, japanska, svenska och kinesiska. Landbaserad sökfiltrering för 8 länder (USA, Frankrike, Storbritannien, Tyskland, Spanien, Italien, Brasilien, Japan).
+
+Podcasto är gratis, har öppen källkod och respekterar din integritet. Ingen reklam, ingen spårning, inget konto krävs.

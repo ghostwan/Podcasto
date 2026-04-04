@@ -1,0 +1,13 @@
+Versione iniziale di Podcasto, lettore di podcast completo.
+
+- Ricerca e iscrizione podcast via iTunes
+- Lettore audio con avanti 10s/30s, playlist riordinabile
+- Download episodi per ascolto offline
+- Tag, segnalibri, filtri ascoltati/non ascoltati
+- Scoperta IA con Gemini
+- Server web integrato per controllo remoto
+- Accesso tunnel con password
+- Backup locale e Google Drive
+- Cronologia ascolto e normalizzazione volume
+- 9 lingue: EN, FR, DE, ES, IT, NL, JA, SV, ZH
+- Design Material 3

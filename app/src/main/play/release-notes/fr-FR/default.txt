@@ -9,5 +9,5 @@ Version initiale de Podcasto, lecteur de podcasts complet.
 - Acces tunnel avec mot de passe
 - Sauvegarde locale et Google Drive
 - Historique d'ecoute et normalisation du volume
-- 4 langues : EN, FR, DE, ES
+- 9 langues : EN, FR, DE, ES, IT, NL, JA, SV, ZH
 - Design Material 3

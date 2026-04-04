@@ -9,5 +9,5 @@ Initial release of Podcasto, a full-featured podcast player.
 - Tunnel access with password protection
 - Local & Google Drive backup
 - Listening history & volume normalization
-- 4 languages: EN, FR, DE, ES
+- 9 languages: EN, FR, DE, ES, IT, NL, JA, SV, ZH
 - Material 3 design

@@ -34,6 +34,6 @@ Track every episode you listen to. Browse your complete listening history and cl
 Long-press any podcast to hide it from your library without unsubscribing. Show hidden podcasts anytime from settings.
 
 🌍 MULTILINGUAL
-Available in English, French, German, and Spanish. Country-based search filtering for 8 countries (USA, France, UK, Germany, Spain, Italy, Brazil, Japan).
+Available in 9 languages: English, French, German, Spanish, Italian, Dutch, Japanese, Swedish, and Chinese (Simplified). Country-based search filtering for 8 countries (USA, France, UK, Germany, Spain, Italy, Brazil, Japan).
 
 Podcasto is free, open-source, and respects your privacy. No ads, no tracking, no account required.

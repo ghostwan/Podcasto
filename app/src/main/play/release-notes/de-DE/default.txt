@@ -9,5 +9,5 @@ Erstveroeffentlichung von Podcasto, einem Podcast-Player.
 - Tunnel-Zugriff mit Passwortschutz
 - Lokale und Google Drive Sicherung
 - Hoerverlauf und Lautstaerke-Normalisierung
-- 4 Sprachen: EN, FR, DE, ES
+- 9 Sprachen: EN, FR, DE, ES, IT, NL, JA, SV, ZH
 - Material 3 Design

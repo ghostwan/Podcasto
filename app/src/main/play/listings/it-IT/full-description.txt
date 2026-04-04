@@ -1,0 +1,39 @@
+Podcasto è un lettore di podcast completo e open-source per Android che ti dà il pieno controllo della tua esperienza di ascolto.
+
+🎧 ASCOLTA A MODO TUO
+Cerca e iscriviti a migliaia di podcast tramite il catalogo iTunes. Sfoglia gli episodi, leggi le descrizioni complete e riprendi esattamente da dove avevi interrotto grazie al tracciamento automatico della posizione di riproduzione. Il lettore audio integrato offre avanti veloce 30s, indietro 10s, navigazione episodio precedente/successivo e normalizzazione del volume per un livello audio costante tra tutti i tuoi podcast.
+
+📋 PLAYLIST INTELLIGENTI
+Costruisci la tua coda di ascolto con supporto trascina per riordinare. Aggiungi automaticamente l'ultimo episodio non ascoltato di ogni abbonamento — filtra per tag per aggiungere solo da gruppi specifici. Svuota, riproduci tutto o gestisci i singoli episodi con facilità.
+
+🏷️ ORGANIZZA CON I TAG
+Crea tag personalizzati per categorizzare i tuoi abbonamenti. Filtra la tua libreria e i nuovi episodi per tag. Riordina i tag con trascina e rilascia per tenere i preferiti in cima.
+
+📥 ASCOLTO OFFLINE
+Scarica gli episodi per ascoltarli senza connessione internet. Filtra la libreria per mostrare solo gli episodi scaricati. Elimina i download quando non ne hai più bisogno.
+
+🔖 SEGNALIBRI
+Segna momenti specifici in qualsiasi episodio con commenti opzionali. Torna istantaneamente alle posizioni salvate. Perfetto per annotare intuizioni chiave, citazioni o momenti divertenti.
+
+🤖 SCOPERTA CON IA
+Collega la tua chiave API Gemini per sbloccare i consigli di podcast basati sui tuoi abbonamenti esistenti. Ottieni suggerimenti personalizzati e cerca con query in linguaggio naturale.
+
+🌐 SERVER WEB INTEGRATO
+Controlla Podcasto da qualsiasi dispositivo sulla tua rete tramite l'interfaccia web responsive. Avvia il server web dalle impostazioni, poi apri l'URL in qualsiasi browser. Parità completa delle funzionalità: sfoglia, cerca, riproduci, gestisci le playlist e altro — tutto dal tuo computer o tablet.
+
+🔒 ACCESSO REMOTO SICURO
+Abilita l'accesso tunnel pubblico tramite localhost.run per controllare i tuoi podcast da qualsiasi parte di internet. Proteggi l'interfaccia web con una password. Autenticazione basata su sessione con protezione anti-brute-force (3 tentativi, blocco di 15 minuti).
+
+💾 BACKUP E RIPRISTINO
+Esporta tutti i tuoi dati (abbonamenti, episodi, tag, segnalibri, playlist, cronologia di ascolto, impostazioni) in un file JSON in Download. Ripristina da un backup precedente in qualsiasi momento. Oppure accedi con Google per il backup su Google Drive con backup automatico giornaliero opzionale.
+
+📊 CRONOLOGIA DI ASCOLTO
+Traccia ogni episodio che ascolti. Sfoglia la cronologia completa e cancellala quando vuoi.
+
+👁️ GESTIONE DELLA LIBRERIA
+Premi a lungo su un podcast per nasconderlo dalla libreria senza annullare l'iscrizione. Mostra i podcast nascosti in qualsiasi momento dalle impostazioni.
+
+🌍 MULTILINGUE
+Disponibile in 9 lingue: inglese, francese, tedesco, spagnolo, italiano, olandese, giapponese, svedese e cinese. Filtro ricerca per paese per 8 paesi (USA, Francia, Regno Unito, Germania, Spagna, Italia, Brasile, Giappone).
+
+Podcasto è gratuito, open-source e rispetta la tua privacy. Nessuna pubblicità, nessun tracciamento, nessun account richiesto.

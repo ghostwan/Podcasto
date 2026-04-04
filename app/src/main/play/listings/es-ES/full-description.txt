@@ -34,6 +34,6 @@ Sigue cada episodio que escuchas. Explora tu historial completo y bórralo cuand
 Mantén pulsado un podcast para ocultarlo de tu biblioteca sin desuscribirte. Muestra los podcasts ocultos en cualquier momento desde los ajustes.
 
 🌍 MULTILINGÜE
-Disponible en inglés, francés, alemán y español. Filtrado de búsqueda por país para 8 países (EE.UU., Francia, Reino Unido, Alemania, España, Italia, Brasil, Japón).
+Disponible en 9 idiomas: inglés, francés, alemán, español, italiano, neerlandés, japonés, sueco y chino (simplificado). Filtrado de búsqueda por país para 8 países (EE.UU., Francia, Reino Unido, Alemania, España, Italia, Brasil, Japón).
 
 Podcasto es gratuito, de código abierto y respeta tu privacidad. Sin anuncios, sin rastreo, sin cuenta requerida.

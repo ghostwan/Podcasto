@@ -1,0 +1,1 @@
+Lettore podcast con controllo web, scoperta IA e modalità offline.

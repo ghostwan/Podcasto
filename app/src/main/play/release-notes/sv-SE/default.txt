@@ -1,0 +1,13 @@
+Forsta versionen av Podcasto, en komplett poddspelare.
+
+- Sok och prenumerera pa poddar via iTunes
+- Ljudspelare med 10s/30s spol, dra-for-att-ordna spellista
+- Ladda ner avsnitt for offline-lyssning
+- Taggar, bokmarken, lyssnad/olyssnad filter
+- AI-upptackt med Gemini
+- Inbyggd webbserver for fjarrstyrning
+- Tunnelatkoms med losenord
+- Lokal och Google Drive sakerhetskopiering
+- Lyssningshistorik och volymutjamning
+- 9 sprak: EN, FR, DE, ES, IT, NL, JA, SV, ZH
+- Material 3 design

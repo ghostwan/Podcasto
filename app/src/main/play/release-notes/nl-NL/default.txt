@@ -1,0 +1,13 @@
+Eerste versie van Podcasto, een complete podcastspeler.
+
+- Podcasts zoeken en abonneren via iTunes
+- Audiospeler met 10s/30s springen, afspeellijst herschikken
+- Afleveringen downloaden voor offline luisteren
+- Tags, bladwijzers, beluisterd/onbeluisterd filters
+- AI-ontdekking met Gemini
+- Ingebouwde webserver voor afstandsbediening
+- Tunneltoegang met wachtwoord
+- Lokale en Google Drive back-up
+- Luistergeschiedenis en volumenormalisatie
+- 9 talen: EN, FR, DE, ES, IT, NL, JA, SV, ZH
+- Material 3 ontwerp

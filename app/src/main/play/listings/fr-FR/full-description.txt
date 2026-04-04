@@ -34,6 +34,6 @@ Suivez chaque épisode que vous écoutez. Parcourez votre historique complet et 
 Appui long sur un podcast pour le masquer de votre bibliothèque sans vous désabonner. Affichez les podcasts masqués à tout moment depuis les paramètres.
 
 🌍 MULTILINGUE
-Disponible en anglais, français, allemand et espagnol. Filtrage de recherche par pays pour 8 pays (USA, France, Royaume-Uni, Allemagne, Espagne, Italie, Brésil, Japon).
+Disponible en 9 langues : anglais, français, allemand, espagnol, italien, néerlandais, japonais, suédois et chinois (simplifié). Filtrage de recherche par pays pour 8 pays (USA, France, Royaume-Uni, Allemagne, Espagne, Italie, Brésil, Japon).
 
 Podcasto est gratuit, open-source et respecte votre vie privée. Pas de publicité, pas de pistage, pas de compte requis.

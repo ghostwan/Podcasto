@@ -9,5 +9,5 @@ Version inicial de Podcasto, reproductor de podcasts completo.
 - Acceso tunel con contrasena
 - Copia de seguridad local y Google Drive
 - Historial de escucha y normalizacion de volumen
-- 4 idiomas: EN, FR, DE, ES
+- 9 idiomas: EN, FR, DE, ES, IT, NL, JA, SV, ZH
 - Diseno Material 3

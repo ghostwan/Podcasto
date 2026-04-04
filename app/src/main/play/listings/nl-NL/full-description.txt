@@ -1,0 +1,39 @@
+Podcasto is een complete, open-source podcastspeler voor Android die jou de controle geeft over je luisterervaring.
+
+🎧 LUISTER OP JOUW MANIER
+Zoek en abonneer je op duizenden podcasts via de iTunes-catalogus. Blader door afleveringen, lees volledige beschrijvingen en ga verder waar je gebleven was dankzij automatische voortgangsregistratie. De ingebouwde audiospeler biedt 30s vooruit, 10s terug, vorige/volgende aflevering en volumenormalisatie voor een constant geluidsniveau bij al je podcasts.
+
+📋 SLIMME AFSPEELLIJSTEN
+Bouw je luisterwachtrij met sleep-om-te-ordenen ondersteuning. Voeg automatisch de nieuwste onbeluisterde aflevering van elk abonnement toe — filter op tag om alleen uit specifieke groepen toe te voegen. Wis, speel alles af of beheer individuele afleveringen met gemak.
+
+🏷️ ORGANISEER MET TAGS
+Maak aangepaste tags om je abonnementen te categoriseren. Filter je bibliotheek en nieuwe afleveringen op tag. Herorden tags met slepen en neerzetten om je favorieten bovenaan te houden.
+
+📥 OFFLINE LUISTEREN
+Download afleveringen om te luisteren zonder internetverbinding. Filter je bibliotheek om alleen gedownloade afleveringen te tonen. Verwijder downloads wanneer je ze niet meer nodig hebt.
+
+🔖 BLADWIJZERS
+Markeer specifieke momenten in elke aflevering met optionele opmerkingen. Spring direct terug naar opgeslagen posities. Perfect voor het noteren van belangrijke inzichten, citaten of grappige momenten.
+
+🤖 AI-GESTUURDE ONTDEKKING
+Koppel je Gemini API-sleutel om AI-aangedreven podcastaanbevelingen te ontgrendelen op basis van je bestaande abonnementen. Krijg gepersonaliseerde suggesties en zoek met natuurlijke taal.
+
+🌐 INGEBOUWDE WEBSERVER
+Bedien Podcasto vanaf elk apparaat op je netwerk met de responsieve webinterface. Start de webserver vanuit instellingen en open de URL in elke browser. Volledige functiepariteit: bladeren, zoeken, afspelen, afspeellijsten beheren en meer — allemaal vanaf je computer of tablet.
+
+🔒 BEVEILIGDE EXTERNE TOEGANG
+Schakel openbare tunneltoegang in via localhost.run om je podcasts overal op internet te bedienen. Bescherm de webinterface met een wachtwoord. Sessiegebaseerde authenticatie met brute-force bescherming (3 pogingen, 15 minuten blokkering).
+
+💾 BACK-UP EN HERSTEL
+Exporteer al je gegevens (abonnementen, afleveringen, tags, bladwijzers, afspeellijst, luistergeschiedenis, instellingen) naar een JSON-bestand in Downloads. Herstel op elk moment vanuit een eerdere back-up. Of log in met Google om een back-up te maken op Google Drive met optionele automatische dagelijkse back-up.
+
+📊 LUISTERGESCHIEDENIS
+Houd elke aflevering bij die je beluistert. Blader door je volledige luistergeschiedenis en wis deze wanneer nodig.
+
+👁️ BIBLIOTHEEKBEHEER
+Houd een podcast lang ingedrukt om deze te verbergen uit je bibliotheek zonder je uit te schrijven. Toon verborgen podcasts op elk moment vanuit instellingen.
+
+🌍 MEERTALIG
+Beschikbaar in 9 talen: Engels, Frans, Duits, Spaans, Italiaans, Nederlands, Japans, Zweeds en Chinees. Zoekfilter per land voor 8 landen (VS, Frankrijk, VK, Duitsland, Spanje, Italië, Brazilië, Japan).
+
+Podcasto is gratis, open-source en respecteert je privacy. Geen advertenties, geen tracking, geen account vereist.
