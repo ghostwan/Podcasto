@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.FiberNew
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -362,6 +363,9 @@ private fun NewEpisodeRow(
                                 tint = MaterialTheme.colorScheme.primary,
                             )
                         }
+                        if (item.sourceType == "youtube" && !isNowPlaying) {
+                            YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd))
+                        }
                     }
                 },
                 headlineContent = {
@@ -391,6 +395,15 @@ private fun NewEpisodeRow(
                 },
                 trailingContent = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (item.episode.downloadPath != null) {
+                            Icon(
+                                Icons.Default.DownloadDone,
+                                contentDescription = stringResource(R.string.downloaded),
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.tertiary,
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
                         if (isInPlaylist) {
                             Icon(
                                 Icons.AutoMirrored.Filled.QueueMusic,

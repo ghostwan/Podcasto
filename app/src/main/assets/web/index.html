@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Podcasto</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%236750A4'/%3E%3Cpath d='M20 28c0-6.6 5.4-12 12-12s12 5.4 12 12v6c0 1.1-.9 2-2 2h-2c-1.1 0-2-.9-2-2v-4c0-1.1.9-2 2-2h1v-0c0-5-4-9-9-9s-9 4-9 9h1c1.1 0 2 .9 2 2v4c0 1.1-.9 2-2 2h-2c-1.1 0-2-.9-2-2v-6z' fill='white'/%3E%3Ccircle cx='36' cy='42' r='3' fill='white'/%3E%3Crect x='36' y='39' width='2' height='6' rx='1' fill='white'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -185,6 +186,9 @@
                 <h2>Playlist</h2>
                 <span id="playlist-count" class="badge">0</span>
                 <div class="playlist-actions">
+                    <button id="playlist-download-filter" class="playlist-filter-btn" onclick="togglePlaylistDownloadFilter()" title="Filtrer: téléchargés uniquement">
+                        <span class="material-icons-round">download_done</span>
+                    </button>
                     <button class="btn-outline btn-sm" onclick="autoAddPlaylist()">
                         <span class="material-icons-round">auto_fix_high</span>
                         Auto-ajout
@@ -352,7 +356,10 @@
             <input type="range" class="player-progress-input" id="player-progress-input" min="0" max="1000" value="0">
         </div>
         <div class="player-content">
-            <img id="player-artwork" class="player-artwork" src="" alt="" onclick="openPlayerEpisodeDetail()" style="cursor:pointer">
+            <div class="artwork-wrapper player-artwork-wrapper" onclick="openPlayerEpisodeDetail()" style="cursor:pointer">
+                <img id="player-artwork" class="player-artwork" src="" alt="">
+                <span id="player-yt-badge" class="yt-badge-overlay" style="display:none">YT</span>
+            </div>
             <div class="player-info" onclick="openPlayerEpisodeDetail()">
                 <div class="player-title" id="player-title"></div>
                 <div class="player-subtitle" id="player-subtitle"></div>

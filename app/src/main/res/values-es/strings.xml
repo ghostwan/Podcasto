@@ -65,6 +65,8 @@
     <string name="episode_fallback">Episodio</string>
     <string name="queue">Cola</string>
     <string name="download">Descargar</string>
+    <string name="downloaded">Descargado</string>
+    <string name="filter_downloaded_only">Solo descargados</string>
     <string name="saved">Guardado</string>
     <string name="unplayed">No escuchado</string>
     <string name="bookmark">Marcador</string>
@@ -96,6 +98,7 @@
     <string name="auto_add_episodes">Añadir automáticamente</string>
     <string name="clear_playlist">Vaciar playlist</string>
     <string name="reorder">Reordenar</string>
+    <string name="reorder_tags">Reordenar etiquetas</string>
     <string name="auto_add_title">Añadir últimos episodios</string>
     <string name="auto_add_description">Añadir el último episodio no escuchado de cada suscripción.</string>
     <string name="from_all_subscriptions">De todas las suscripciones</string>

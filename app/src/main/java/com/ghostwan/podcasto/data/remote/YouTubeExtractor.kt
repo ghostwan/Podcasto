@@ -20,6 +20,8 @@ import java.io.StringReader
 import javax.inject.Inject
 import javax.inject.Singleton
 
+data class ResolvedAudioStream(val url: String, val durationSeconds: Long)
+
 data class YouTubeChannelInfo(
     val channelId: String,
     val name: String,
@@ -180,8 +182,9 @@ class YouTubeExtractor @Inject constructor(
      * Uses NewPipe Extractor to get the best audio-only stream.
      * These URLs expire, so they must be resolved at play time.
      * Retries once with a full re-initialization if the first attempt fails.
+     * Returns the audio URL and video duration in seconds.
      */
-    suspend fun resolveAudioStreamUrl(videoUrl: String): String = withContext(Dispatchers.IO) {
+    suspend fun resolveAudioStreamUrl(videoUrl: String): ResolvedAudioStream = withContext(Dispatchers.IO) {
         ensureInitialized()
         Log.d(TAG, "Resolving audio stream for: $videoUrl")
 
@@ -200,8 +203,8 @@ class YouTubeExtractor @Inject constructor(
         val bestStream = audioStreams.firstOrNull()
             ?: throw Exception("No audio streams found for $videoUrl")
 
-        Log.d(TAG, "Resolved audio stream: ${bestStream.content} (${bestStream.averageBitrate}kbps, ${bestStream.format?.name})")
-        bestStream.content
+        Log.d(TAG, "Resolved audio stream: ${bestStream.content} (${bestStream.averageBitrate}kbps, ${bestStream.format?.name}, duration=${info.duration}s)")
+        ResolvedAudioStream(url = bestStream.content, durationSeconds = info.duration)
     }
 
     /**

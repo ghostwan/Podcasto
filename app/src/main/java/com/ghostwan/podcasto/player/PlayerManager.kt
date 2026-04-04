@@ -34,6 +34,7 @@ data class PlayerState(
     val currentPosition: Long = 0,
     val duration: Long = 0,
     val podcastArtworkUrl: String = "",
+    val podcastSourceType: String = "rss",
     val volumeNormEnabled: Boolean = false,
 )
 
@@ -51,6 +52,7 @@ class PlayerManager @Inject constructor(
 
     private var currentEpisode: EpisodeEntity? = null
     private var currentArtworkUrl: String = ""
+    private var currentSourceType: String = "rss"
     private var positionPollingJob: Job? = null
     private var volumeNormEnabled: Boolean = false
     // Guard flag: true while switching media items, to ignore spurious STATE_ENDED
@@ -60,10 +62,11 @@ class PlayerManager @Inject constructor(
     private val prefs: SharedPreferences =
         context.getSharedPreferences("player_prefs", Context.MODE_PRIVATE)
 
-    private fun saveLastEpisode(episodeId: Long, artworkUrl: String) {
+    private fun saveLastEpisode(episodeId: Long, artworkUrl: String, sourceType: String) {
         prefs.edit()
             .putLong("last_episode_id", episodeId)
             .putString("last_artwork_url", artworkUrl)
+            .putString("last_source_type", sourceType)
             .apply()
     }
 
@@ -89,17 +92,20 @@ class PlayerManager @Inject constructor(
         val lastEpisodeId = prefs.getLong("last_episode_id", -1)
         if (lastEpisodeId != -1L && currentEpisode == null) {
             val lastArtwork = prefs.getString("last_artwork_url", "") ?: ""
+            val lastSourceType = prefs.getString("last_source_type", "rss") ?: "rss"
             scope.launch {
                 val episode = repository.getEpisodeById(lastEpisodeId)
                 if (episode != null) {
                     currentEpisode = episode
                     currentArtworkUrl = lastArtwork
+                    currentSourceType = lastSourceType
                     _playerState.value = PlayerState(
                         currentEpisode = episode,
                         isPlaying = false,
                         currentPosition = episode.playbackPosition,
                         duration = 0,
                         podcastArtworkUrl = lastArtwork,
+                        podcastSourceType = lastSourceType,
                         volumeNormEnabled = volumeNormEnabled,
                     )
                 }
@@ -153,12 +159,16 @@ class PlayerManager @Inject constructor(
         isChangingMedia = true
 
         currentArtworkUrl = artworkUrl
-        saveLastEpisode(episode.id, artworkUrl)
 
         // Reload episode from DB to get the latest playback position
         scope.launch {
             val freshEpisode = repository.getEpisodeById(episode.id) ?: episode
             currentEpisode = freshEpisode
+
+            // Look up podcast sourceType for YouTube badge
+            val podcast = repository.getPodcastById(freshEpisode.podcastId)
+            currentSourceType = podcast?.sourceType ?: "rss"
+            saveLastEpisode(freshEpisode.id, artworkUrl, currentSourceType)
 
             // Record in listening history
             repository.addHistoryEntry(freshEpisode.id, freshEpisode.podcastId)
@@ -171,8 +181,12 @@ class PlayerManager @Inject constructor(
             } else {
                 // Resolve YouTube URLs at play time (they expire)
                 try {
-                    val resolvedUrl = repository.resolveAudioUrl(freshEpisode)
-                    Uri.parse(resolvedUrl)
+                    val resolved = repository.resolveAudioUrl(freshEpisode)
+                    // If YouTube duration was resolved and episode had no duration, save it
+                    if (resolved.durationSeconds > 0 && freshEpisode.duration == 0L) {
+                        repository.updateEpisodeDuration(freshEpisode.id, resolved.durationSeconds)
+                    }
+                    Uri.parse(resolved.url)
                 } catch (e: Exception) {
                     android.util.Log.e("PlayerManager", "Failed to resolve audio URL for episode ${freshEpisode.id}", e)
                     isChangingMedia = false
@@ -202,6 +216,7 @@ class PlayerManager @Inject constructor(
                 currentPosition = startPos,
                 duration = 0,
                 podcastArtworkUrl = currentArtworkUrl,
+                podcastSourceType = currentSourceType,
                 volumeNormEnabled = volumeNormEnabled,
             )
             controller?.setMediaItem(mediaItem, startPos)
@@ -309,6 +324,7 @@ class PlayerManager @Inject constructor(
             currentPosition = controller?.currentPosition ?: 0,
             duration = controller?.duration?.takeIf { it > 0 } ?: 0,
             podcastArtworkUrl = currentArtworkUrl,
+            podcastSourceType = currentSourceType,
             volumeNormEnabled = volumeNormEnabled,
         )
     }

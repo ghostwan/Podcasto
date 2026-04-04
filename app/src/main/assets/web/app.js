@@ -290,6 +290,9 @@ let currentEpisodePodcastTitle = '';
 // New episodes state
 let newEpisodesSelectedTagId = null;
 
+// Playlist state
+let playlistDownloadedOnly = false;
+
 // Player state
 let playerEpisode = null;
 let playerArtwork = '';
@@ -829,6 +832,8 @@ function renderEpisodes() {
         const progressPct = e.duration > 0 ? Math.round((e.playbackPosition / (e.duration * 1000)) * 100) : 0;
         const dateStr = e.pubDateTimestamp > 0 ? new Date(e.pubDateTimestamp).toLocaleDateString() : e.pubDate;
         const durationStr = formatDuration(e.duration);
+        const downloadIcon = e.downloadPath ? '<span class="material-icons-round download-indicator" title="T\u00e9l\u00e9charg\u00e9">download_done</span>' : '';
+        const ytBadge = (e.sourceType === 'youtube' || (currentPodcastDetail && currentPodcastDetail.sourceType === 'youtube')) ? '<span class="yt-badge-sm">YT</span>' : '';
 
         return `
         <div class="episode-item ${e.played ? 'played' : ''} ${isNowPlaying ? 'now-playing' : ''}" onclick="openEpisodeDetail(${e.id})">
@@ -836,7 +841,7 @@ function renderEpisodes() {
                 <span class="material-icons-round">${isNowPlaying && isPlaying ? 'pause' : 'play_arrow'}</span>
             </button>
             <div class="episode-info">
-                <div class="episode-title">${esc(e.title)}</div>
+                <div class="episode-title">${esc(e.title)}${downloadIcon}${ytBadge}</div>
                 <div class="episode-meta">
                     <span>${dateStr}</span>
                     ${durationStr ? `<span>${durationStr}</span>` : ''}
@@ -1064,25 +1069,49 @@ async function loadPlaylist() {
         allTags = await tagsRes.json();
         const container = document.getElementById('playlist-items');
         const empty = document.getElementById('playlist-empty');
-        document.getElementById('playlist-count').textContent = items.length;
-
         if (items.length === 0) {
             container.innerHTML = '';
             empty.style.display = '';
+            document.getElementById('playlist-count').textContent = 0;
             return;
         }
         empty.style.display = 'none';
 
-        container.innerHTML = items.map(item => {
+        // Apply downloaded-only filter
+        let filteredItems = items;
+        if (playlistDownloadedOnly) {
+            filteredItems = items.filter(item => !!item.downloadPath);
+        }
+        // Update filter button state
+        const filterBtn = document.getElementById('playlist-download-filter');
+        if (filterBtn) {
+            filterBtn.classList.toggle('active', playlistDownloadedOnly);
+        }
+
+        document.getElementById('playlist-count').textContent = filteredItems.length;
+
+        if (filteredItems.length === 0) {
+            container.innerHTML = '';
+            empty.style.display = '';
+            return;
+        }
+
+        container.innerHTML = filteredItems.map(item => {
             const isNowPlaying = playerEpisode && playerEpisode.id === item.id;
             const progressPct = item.duration > 0 ? Math.round((item.playbackPosition / (item.duration * 1000)) * 100) : 0;
+            const downloadIcon = item.downloadPath ? '<span class="material-icons-round download-indicator" title="Téléchargé">download_done</span>' : '';
+            const ytBadge = item.sourceType === 'youtube' ? '<span class="yt-badge-sm">YT</span>' : '';
+            const artworkYtOverlay = item.sourceType === 'youtube' ? '<span class="yt-badge-overlay">YT</span>' : '';
 
             return `
             <div class="playlist-item ${isNowPlaying ? 'now-playing' : ''}" draggable="true" data-episode-id="${item.id}">
                 <span class="drag-handle material-icons-round">drag_indicator</span>
-                <img class="playlist-item-artwork" src="${esc(item.artworkUrl)}" alt="" onclick="openPlaylistEpisodeDetail(${item.id}, '${escJs(item.artworkUrl)}', '${escJs(item.podcastTitle)}')" style="cursor:pointer" onerror="this.src='${placeholderImg()}'">
+                <div class="artwork-wrapper" onclick="openPlaylistEpisodeDetail(${item.id}, '${escJs(item.artworkUrl)}', '${escJs(item.podcastTitle)}')" style="cursor:pointer">
+                    <img class="playlist-item-artwork" src="${esc(item.artworkUrl)}" alt="" onerror="this.src='${placeholderImg()}'">
+                    ${artworkYtOverlay}
+                </div>
                 <div class="playlist-item-info" onclick="openPlaylistEpisodeDetail(${item.id}, '${escJs(item.artworkUrl)}', '${escJs(item.podcastTitle)}')" style="cursor:pointer">
-                    <div class="playlist-item-title">${esc(item.title)}</div>
+                    <div class="playlist-item-title">${esc(item.title)}${downloadIcon}${ytBadge}</div>
                     <div class="playlist-item-podcast">${esc(item.podcastTitle)}</div>
                 </div>
                 <div class="playlist-item-progress">
@@ -1105,6 +1134,11 @@ async function loadPlaylist() {
     } catch (e) {
         showToast('Erreur playlist: ' + e.message);
     }
+}
+
+function togglePlaylistDownloadFilter() {
+    playlistDownloadedOnly = !playlistDownloadedOnly;
+    loadPlaylist();
 }
 
 // ========================
@@ -1356,15 +1390,21 @@ async function loadNewEpisodes() {
             const progressPct = e.duration > 0 ? Math.round((e.playbackPosition / (e.duration * 1000)) * 100) : 0;
             const dateStr = e.pubDateTimestamp > 0 ? new Date(e.pubDateTimestamp).toLocaleDateString() : e.pubDate;
             const durationStr = formatDuration(e.duration);
+            const downloadIcon = e.downloadPath ? '<span class="material-icons-round download-indicator" title="T\u00e9l\u00e9charg\u00e9">download_done</span>' : '';
+            const ytBadge = e.sourceType === 'youtube' ? '<span class="yt-badge-sm">YT</span>' : '';
+            const artworkYtOverlay = e.sourceType === 'youtube' ? '<span class="yt-badge-overlay">YT</span>' : '';
 
             return `
             <div class="episode-item-with-artwork ${e.played ? 'played' : ''} ${isNowPlaying ? 'now-playing' : ''}" onclick="openNewEpisodeDetail(${e.id}, '${escJs(e.artworkUrl)}')">
-                <img class="episode-artwork-sm" src="${esc(e.artworkUrl)}" alt="" onerror="this.src='${placeholderImg()}'">
+                <div class="artwork-wrapper">
+                    <img class="episode-artwork-sm" src="${esc(e.artworkUrl)}" alt="" onerror="this.src='${placeholderImg()}'">
+                    ${artworkYtOverlay}
+                </div>
                 <button class="episode-play-btn" onclick="event.stopPropagation(); playNewEpisode(${e.id}, '${escJs(e.artworkUrl)}')" title="Lire">
                     <span class="material-icons-round">${isNowPlaying && isPlaying ? 'pause' : 'play_arrow'}</span>
                 </button>
                 <div class="episode-info">
-                    <div class="episode-title">${esc(e.title)}</div>
+                    <div class="episode-title">${esc(e.title)}${downloadIcon}${ytBadge}</div>
                     <div class="episode-meta">
                         <span>${dateStr}</span>
                         ${durationStr ? `<span>${durationStr}</span>` : ''}
@@ -1865,6 +1905,11 @@ function updatePlayerUI() {
     document.getElementById('player-subtitle').textContent = playerPodcastTitle;
     document.getElementById('player-artwork').src = playerArtwork;
     document.getElementById('player-artwork').onerror = function() { this.src = placeholderImg(); };
+    // YouTube badge on player artwork
+    const ytBadge = document.getElementById('player-yt-badge');
+    if (ytBadge) {
+        ytBadge.style.display = (playerEpisode.sourceType === 'youtube') ? '' : 'none';
+    }
     updatePlayButton();
 }
 
@@ -2074,18 +2119,25 @@ async function toggleTag(podcastId, tagId, add) {
 // Tag Manager
 // ========================
 function openTagManager() {
-    document.getElementById('dialog-title').textContent = 'G\u00e9rer les tags';
+    document.getElementById('dialog-title').textContent = 'Gérer les tags';
 
     let html = '<div style="margin-bottom:16px">';
     html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
     html += '<input type="text" id="new-tag-input" placeholder="Nouveau tag..." style="flex:1;padding:8px 12px;border:1px solid var(--outline);border-radius:var(--radius-xs);font-family:inherit;font-size:14px;outline:none">';
-    html += '<button onclick="createNewTag()" style="padding:8px 16px;background:var(--primary);color:white;border:none;border-radius:var(--radius-xs);cursor:pointer;font-family:inherit;font-weight:500">Cr\u00e9er</button>';
+    html += '<button onclick="createNewTag()" style="padding:8px 16px;background:var(--primary);color:white;border:none;border-radius:var(--radius-xs);cursor:pointer;font-family:inherit;font-weight:500">Créer</button>';
     html += '</div>';
-    html += '<div id="tag-manager-list" style="display:flex;flex-direction:column;gap:4px;max-height:250px;overflow-y:auto">';
+
+    // Reorder section
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+    html += '<span style="font-size:13px;color:var(--on-surface-variant)">Glissez pour réorganiser</span>';
+    html += '</div>';
+
+    html += '<div id="tag-manager-list" class="tag-reorder-list">';
     allTags.forEach(tag => {
-        html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface-variant);border-radius:var(--radius-xs)">
-            <span>${esc(tag.name)}</span>
-            <button onclick="deleteTag(${tag.id}, '${escJs(tag.name)}')" style="background:none;border:none;cursor:pointer;color:var(--error);font-size:18px;display:flex">
+        html += `<div class="tag-reorder-item" draggable="true" data-tag-id="${tag.id}">
+            <span class="material-icons-round drag-handle">drag_indicator</span>
+            <span class="tag-name">${esc(tag.name)}</span>
+            <button onclick="deleteTag(${tag.id}, '${escJs(tag.name)}')" style="background:none;border:none;cursor:pointer;color:var(--error);font-size:18px;display:flex;margin-left:auto">
                 <span class="material-icons-round" style="font-size:20px">close</span>
             </button>
         </div>`;
@@ -2093,6 +2145,99 @@ function openTagManager() {
     if (allTags.length === 0) {
         html += '<p style="color:var(--on-surface-variant);text-align:center;padding:12px">Aucun tag</p>';
     }
+    html += '</div></div>';
+
+    document.getElementById('dialog-text').innerHTML = html;
+    document.getElementById('dialog-confirm').textContent = 'Fermer';
+    document.getElementById('dialog-confirm').className = 'btn-text';
+    document.getElementById('dialog-confirm').onclick = () => { closeDialog(); loadLibrary(); };
+    document.getElementById('dialog-overlay').style.display = '';
+
+    // Initialize tag drag-drop reorder
+    initTagReorderDragDrop();
+}
+
+let draggedTagItem = null;
+
+function initTagReorderDragDrop() {
+    const container = document.getElementById('tag-manager-list');
+    if (!container) return;
+    const items = container.querySelectorAll('.tag-reorder-item[draggable]');
+
+    items.forEach(item => {
+        item.addEventListener('dragstart', onTagDragStart);
+        item.addEventListener('dragend', onTagDragEnd);
+        item.addEventListener('dragover', onTagDragOver);
+        item.addEventListener('dragenter', onTagDragEnter);
+        item.addEventListener('dragleave', onTagDragLeave);
+        item.addEventListener('drop', onTagDrop);
+    });
+}
+
+function onTagDragStart(e) {
+    draggedTagItem = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', this.dataset.tagId);
+}
+
+function onTagDragEnd(e) {
+    this.classList.remove('dragging');
+    document.querySelectorAll('.tag-reorder-item.drag-over').forEach(el => el.classList.remove('drag-over'));
+    draggedTagItem = null;
+}
+
+function onTagDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function onTagDragEnter(e) {
+    e.preventDefault();
+    if (this !== draggedTagItem) {
+        this.classList.add('drag-over');
+    }
+}
+
+function onTagDragLeave(e) {
+    this.classList.remove('drag-over');
+}
+
+async function onTagDrop(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over');
+    if (!draggedTagItem || this === draggedTagItem) return;
+
+    const container = document.getElementById('tag-manager-list');
+    const allItems = [...container.querySelectorAll('.tag-reorder-item[draggable]')];
+    const fromIndex = allItems.indexOf(draggedTagItem);
+    const toIndex = allItems.indexOf(this);
+
+    // Move the dragged element in the DOM
+    if (fromIndex < toIndex) {
+        container.insertBefore(draggedTagItem, this.nextSibling);
+    } else {
+        container.insertBefore(draggedTagItem, this);
+    }
+
+    // Collect new order and save
+    const newOrder = [...container.querySelectorAll('.tag-reorder-item[draggable]')].map(
+        el => parseInt(el.dataset.tagId)
+    );
+    try {
+        await fetch('/api/tags/reorder', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tagIds: newOrder }),
+        });
+        // Refresh allTags with new order
+        const tagsRes = await fetch('/api/tags');
+        allTags = await tagsRes.json();
+        showToast('Ordre des tags mis à jour');
+    } catch (err) {
+        showToast('Erreur réorganisation: ' + err.message);
+    }
+}
     html += '</div></div>';
 
     document.getElementById('dialog-text').innerHTML = html;

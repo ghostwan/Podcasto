@@ -39,6 +39,7 @@ data class PodcastResponse(
 data class TagResponse(
     val id: Long,
     val name: String,
+    val position: Int = 0,
 )
 
 @Serializable
@@ -108,6 +109,7 @@ data class EpisodeResponse(
     val playbackPosition: Long,
     val downloadPath: String?,
     val artworkUrl: String = "",
+    val sourceType: String = "rss",
 )
 
 @Serializable
@@ -125,6 +127,7 @@ data class PlaylistItemResponse(
     val downloadPath: String?,
     val artworkUrl: String,
     val podcastTitle: String,
+    val sourceType: String = "rss",
 )
 
 @Serializable
@@ -354,7 +357,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                     feedUrl = p.feedUrl,
                     artworkUrl = p.artworkUrl,
                     subscribed = p.subscribed,
-                    tags = podcastTags.map { TagResponse(it.id, it.name) },
+                    tags = podcastTags.map { TagResponse(it.id, it.name, it.position) },
                     latestEpisodeTimestamp = latestTimestamps[p.id] ?: 0L,
                     hidden = p.hidden,
                     sourceType = p.sourceType,
@@ -378,7 +381,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                 feedUrl = podcast.feedUrl,
                 artworkUrl = podcast.artworkUrl,
                 subscribed = podcast.subscribed,
-                tags = podcastTags.map { TagResponse(it.id, it.name) },
+                tags = podcastTags.map { TagResponse(it.id, it.name, it.position) },
                 hidden = podcast.hidden,
                 sourceType = podcast.sourceType,
             ))
@@ -405,6 +408,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                     playbackPosition = e.playbackPosition,
                     downloadPath = e.downloadPath,
                     artworkUrl = podcast.artworkUrl,
+                    sourceType = podcast.sourceType,
                 )
             })
         }
@@ -414,7 +418,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
             val podcastId = call.parameters["id"]?.toLongOrNull()
                 ?: return@get call.respond(HttpStatusCode.BadRequest, ErrorResponse("Invalid podcast ID"))
             val tags = repository.getTagsForPodcast(podcastId).first()
-            call.respond(tags.map { TagResponse(it.id, it.name) })
+            call.respond(tags.map { TagResponse(it.id, it.name, it.position) })
         }
 
         // DELETE /api/podcasts/:id — unsubscribe
@@ -475,7 +479,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                             feedUrl = existing.feedUrl,
                             artworkUrl = existing.artworkUrl,
                             subscribed = true,
-                            tags = podcastTags.map { TagResponse(it.id, it.name) },
+                            tags = podcastTags.map { TagResponse(it.id, it.name, it.position) },
                             hidden = existing.hidden,
                             sourceType = existing.sourceType,
                         ),
@@ -487,6 +491,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                                 duration = e.duration, played = e.played,
                                 playbackPosition = e.playbackPosition,
                                 downloadPath = e.downloadPath, artworkUrl = existing.artworkUrl,
+                                sourceType = existing.sourceType,
                             )
                         },
                     ))
@@ -623,6 +628,7 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                 playbackPosition = episode.playbackPosition,
                 downloadPath = episode.downloadPath,
                 artworkUrl = podcast?.artworkUrl ?: "",
+                sourceType = podcast?.sourceType ?: "rss",
             ))
         }
 
@@ -720,6 +726,7 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                     downloadPath = ewa.episode.downloadPath,
                     artworkUrl = ewa.artworkUrl,
                     podcastTitle = podcast?.title ?: "",
+                    sourceType = podcast?.sourceType ?: "rss",
                 )
             })
         }
@@ -777,7 +784,7 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
         // GET /api/tags — list all tags
         get("/tags") {
             val tags = repository.getAllTags().first()
-            call.respond(tags.map { TagResponse(it.id, it.name) })
+            call.respond(tags.map { TagResponse(it.id, it.name, it.position) })
         }
 
         // POST /api/tags — create a tag
@@ -798,6 +805,15 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                 ?: return@delete call.respond(HttpStatusCode.NotFound, ErrorResponse("Tag not found"))
             repository.deleteTag(tag)
             call.respond(HttpStatusCode.OK, mapOf("status" to "deleted"))
+        }
+
+        // PUT /api/tags/reorder — reorder tags by position
+        put("/tags/reorder") {
+            val body = call.receive<Map<String, List<Long>>>()
+            val tagIds = body["tagIds"]
+                ?: return@put call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'tagIds'"))
+            repository.updateTagPositions(tagIds)
+            call.respond(HttpStatusCode.OK, mapOf("status" to "reordered"))
         }
 
         // POST /api/podcasts/:id/tags/:tagId — assign tag
@@ -904,6 +920,7 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                         playbackPosition = ewa.episode.playbackPosition,
                         downloadPath = ewa.episode.downloadPath,
                         artworkUrl = ewa.artworkUrl,
+                        sourceType = podcast?.sourceType ?: "rss",
                     )
                 })
             } catch (e: Exception) {
@@ -974,8 +991,8 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                     id = 0, podcastId = 0, title = "", description = "",
                     audioUrl = videoUrl, pubDate = "", pubDateTimestamp = 0,
                 )
-                val audioUrl = repository.resolveAudioUrl(episode)
-                call.respond(mapOf("audioUrl" to audioUrl))
+                val resolved = repository.resolveAudioUrl(episode)
+                call.respond(mapOf("audioUrl" to resolved.url))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, ErrorResponse("Failed to resolve YouTube audio: ${e.message}"))
             }

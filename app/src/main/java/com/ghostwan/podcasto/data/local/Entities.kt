@@ -43,6 +43,7 @@ data class PlaylistItemEntity(
 data class TagEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
+    val position: Int = 0,
 )
 
 @Entity(tableName = "podcast_tag_cross_ref", primaryKeys = ["podcastId", "tagId"])
@@ -54,6 +55,7 @@ data class PodcastTagCrossRef(
 data class EpisodeWithArtwork(
     @Embedded val episode: EpisodeEntity,
     val artworkUrl: String,
+    val sourceType: String = "rss",
 )
 
 @Entity(tableName = "bookmarks")

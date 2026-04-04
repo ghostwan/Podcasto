@@ -656,6 +656,94 @@ main {
     color: var(--primary);
 }
 
+/* Download indicator */
+.download-indicator {
+    color: var(--primary);
+    font-size: 16px;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+/* YouTube badge (small) */
+.yt-badge-sm {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #FF0000;
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 3px;
+    line-height: 1;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+/* YouTube badge on artwork (overlay) */
+.artwork-wrapper {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.artwork-wrapper .yt-badge-overlay {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background: #FF0000;
+    color: white;
+    font-size: 8px;
+    font-weight: 700;
+    padding: 1px 3px;
+    border-radius: 2px;
+    line-height: 1;
+}
+
+/* Tag reorder dialog */
+.tag-reorder-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.tag-reorder-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--surface-variant);
+    border-radius: var(--radius-xs);
+    cursor: grab;
+    user-select: none;
+    transition: background 0.12s, opacity 0.2s;
+}
+
+.tag-reorder-item:active {
+    cursor: grabbing;
+}
+
+.tag-reorder-item.dragging {
+    opacity: 0.4;
+}
+
+.tag-reorder-item.drag-over {
+    border-top: 2px solid var(--primary);
+}
+
+.tag-reorder-item .drag-handle {
+    font-size: 20px;
+    color: var(--on-surface-variant);
+}
+
+.tag-reorder-item .tag-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+}
+
 /* ======================== */
 /* Episode Detail           */
 /* ======================== */
@@ -811,6 +899,30 @@ main {
     margin-left: auto;
 }
 
+.playlist-filter-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--outline);
+    background: none;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.playlist-filter-btn:hover {
+    background: var(--surface-variant);
+}
+
+.playlist-filter-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
 .playlist-items {
     display: flex;
     flex-direction: column;
@@ -943,6 +1055,11 @@ main {
     gap: 12px;
     padding: 0 16px;
     min-height: 0;
+}
+
+.player-artwork-wrapper {
+    position: relative;
+    flex-shrink: 0;
 }
 
 .player-artwork {

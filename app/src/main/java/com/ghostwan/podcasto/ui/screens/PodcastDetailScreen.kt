@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.automirrored.filled.Label
@@ -298,14 +299,19 @@ fun PodcastDetailScreen(
                 // Header
                 item {
                     Row(modifier = Modifier.fillMaxWidth()) {
-                        AsyncImage(
-                            model = podcast?.artworkUrl,
-                            contentDescription = podcast?.title,
-                            modifier = Modifier
-                                .size(120.dp)
-                                .clip(RoundedCornerShape(12.dp)),
-                            contentScale = ContentScale.Crop,
-                        )
+                        Box {
+                            AsyncImage(
+                                model = podcast?.artworkUrl,
+                                contentDescription = podcast?.title,
+                                modifier = Modifier
+                                    .size(120.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                            if (podcast?.sourceType == "youtube") {
+                                YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp))
+                            }
+                        }
                         Spacer(modifier = Modifier.width(16.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
@@ -557,6 +563,15 @@ fun EpisodeListItem(
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
                             }
+                            if (episode.downloadPath != null) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    Icons.Default.DownloadDone,
+                                    contentDescription = stringResource(R.string.downloaded),
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                )
+                            }
                         }
                     }
                 }
@@ -657,4 +672,24 @@ fun formatPubDate(pubDateTimestamp: Long, pubDateFallback: String): String {
     val date = java.util.Date(pubDateTimestamp)
     val format = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM, java.util.Locale.getDefault())
     return format.format(date)
+}
+
+/**
+ * YouTube badge overlay for artwork — small red ribbon in the bottom-end corner.
+ * Call this inside a Box that wraps the artwork image.
+ */
+@Composable
+fun YouTubeBadge(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = androidx.compose.ui.graphics.Color(0xFFFF0000),
+        shape = RoundedCornerShape(4.dp),
+    ) {
+        Text(
+            text = "YT",
+            style = MaterialTheme.typography.labelSmall,
+            color = androidx.compose.ui.graphics.Color.White,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+        )
+    }
 }

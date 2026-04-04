@@ -65,6 +65,8 @@
     <string name="episode_fallback">Episode</string>
     <string name="queue">Warteschlange</string>
     <string name="download">Herunterladen</string>
+    <string name="downloaded">Heruntergeladen</string>
+    <string name="filter_downloaded_only">Nur heruntergeladene</string>
     <string name="saved">Gespeichert</string>
     <string name="unplayed">Nicht gehört</string>
     <string name="bookmark">Lesezeichen</string>
@@ -96,6 +98,7 @@
     <string name="auto_add_episodes">Automatisch hinzufügen</string>
     <string name="clear_playlist">Playlist leeren</string>
     <string name="reorder">Neu ordnen</string>
+    <string name="reorder_tags">Tags neu ordnen</string>
     <string name="auto_add_title">Neueste Episoden hinzufügen</string>
     <string name="auto_add_description">Die neueste ungehörte Episode jedes Abonnements hinzufügen.</string>
     <string name="from_all_subscriptions">Von allen Abonnements</string>

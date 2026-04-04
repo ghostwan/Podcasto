@@ -7,6 +7,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
@@ -16,6 +17,7 @@ import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
@@ -46,6 +48,8 @@ import com.ghostwan.podcasto.web.WebServerService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import javax.inject.Inject
 
 @HiltViewModel
@@ -105,6 +109,12 @@ class SubscriptionsViewModel @Inject constructor(
             _isRefreshing.value = false
         }
     }
+
+    fun saveTagOrder(orderedTagIds: List<Long>) {
+        viewModelScope.launch {
+            repository.updateTagPositions(orderedTagIds)
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class, ExperimentalFoundationApi::class)
@@ -126,6 +136,8 @@ fun SubscriptionsScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val latestTimestamps by viewModel.latestTimestamps.collectAsState()
     val threeMonthsAgo = remember { System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000 }
+
+    var showTagReorderDialog by remember { mutableStateOf(false) }
 
     // Apply tag filter when navigating from PodcastDetailScreen
     LaunchedEffect(pendingTagId) {
@@ -265,9 +277,24 @@ fun SubscriptionsScreen(
                         selected = selectedTagId == tag.id,
                         onClick = { viewModel.selectTag(tag.id) },
                         label = { Text(tag.name) },
+                        modifier = Modifier.combinedClickable(
+                            onClick = { viewModel.selectTag(tag.id) },
+                            onLongClick = { showTagReorderDialog = true },
+                        ),
                     )
                 }
             }
+        }
+
+        if (showTagReorderDialog) {
+            TagReorderDialog(
+                tags = allTags,
+                onSave = { orderedIds ->
+                    viewModel.saveTagOrder(orderedIds)
+                    showTagReorderDialog = false
+                },
+                onDismiss = { showTagReorderDialog = false },
+            )
         }
 
         val pullRefreshState = rememberPullRefreshState(
@@ -427,14 +454,19 @@ fun SubscriptionItem(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AsyncImage(
-                model = podcast.artworkUrl,
-                contentDescription = podcast.title,
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop,
-            )
+            Box {
+                AsyncImage(
+                    model = podcast.artworkUrl,
+                    contentDescription = podcast.title,
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop,
+                )
+                if (podcast.sourceType == "youtube") {
+                    YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd))
+                }
+            }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -461,4 +493,75 @@ fun SubscriptionItem(
             }
         }
     }
+}
+
+@Composable
+fun TagReorderDialog(
+    tags: List<TagEntity>,
+    onSave: (List<Long>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var localTags by remember { mutableStateOf(tags) }
+
+    val lazyListState = rememberLazyListState()
+    val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        localTags = localTags.toMutableList().apply {
+            add(to.index, removeAt(from.index))
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.reorder_tags)) },
+        text = {
+            LazyColumn(
+                state = lazyListState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                items(localTags, key = { it.id }) { tag ->
+                    ReorderableItem(reorderableState, key = tag.id) { isDragging ->
+                        val elevation = if (isDragging) 8.dp else 0.dp
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            elevation = CardDefaults.cardElevation(defaultElevation = elevation),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    Icons.Default.DragHandle,
+                                    contentDescription = stringResource(R.string.reorder),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .longPressDraggableHandle()
+                                        .size(24.dp),
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = tag.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(localTags.map { it.id }) }) {
+                Text(stringResource(R.string.done))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
 }

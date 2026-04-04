@@ -65,6 +65,8 @@
     <string name="episode_fallback">Episode</string>
     <string name="queue">Queue</string>
     <string name="download">Download</string>
+    <string name="downloaded">Downloaded</string>
+    <string name="filter_downloaded_only">Downloaded only</string>
     <string name="saved">Saved</string>
     <string name="unplayed">Unplayed</string>
     <string name="bookmark">Bookmark</string>
@@ -96,6 +98,7 @@
     <string name="auto_add_episodes">Auto-add episodes</string>
     <string name="clear_playlist">Clear playlist</string>
     <string name="reorder">Reorder</string>
+    <string name="reorder_tags">Reorder tags</string>
     <string name="auto_add_title">Auto-add Latest Episodes</string>
     <string name="auto_add_description">Add the latest unplayed episode from each subscription.</string>
     <string name="from_all_subscriptions">From all subscriptions</string>

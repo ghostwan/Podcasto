@@ -286,6 +286,12 @@ fun PodcastoNavHost(
                         restoreState = true
                     }
                 },
+                onGoToPodcast = { podcastId ->
+                    showPlayer = false
+                    navController.navigate("podcast/$podcastId") {
+                        launchSingleTop = true
+                    }
+                },
                 repository = repository,
             )
         }

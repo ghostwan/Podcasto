@@ -59,11 +59,14 @@ interface EpisodeDao {
     @Query("UPDATE episodes SET playbackPosition = :position WHERE id = :id")
     suspend fun updatePlaybackPosition(id: Long, position: Long)
 
+    @Query("UPDATE episodes SET duration = :duration WHERE id = :id")
+    suspend fun updateDuration(id: Long, duration: Long)
+
     @Query("UPDATE episodes SET played = 1, playbackPosition = 0 WHERE id = :id")
     suspend fun markAsPlayed(id: Long)
 
     @Query("""
-        SELECT e.*, p.artworkUrl FROM episodes e
+        SELECT e.*, p.artworkUrl, p.sourceType FROM episodes e
         INNER JOIN podcasts p ON e.podcastId = p.id
         WHERE p.subscribed = 1
         ORDER BY e.pubDateTimestamp DESC
@@ -72,7 +75,7 @@ interface EpisodeDao {
     fun getRecentEpisodesWithArtwork(): Flow<List<EpisodeWithArtwork>>
 
     @Query("""
-        SELECT e.*, p.artworkUrl FROM episodes e
+        SELECT e.*, p.artworkUrl, p.sourceType FROM episodes e
         INNER JOIN podcasts p ON e.podcastId = p.id
         INNER JOIN podcast_tag_cross_ref ptc ON p.id = ptc.podcastId
         WHERE p.subscribed = 1 AND ptc.tagId = :tagId
@@ -131,7 +134,7 @@ interface PlaylistDao {
     suspend fun getPlaylistEpisodesList(): List<EpisodeEntity>
 
     @Query("""
-        SELECT e.*, pod.artworkUrl FROM episodes e 
+        SELECT e.*, pod.artworkUrl, pod.sourceType FROM episodes e 
         INNER JOIN playlist_items p ON e.id = p.episodeId 
         INNER JOIN podcasts pod ON e.podcastId = pod.id
         ORDER BY p.position ASC
@@ -139,7 +142,7 @@ interface PlaylistDao {
     fun getPlaylistEpisodesWithArtwork(): Flow<List<EpisodeWithArtwork>>
 
     @Query("""
-        SELECT e.*, pod.artworkUrl FROM episodes e 
+        SELECT e.*, pod.artworkUrl, pod.sourceType FROM episodes e 
         INNER JOIN playlist_items p ON e.id = p.episodeId 
         INNER JOIN podcasts pod ON e.podcastId = pod.id
         ORDER BY p.position ASC
@@ -179,7 +182,7 @@ interface PlaylistDao {
 
 @Dao
 interface TagDao {
-    @Query("SELECT * FROM tags ORDER BY name ASC")
+    @Query("SELECT * FROM tags ORDER BY position ASC, name ASC")
     fun getAllTags(): Flow<List<TagEntity>>
 
     @Query("SELECT * FROM tags")
@@ -193,6 +196,9 @@ interface TagDao {
 
     @Delete
     suspend fun deleteTag(tag: TagEntity)
+
+    @Query("UPDATE tags SET position = :position WHERE id = :id")
+    suspend fun updateTagPosition(id: Long, position: Int)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertPodcastTagCrossRef(crossRef: PodcastTagCrossRef)

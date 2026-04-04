@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.PlayArrow
@@ -137,11 +138,15 @@ fun PlaylistScreen(
     // Filter hidden podcasts unless showHidden is enabled
     val filteredEpisodes = if (showHidden) dbEpisodes else dbEpisodes.filter { it.episode.podcastId !in hiddenIds }
 
+    // Downloaded-only filter
+    var showDownloadedOnly by remember { mutableStateOf(false) }
+    val displayedEpisodes = if (showDownloadedOnly) filteredEpisodes.filter { it.episode.downloadPath != null } else filteredEpisodes
+
     // Local mutable copy for reordering
-    var localEpisodes by remember { mutableStateOf(filteredEpisodes) }
+    var localEpisodes by remember { mutableStateOf(displayedEpisodes) }
     // Sync from DB when DB changes and user is NOT dragging
-    LaunchedEffect(filteredEpisodes) {
-        localEpisodes = filteredEpisodes
+    LaunchedEffect(displayedEpisodes) {
+        localEpisodes = displayedEpisodes
     }
 
     var showAutoAddDialog by remember { mutableStateOf(false) }
@@ -173,6 +178,14 @@ fun PlaylistScreen(
             windowInsets = WindowInsets(0, 0, 0, 0),
             title = { Text(stringResource(R.string.nav_playlist)) },
             actions = {
+                // Downloaded-only filter toggle
+                IconButton(onClick = { showDownloadedOnly = !showDownloadedOnly }) {
+                    Icon(
+                        Icons.Default.DownloadDone,
+                        contentDescription = stringResource(R.string.filter_downloaded_only),
+                        tint = if (showDownloadedOnly) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 IconButton(onClick = { showAutoAddDialog = true }) {
                     Icon(Icons.Default.AutoAwesome, contentDescription = stringResource(R.string.auto_add_episodes))
                 }
@@ -318,14 +331,19 @@ fun PlaylistEpisodeItem(
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
-            AsyncImage(
-                model = item.artworkUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(6.dp)),
-                contentScale = ContentScale.Crop,
-            )
+            Box {
+                AsyncImage(
+                    model = item.artworkUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(6.dp)),
+                    contentScale = ContentScale.Crop,
+                )
+                if (item.sourceType == "youtube") {
+                    YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd))
+                }
+            }
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -334,12 +352,23 @@ fun PlaylistEpisodeItem(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (item.episode.duration > 0) {
-                    Text(
-                        text = formatDuration(item.episode.duration),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (item.episode.duration > 0) {
+                        Text(
+                            text = formatDuration(item.episode.duration),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (item.episode.downloadPath != null) {
+                        if (item.episode.duration > 0) Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            Icons.Default.DownloadDone,
+                            contentDescription = stringResource(R.string.downloaded),
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.tertiary,
+                        )
+                    }
                 }
                 // Progress bar: use live position for now-playing, DB position for others
                 val position = livePosition ?: item.episode.playbackPosition

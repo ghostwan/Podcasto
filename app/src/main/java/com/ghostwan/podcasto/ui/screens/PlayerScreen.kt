@@ -52,14 +52,19 @@ fun MiniPlayer(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AsyncImage(
-                model = playerState.podcastArtworkUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(6.dp)),
-                contentScale = ContentScale.Crop,
-            )
+            Box {
+                AsyncImage(
+                    model = playerState.podcastArtworkUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(6.dp)),
+                    contentScale = ContentScale.Crop,
+                )
+                if (playerState.podcastSourceType == "youtube") {
+                    YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd))
+                }
+            }
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -95,6 +100,7 @@ fun PlayerScreen(
     playerManager: PlayerManager,
     onBack: () -> Unit,
     onGoToPlaylist: () -> Unit = {},
+    onGoToPodcast: (Long) -> Unit = {},
     repository: PodcastRepository? = null,
 ) {
     val playerState by playerManager.playerState.collectAsState()
@@ -161,15 +167,21 @@ fun PlayerScreen(
             ) {
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Artwork
-                AsyncImage(
-                    model = playerState.podcastArtworkUrl,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(280.dp)
-                        .clip(RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Crop,
-                )
+                // Artwork — tap to go to podcast
+                Box {
+                    AsyncImage(
+                        model = playerState.podcastArtworkUrl,
+                        contentDescription = stringResource(R.string.go_to_podcast),
+                        modifier = Modifier
+                            .size(280.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { onGoToPodcast(episode.podcastId) },
+                        contentScale = ContentScale.Crop,
+                    )
+                    if (playerState.podcastSourceType == "youtube") {
+                        YouTubeBadge(modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp))
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(32.dp))
 

@@ -9,6 +9,7 @@ import com.ghostwan.podcasto.data.remote.ApplePodcastsScraper
 import com.ghostwan.podcasto.data.remote.ITunesApiService
 import com.ghostwan.podcasto.data.remote.ITunesPodcast
 import com.ghostwan.podcasto.data.remote.RssParser
+import com.ghostwan.podcasto.data.remote.ResolvedAudioStream
 import com.ghostwan.podcasto.data.remote.YouTubeExtractor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -289,9 +290,10 @@ class PodcastRepository @Inject constructor(
     /**
      * Resolve the actual audio stream URL for an episode.
      * For YouTube episodes, this uses NewPipe Extractor (URL expires, must resolve at play time).
+     * Returns a ResolvedAudioStream with url and duration (duration is 0 for non-YouTube).
      * For regular RSS episodes, returns the stored audioUrl directly.
      */
-    suspend fun resolveAudioUrl(episode: EpisodeEntity): String {
+    suspend fun resolveAudioUrl(episode: EpisodeEntity): ResolvedAudioStream {
         // First check if the URL itself is a YouTube video URL (direct detection)
         if (YouTubeExtractor.isYouTubeVideoUrl(episode.audioUrl)) {
             return youTubeExtractor.resolveAudioStreamUrl(episode.audioUrl)
@@ -301,7 +303,7 @@ class PodcastRepository @Inject constructor(
         if (podcast?.sourceType == "youtube") {
             return youTubeExtractor.resolveAudioStreamUrl(episode.audioUrl)
         }
-        return episode.audioUrl
+        return ResolvedAudioStream(url = episode.audioUrl, durationSeconds = 0)
     }
 
     // --- Episodes ---
@@ -332,6 +334,10 @@ class PodcastRepository @Inject constructor(
 
     suspend fun updatePlaybackPosition(episodeId: Long, position: Long) {
         episodeDao.updatePlaybackPosition(episodeId, position)
+    }
+
+    suspend fun updateEpisodeDuration(episodeId: Long, duration: Long) {
+        episodeDao.updateDuration(episodeId, duration)
     }
 
     // --- Playlist ---
@@ -395,6 +401,12 @@ class PodcastRepository @Inject constructor(
     suspend fun createTag(name: String): Long = tagDao.insertTag(TagEntity(name = name))
 
     suspend fun deleteTag(tag: TagEntity) = tagDao.deleteTag(tag)
+
+    suspend fun updateTagPositions(orderedTagIds: List<Long>) {
+        orderedTagIds.forEachIndexed { index, tagId ->
+            tagDao.updateTagPosition(tagId, index)
+        }
+    }
 
     suspend fun addTagToPodcast(podcastId: Long, tagId: Long) =
         tagDao.insertPodcastTagCrossRef(PodcastTagCrossRef(podcastId, tagId))
