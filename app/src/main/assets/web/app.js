@@ -2262,14 +2262,6 @@ async function onTagDrop(e) {
         showToast('Erreur réorganisation: ' + err.message);
     }
 }
-    html += '</div></div>';
-
-    document.getElementById('dialog-text').innerHTML = html;
-    document.getElementById('dialog-confirm').textContent = 'Fermer';
-    document.getElementById('dialog-confirm').className = 'btn-text';
-    document.getElementById('dialog-confirm').onclick = () => { closeDialog(); loadLibrary(); };
-    document.getElementById('dialog-overlay').style.display = '';
-}
 
 async function createNewTag() {
     const input = document.getElementById('new-tag-input');
