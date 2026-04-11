@@ -61,9 +61,11 @@ class GoogleDriveBackupManager @Inject constructor(
     private val youtubeScope = Scope(YouTubeScopes.YOUTUBE_READONLY)
 
     init {
-        // Check if already signed in
+        // Check if already signed in with ALL required scopes
+        // If the user previously signed in with only driveScope (before YouTube feature),
+        // their old session won't have youtubeScope → force re-sign-in to get both scopes.
         val account = GoogleSignIn.getLastSignedInAccount(context)
-        if (account != null && GoogleSignIn.hasPermissions(account, driveScope)) {
+        if (account != null && GoogleSignIn.hasPermissions(account, driveScope, youtubeScope)) {
             _signedInAccount.value = account
             // Load last backup time from prefs
             val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
