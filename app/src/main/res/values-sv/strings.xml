@@ -173,4 +173,20 @@
     <string name="download_audio_only">Endast ljud</string>
     <string name="download_video_only">Endast video</string>
     <string name="download_both">Ljud + Video</string>
+
+    <!-- YouTube Subscriptions -->
+    <string name="youtube_subscriptions_title">YouTube-prenumerationer</string>
+    <string name="youtube_subscriptions_description">Importera YouTube-kanalprenumerationer från ditt Google-konto.</string>
+    <string name="youtube_import_subscriptions">Importera YouTube-prenumerationer</string>
+    <string name="youtube_fetching_subscriptions">Hämtar prenumerationer…</string>
+    <string name="youtube_no_subscriptions">Inga YouTube-prenumerationer hittades på detta konto.</string>
+    <string name="youtube_select_subscriptions">Välj kanaler att prenumerera på (%1$d tillgängliga)</string>
+    <string name="youtube_import_selected">Prenumerera (%1$d)</string>
+    <string name="youtube_import_success">Prenumererar på %1$d YouTube-kanaler</string>
+    <string name="youtube_import_error">Kunde inte hämta prenumerationer: %1$s</string>
+    <string name="youtube_already_subscribed">Redan prenumererad</string>
+
+    <!-- Launch YouTube App -->
+    <string name="launch_youtube_app_title">Öppna i YouTube-appen</string>
+    <string name="launch_youtube_app_description">Vid byte till videoläge, öppna YouTube-appen vid aktuell position istället för att spela i Podcasto.</string>
 </resources>

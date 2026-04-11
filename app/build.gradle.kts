@@ -186,10 +186,11 @@ dependencies {
     // SSH tunnel (localhost.run)
     implementation("com.github.mwiede:jsch:0.2.21")
 
-    // Google Sign-In (Credential Manager) + Google Drive API
+    // Google Sign-In (Credential Manager) + Google Drive API + YouTube Data API
     implementation("com.google.android.gms:play-services-auth:21.3.0")
     implementation("com.google.api-client:google-api-client-android:2.7.2")
     implementation("com.google.apis:google-api-services-drive:v3-rev20241206-2.0.0")
+    implementation("com.google.apis:google-api-services-youtube:v3-rev20241022-2.0.0")
     implementation("com.google.http-client:google-http-client-gson:1.45.3")
 
     // Hilt WorkManager

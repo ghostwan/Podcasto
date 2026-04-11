@@ -173,4 +173,20 @@
     <string name="download_audio_only">仅音频</string>
     <string name="download_video_only">仅视频</string>
     <string name="download_both">音频 + 视频</string>
+
+    <!-- YouTube Subscriptions -->
+    <string name="youtube_subscriptions_title">YouTube订阅</string>
+    <string name="youtube_subscriptions_description">从您的Google账户导入YouTube频道订阅。</string>
+    <string name="youtube_import_subscriptions">导入YouTube订阅</string>
+    <string name="youtube_fetching_subscriptions">正在获取订阅…</string>
+    <string name="youtube_no_subscriptions">此账户未找到YouTube订阅。</string>
+    <string name="youtube_select_subscriptions">选择要订阅的频道（%1$d个可用）</string>
+    <string name="youtube_import_selected">订阅（%1$d）</string>
+    <string name="youtube_import_success">已订阅%1$d个YouTube频道</string>
+    <string name="youtube_import_error">获取订阅失败：%1$s</string>
+    <string name="youtube_already_subscribed">已订阅</string>
+
+    <!-- Launch YouTube App -->
+    <string name="launch_youtube_app_title">在YouTube应用中打开</string>
+    <string name="launch_youtube_app_description">切换到视频模式时，在当前位置打开YouTube应用而不是在Podcasto中播放。</string>
 </resources>

@@ -219,4 +219,20 @@
     <string name="download_audio_only">Solo audio</string>
     <string name="download_video_only">Solo vídeo</string>
     <string name="download_both">Audio + Vídeo</string>
+
+    <!-- YouTube Subscriptions -->
+    <string name="youtube_subscriptions_title">Suscripciones de YouTube</string>
+    <string name="youtube_subscriptions_description">Importar suscripciones de canales YouTube desde tu cuenta de Google.</string>
+    <string name="youtube_import_subscriptions">Importar suscripciones de YouTube</string>
+    <string name="youtube_fetching_subscriptions">Cargando suscripciones…</string>
+    <string name="youtube_no_subscriptions">No se encontraron suscripciones de YouTube en esta cuenta.</string>
+    <string name="youtube_select_subscriptions">Seleccionar canales para suscribirse (%1$d disponibles)</string>
+    <string name="youtube_import_selected">Suscribirse (%1$d)</string>
+    <string name="youtube_import_success">Suscrito a %1$d canales de YouTube</string>
+    <string name="youtube_import_error">Error al cargar suscripciones: %1$s</string>
+    <string name="youtube_already_subscribed">Ya suscrito</string>
+
+    <!-- Launch YouTube App -->
+    <string name="launch_youtube_app_title">Abrir en la app de YouTube</string>
+    <string name="launch_youtube_app_description">Al cambiar al modo de vídeo, abrir la app de YouTube en la posición actual en vez de reproducir en Podcasto.</string>
 </resources>

@@ -219,4 +219,20 @@
     <string name="download_audio_only">Audio only</string>
     <string name="download_video_only">Video only</string>
     <string name="download_both">Audio + Video</string>
+
+    <!-- YouTube Subscriptions -->
+    <string name="youtube_subscriptions_title">YouTube Subscriptions</string>
+    <string name="youtube_subscriptions_description">Import YouTube channel subscriptions from your Google account.</string>
+    <string name="youtube_import_subscriptions">Import YouTube Subscriptions</string>
+    <string name="youtube_fetching_subscriptions">Fetching subscriptions…</string>
+    <string name="youtube_no_subscriptions">No YouTube subscriptions found on this account.</string>
+    <string name="youtube_select_subscriptions">Select channels to subscribe (%1$d available)</string>
+    <string name="youtube_import_selected">Subscribe (%1$d)</string>
+    <string name="youtube_import_success">Subscribed to %1$d YouTube channels</string>
+    <string name="youtube_import_error">Failed to fetch subscriptions: %1$s</string>
+    <string name="youtube_already_subscribed">Already subscribed</string>
+
+    <!-- Launch YouTube App -->
+    <string name="launch_youtube_app_title">Open in YouTube app</string>
+    <string name="launch_youtube_app_description">When switching to video mode, open the YouTube app at the current position instead of playing in Podcasto.</string>
 </resources>

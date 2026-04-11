@@ -13,6 +13,8 @@ import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
+import com.google.api.services.youtube.YouTube
+import com.google.api.services.youtube.YouTubeScopes
 import com.ghostwan.podcasto.data.repository.PodcastRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +29,16 @@ import javax.inject.Singleton
 private const val TAG = "GoogleDriveBackup"
 private const val BACKUP_FILE_NAME = "podcasto_backup.json"
 private const val BACKUP_MIME_TYPE = "application/json"
+
+/**
+ * Represents a YouTube channel subscription from the user's Google account.
+ */
+data class YouTubeSubscription(
+    val channelId: String,
+    val title: String,
+    val description: String,
+    val thumbnailUrl: String,
+)
 
 @Singleton
 class GoogleDriveBackupManager @Inject constructor(
@@ -46,6 +58,7 @@ class GoogleDriveBackupManager @Inject constructor(
     val lastBackupTime: StateFlow<Long?> = _lastBackupTime.asStateFlow()
 
     private val driveScope = Scope(DriveScopes.DRIVE_APPDATA)
+    private val youtubeScope = Scope(YouTubeScopes.YOUTUBE_READONLY)
 
     init {
         // Check if already signed in
@@ -61,9 +74,15 @@ class GoogleDriveBackupManager @Inject constructor(
     fun getSignInClient(): GoogleSignInClient {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestEmail()
-            .requestScopes(driveScope)
+            .requestScopes(driveScope, youtubeScope)
             .build()
         return GoogleSignIn.getClient(context, gso)
+    }
+
+    /** Check whether the signed-in account has the YouTube readonly scope. */
+    fun hasYouTubeScope(): Boolean {
+        val account = _signedInAccount.value ?: return false
+        return GoogleSignIn.hasPermissions(account, youtubeScope)
     }
 
     fun onSignInResult(account: GoogleSignInAccount?) {
@@ -94,6 +113,67 @@ class GoogleDriveBackupManager @Inject constructor(
         )
             .setApplicationName("Podcasto")
             .build()
+    }
+
+    private fun getYouTubeService(account: GoogleSignInAccount): YouTube {
+        val credential = GoogleAccountCredential.usingOAuth2(
+            context, listOf(YouTubeScopes.YOUTUBE_READONLY)
+        )
+        credential.selectedAccount = account.account
+        return YouTube.Builder(
+            NetHttpTransport(),
+            GsonFactory.getDefaultInstance(),
+            credential
+        )
+            .setApplicationName("Podcasto")
+            .build()
+    }
+
+    /**
+     * Fetch all YouTube channel subscriptions from the signed-in Google account.
+     * Returns a list of YouTubeSubscription (channelId, title, description, thumbnail).
+     * Handles pagination to return all subscriptions.
+     */
+    suspend fun fetchYouTubeSubscriptions(): Result<List<YouTubeSubscription>> = withContext(Dispatchers.IO) {
+        val account = _signedInAccount.value
+            ?: return@withContext Result.failure(Exception("Not signed in"))
+
+        try {
+            val youtubeService = getYouTubeService(account)
+            val subscriptions = mutableListOf<YouTubeSubscription>()
+            var nextPageToken: String? = null
+
+            do {
+                val request = youtubeService.subscriptions().list(listOf("snippet"))
+                    .setMine(true)
+                    .setMaxResults(50)
+                if (nextPageToken != null) {
+                    request.pageToken = nextPageToken
+                }
+                val response = request.execute()
+
+                response.items?.forEach { sub ->
+                    val snippet = sub.snippet
+                    val channelId = snippet?.resourceId?.channelId ?: return@forEach
+                    subscriptions.add(
+                        YouTubeSubscription(
+                            channelId = channelId,
+                            title = snippet.title ?: "",
+                            description = snippet.description ?: "",
+                            thumbnailUrl = snippet.thumbnails?.medium?.url
+                                ?: snippet.thumbnails?.default?.url ?: "",
+                        )
+                    )
+                }
+                nextPageToken = response.nextPageToken
+            } while (nextPageToken != null)
+
+            Log.d(TAG, "Fetched ${subscriptions.size} YouTube subscriptions")
+            Result.success(subscriptions.sortedBy { it.title.lowercase() })
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch YouTube subscriptions", e)
+            Result.failure(e)
+        }
     }
 
     suspend fun backupToDrive(): Result<Unit> = withContext(Dispatchers.IO) {

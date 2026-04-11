@@ -173,4 +173,20 @@
     <string name="download_audio_only">音声のみ</string>
     <string name="download_video_only">動画のみ</string>
     <string name="download_both">音声 + 動画</string>
+
+    <!-- YouTube Subscriptions -->
+    <string name="youtube_subscriptions_title">YouTubeチャンネル登録</string>
+    <string name="youtube_subscriptions_description">Googleアカウントからチャンネル登録をインポートします。</string>
+    <string name="youtube_import_subscriptions">YouTube登録をインポート</string>
+    <string name="youtube_fetching_subscriptions">チャンネル登録を読み込み中…</string>
+    <string name="youtube_no_subscriptions">このアカウントにYouTubeチャンネル登録はありません。</string>
+    <string name="youtube_select_subscriptions">登録するチャンネルを選択（%1$d件）</string>
+    <string name="youtube_import_selected">登録（%1$d）</string>
+    <string name="youtube_import_success">%1$d件のYouTubeチャンネルを登録しました</string>
+    <string name="youtube_import_error">チャンネル登録の取得に失敗しました：%1$s</string>
+    <string name="youtube_already_subscribed">登録済み</string>
+
+    <!-- Launch YouTube App -->
+    <string name="launch_youtube_app_title">YouTubeアプリで開く</string>
+    <string name="launch_youtube_app_description">動画モードに切り替える際、Podcasto内で再生する代わりにYouTubeアプリを現在の位置で開きます。</string>
 </resources>

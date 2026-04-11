@@ -173,4 +173,20 @@
     <string name="download_audio_only">Alleen audio</string>
     <string name="download_video_only">Alleen video</string>
     <string name="download_both">Audio + Video</string>
+
+    <!-- YouTube Subscriptions -->
+    <string name="youtube_subscriptions_title">YouTube-abonnementen</string>
+    <string name="youtube_subscriptions_description">Importeer YouTube-kanaalabonnementen van je Google-account.</string>
+    <string name="youtube_import_subscriptions">YouTube-abonnementen importeren</string>
+    <string name="youtube_fetching_subscriptions">Abonnementen laden…</string>
+    <string name="youtube_no_subscriptions">Geen YouTube-abonnementen gevonden op dit account.</string>
+    <string name="youtube_select_subscriptions">Selecteer kanalen om te abonneren (%1$d beschikbaar)</string>
+    <string name="youtube_import_selected">Abonneren (%1$d)</string>
+    <string name="youtube_import_success">Geabonneerd op %1$d YouTube-kanalen</string>
+    <string name="youtube_import_error">Kan abonnementen niet laden: %1$s</string>
+    <string name="youtube_already_subscribed">Al geabonneerd</string>
+
+    <!-- Launch YouTube App -->
+    <string name="launch_youtube_app_title">Openen in YouTube-app</string>
+    <string name="launch_youtube_app_description">Bij het schakelen naar videomodus de YouTube-app openen op de huidige positie in plaats van af te spelen in Podcasto.</string>
 </resources>

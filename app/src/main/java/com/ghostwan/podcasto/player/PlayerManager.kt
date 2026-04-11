@@ -448,6 +448,16 @@ class PlayerManager @Inject constructor(
         if (currentSourceType != "youtube") return
 
         val currentPos = controller?.currentPosition ?: 0L
+
+        // Check if user prefers to launch the YouTube app instead
+        if (!isVideoMode) {
+            val launchExternal = prefs.getBoolean("launch_youtube_app", false)
+            if (launchExternal) {
+                launchYouTubeApp(ep, currentPos)
+                return
+            }
+        }
+
         isChangingMedia = true
 
         if (isVideoMode) {
@@ -536,6 +546,32 @@ class PlayerManager @Inject constructor(
                 isChangingMedia = false
                 updateState()
             }
+        }
+    }
+
+    /**
+     * Launch the YouTube app at the current playback position.
+     * Pauses Podcasto audio playback first to avoid double audio.
+     */
+    private fun launchYouTubeApp(episode: EpisodeEntity, positionMs: Long) {
+        // Pause playback in Podcasto
+        controller?.pause()
+
+        // Build the YouTube deep link with time parameter
+        val videoUrl = episode.audioUrl // This is the YouTube watch URL
+        val positionSeconds = (positionMs / 1000).toInt()
+        val separator = if (videoUrl.contains("?")) "&" else "?"
+        val deepLink = "${videoUrl}${separator}t=${positionSeconds}"
+
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            android.util.Log.e("PlayerManager", "Failed to launch YouTube app", e)
+            // Resume playback if launch failed
+            controller?.play()
         }
     }
 

@@ -10,29 +10,39 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.ghostwan.podcasto.BuildConfig
 import com.ghostwan.podcasto.R
 import com.ghostwan.podcasto.data.backup.GoogleDriveBackupManager
+import com.ghostwan.podcasto.data.backup.YouTubeSubscription
 import com.ghostwan.podcasto.data.repository.PodcastRepository
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
@@ -62,6 +72,16 @@ fun SettingsScreen(
     var isExporting by remember { mutableStateOf(false) }
     var isImporting by remember { mutableStateOf(false) }
 
+    // YouTube subscriptions dialog state
+    var showYouTubeSubsDialog by remember { mutableStateOf(false) }
+    var youTubeSubsList by remember { mutableStateOf<List<YouTubeSubscription>>(emptyList()) }
+    var isFetchingYouTubeSubs by remember { mutableStateOf(false) }
+    var subscribedFeedUrls by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    // Launch YouTube app preference
+    val playerPrefs = remember { context.getSharedPreferences("player_prefs", Context.MODE_PRIVATE) }
+    var launchYouTubeApp by remember { mutableStateOf(playerPrefs.getBoolean("launch_youtube_app", false)) }
+
     // Google Drive state
     val signedInAccount by driveBackupManager.signedInAccount.collectAsState()
     val isBackingUp by driveBackupManager.isBackingUp.collectAsState()
@@ -83,6 +103,8 @@ fun SettingsScreen(
     val driveSignInErrorMsg = stringResource(R.string.drive_sign_in_error)
     val passwordSavedMsg = stringResource(R.string.web_password_saved)
     val passwordClearedMsg = stringResource(R.string.web_password_cleared)
+    val ytImportSuccessMsg = stringResource(R.string.youtube_import_success)
+    val ytImportErrorMsg = stringResource(R.string.youtube_import_error)
 
     // Google Sign-In launcher
     val signInLauncher = rememberLauncherForActivityResult(
@@ -310,6 +332,75 @@ fun SettingsScreen(
                 ) {
                     Text(stringResource(R.string.drive_sign_out))
                 }
+
+                // YouTube Subscriptions import (only when signed in + YouTube enabled)
+                if (BuildConfig.YOUTUBE_ENABLED) {
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    HorizontalDivider()
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = stringResource(R.string.youtube_subscriptions_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = stringResource(R.string.youtube_subscriptions_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isFetchingYouTubeSubs = true
+                                // Load already subscribed feed URLs to mark them
+                                val subscribed = repository.getAllSubscribedPodcasts()
+                                subscribedFeedUrls = subscribed
+                                    .filter { it.sourceType == "youtube" }
+                                    .map { it.feedUrl }
+                                    .toSet()
+                                val result = driveBackupManager.fetchYouTubeSubscriptions()
+                                isFetchingYouTubeSubs = false
+                                if (result.isSuccess) {
+                                    val subs = result.getOrDefault(emptyList())
+                                    if (subs.isEmpty()) {
+                                        snackbarHostState.showSnackbar(
+                                            context.getString(R.string.youtube_no_subscriptions)
+                                        )
+                                    } else {
+                                        youTubeSubsList = subs
+                                        showYouTubeSubsDialog = true
+                                    }
+                                } else {
+                                    snackbarHostState.showSnackbar(
+                                        ytImportErrorMsg.format(result.exceptionOrNull()?.message ?: "")
+                                    )
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isFetchingYouTubeSubs,
+                    ) {
+                        if (isFetchingYouTubeSubs) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Icon(Icons.Default.Videocam, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.youtube_import_subscriptions))
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -397,6 +488,43 @@ fun SettingsScreen(
             HorizontalDivider()
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // ==========================================
+            // Launch YouTube App toggle (only when YouTube enabled)
+            // ==========================================
+            if (BuildConfig.YOUTUBE_ENABLED) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.launch_youtube_app_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.launch_youtube_app_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = launchYouTubeApp,
+                        onCheckedChange = { enabled ->
+                            launchYouTubeApp = enabled
+                            playerPrefs.edit().putBoolean("launch_youtube_app", enabled).apply()
+                        },
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                HorizontalDivider()
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // ==========================================
             // Web Server Password section
@@ -625,6 +753,33 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(8.dp))
         }
     }
+
+    // YouTube Subscriptions selection dialog
+    if (showYouTubeSubsDialog) {
+        YouTubeSubscriptionsDialog(
+            subscriptions = youTubeSubsList,
+            subscribedFeedUrls = subscribedFeedUrls,
+            onDismiss = { showYouTubeSubsDialog = false },
+            onImport = { selectedChannelIds ->
+                showYouTubeSubsDialog = false
+                scope.launch {
+                    var count = 0
+                    for (channelId in selectedChannelIds) {
+                        try {
+                            val channelUrl = "https://www.youtube.com/channel/$channelId"
+                            repository.subscribeToYouTubeChannel(channelUrl)
+                            count++
+                        } catch (e: Exception) {
+                            android.util.Log.e("Settings", "Failed to subscribe to $channelId", e)
+                        }
+                    }
+                    snackbarHostState.showSnackbar(
+                        context.getString(R.string.youtube_import_success, count)
+                    )
+                }
+            },
+        )
+    }
 }
 
 private fun scheduleAutoBackup(context: Context) {
@@ -649,4 +804,115 @@ private fun scheduleAutoBackup(context: Context) {
 private fun cancelAutoBackup(context: Context) {
     androidx.work.WorkManager.getInstance(context)
         .cancelUniqueWork(com.ghostwan.podcasto.data.backup.AutoBackupWorker.WORK_NAME)
+}
+
+/**
+ * Full-screen dialog showing YouTube subscriptions from the user's Google account.
+ * Allows selecting channels to subscribe to in Podcasto.
+ * Already-subscribed channels are marked and excluded from selection.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun YouTubeSubscriptionsDialog(
+    subscriptions: List<YouTubeSubscription>,
+    subscribedFeedUrls: Set<String>,
+    onDismiss: () -> Unit,
+    onImport: (List<String>) -> Unit,
+) {
+    // Determine which channels are already subscribed
+    val alreadySubscribedIds = remember(subscribedFeedUrls) {
+        subscribedFeedUrls.mapNotNull { url ->
+            url.substringAfter("channel_id=", "").takeIf { it.isNotEmpty() }
+        }.toSet()
+    }
+
+    // Track selected channels (default: none; already subscribed are excluded)
+    val selectedIds = remember { mutableStateMapOf<String, Boolean>() }
+    val selectableCount = subscriptions.count { it.channelId !in alreadySubscribedIds }
+    val selectedCount = selectedIds.count { it.value && it.key !in alreadySubscribedIds }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(stringResource(R.string.youtube_select_subscriptions, selectableCount))
+        },
+        text = {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp),
+            ) {
+                items(subscriptions, key = { it.channelId }) { sub ->
+                    val isAlreadySubscribed = sub.channelId in alreadySubscribedIds
+                    val isSelected = selectedIds[sub.channelId] == true
+
+                    ListItem(
+                        modifier = Modifier.fillMaxWidth(),
+                        headlineContent = {
+                            Text(
+                                text = sub.title,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = if (isAlreadySubscribed)
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                else MaterialTheme.colorScheme.onSurface,
+                            )
+                        },
+                        supportingContent = if (isAlreadySubscribed) {
+                            {
+                                Text(
+                                    text = stringResource(R.string.youtube_already_subscribed),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        } else null,
+                        leadingContent = {
+                            AsyncImage(
+                                model = sub.thumbnailUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(20.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                        },
+                        trailingContent = {
+                            if (isAlreadySubscribed) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            } else {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = { checked ->
+                                        selectedIds[sub.channelId] = checked
+                                    },
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val ids = selectedIds.filter { it.value && it.key !in alreadySubscribedIds }.keys.toList()
+                    onImport(ids)
+                },
+                enabled = selectedCount > 0,
+            ) {
+                Text(stringResource(R.string.youtube_import_selected, selectedCount))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
 }

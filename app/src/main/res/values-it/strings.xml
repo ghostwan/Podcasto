@@ -173,4 +173,20 @@
     <string name="download_audio_only">Solo audio</string>
     <string name="download_video_only">Solo video</string>
     <string name="download_both">Audio + Video</string>
+
+    <!-- YouTube Subscriptions -->
+    <string name="youtube_subscriptions_title">Iscrizioni YouTube</string>
+    <string name="youtube_subscriptions_description">Importa le iscrizioni ai canali YouTube dal tuo account Google.</string>
+    <string name="youtube_import_subscriptions">Importa iscrizioni YouTube</string>
+    <string name="youtube_fetching_subscriptions">Caricamento iscrizioni…</string>
+    <string name="youtube_no_subscriptions">Nessuna iscrizione YouTube trovata su questo account.</string>
+    <string name="youtube_select_subscriptions">Seleziona i canali a cui iscriverti (%1$d disponibili)</string>
+    <string name="youtube_import_selected">Iscriviti (%1$d)</string>
+    <string name="youtube_import_success">Iscritto a %1$d canali YouTube</string>
+    <string name="youtube_import_error">Errore nel caricamento delle iscrizioni: %1$s</string>
+    <string name="youtube_already_subscribed">Già iscritto</string>
+
+    <!-- Launch YouTube App -->
+    <string name="launch_youtube_app_title">Apri nell\'app YouTube</string>
+    <string name="launch_youtube_app_description">Quando si passa alla modalità video, apri l\'app YouTube alla posizione corrente invece di riprodurre in Podcasto.</string>
 </resources>
