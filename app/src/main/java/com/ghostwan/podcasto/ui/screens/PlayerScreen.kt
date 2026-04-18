@@ -205,10 +205,11 @@ fun PlayerScreen(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background,
+        color = MaterialTheme.colorScheme.surface,
     ) {
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
+            windowInsets = WindowInsets(0, 0, 0, 0),
             title = { Text(stringResource(R.string.now_playing_title)) },
             navigationIcon = {
                 IconButton(onClick = onBack) {

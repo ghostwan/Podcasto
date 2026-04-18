@@ -62,14 +62,22 @@ class GoogleDriveBackupManager @Inject constructor(
 
     init {
         // Check if already signed in with ALL required scopes
-        // If the user previously signed in with only driveScope (before YouTube feature),
-        // their old session won't have youtubeScope → force re-sign-in to get both scopes.
         val account = GoogleSignIn.getLastSignedInAccount(context)
-        if (account != null && GoogleSignIn.hasPermissions(account, driveScope, youtubeScope)) {
-            _signedInAccount.value = account
-            // Load last backup time from prefs
-            val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
-            _lastBackupTime.value = prefs.getLong("last_drive_backup", 0).takeIf { it > 0 }
+        if (account != null) {
+            if (GoogleSignIn.hasPermissions(account, driveScope, youtubeScope)) {
+                _signedInAccount.value = account
+                // Load last backup time from prefs
+                val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+                _lastBackupTime.value = prefs.getLong("last_drive_backup", 0).takeIf { it > 0 }
+            } else {
+                // Old session exists but is missing scopes (e.g. youtubeScope added later).
+                // Sign out so the next sign-in will show the consent screen with all scopes.
+                Log.d(TAG, "Stale session detected (missing scopes), signing out to force re-consent")
+                GoogleSignIn.getClient(
+                    context,
+                    GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
+                ).signOut()
+            }
         }
     }
 
