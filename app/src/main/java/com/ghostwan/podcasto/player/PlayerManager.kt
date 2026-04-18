@@ -5,8 +5,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
@@ -161,8 +163,13 @@ class PlayerManager @Inject constructor(
                         && !isChangingMedia
                         && (controller?.duration ?: 0) > 0
                     ) {
+                        Log.d("PlayerManager", "Episode ended: ${currentEpisode?.title}")
                         markCurrentAsPlayed()
                     }
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    Log.e("PlayerManager", "Player error: ${error.errorCodeName} - ${error.message}", error)
                 }
 
                 override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
