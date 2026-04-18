@@ -312,6 +312,16 @@ fun PodcastoNavHost(
                 },
             )
         }
+
+        // Restart dialog for already-played episodes
+        val restartRequest by playerManager.restartRequest.collectAsState()
+        restartRequest?.let {
+            RestartEpisodeDialog(
+                onRestart = { playerManager.restartFromBeginning() },
+                onResume = { playerManager.resumePlayed() },
+                onDismiss = { playerManager.dismissRestartRequest() },
+            )
+        }
     }
 }
 
@@ -350,6 +360,29 @@ private fun LanguageSelectionDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun RestartEpisodeDialog(
+    onRestart: () -> Unit,
+    onResume: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.episode_already_played_title)) },
+        text = { Text(stringResource(R.string.episode_already_played_message)) },
+        confirmButton = {
+            TextButton(onClick = onRestart) {
+                Text(stringResource(R.string.restart_from_beginning))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onResume) {
+                Text(stringResource(R.string.resume_playback))
             }
         },
     )

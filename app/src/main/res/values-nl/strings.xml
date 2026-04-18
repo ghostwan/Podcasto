@@ -189,4 +189,10 @@
     <!-- Launch YouTube App -->
     <string name="launch_youtube_app_title">Openen in YouTube-app</string>
     <string name="launch_youtube_app_description">Bij het schakelen naar videomodus de YouTube-app openen op de huidige positie in plaats van af te spelen in Podcasto.</string>
+
+    <!-- Restart Episode Dialog -->
+    <string name="episode_already_played_title">Aflevering al afgespeeld</string>
+    <string name="episode_already_played_message">Deze aflevering is al volledig afgespeeld. Wilt u opnieuw beginnen vanaf het begin?</string>
+    <string name="restart_from_beginning">Vanaf het begin</string>
+    <string name="resume_playback">Hervatten</string>
 </resources>

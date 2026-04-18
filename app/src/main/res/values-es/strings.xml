@@ -235,4 +235,10 @@
     <!-- Launch YouTube App -->
     <string name="launch_youtube_app_title">Abrir en la app de YouTube</string>
     <string name="launch_youtube_app_description">Al cambiar al modo de vídeo, abrir la app de YouTube en la posición actual en vez de reproducir en Podcasto.</string>
+
+    <!-- Restart Episode Dialog -->
+    <string name="episode_already_played_title">Episodio ya reproducido</string>
+    <string name="episode_already_played_message">Este episodio ya se ha reproducido completamente. ¿Desea empezar desde el principio?</string>
+    <string name="restart_from_beginning">Desde el inicio</string>
+    <string name="resume_playback">Reanudar</string>
 </resources>

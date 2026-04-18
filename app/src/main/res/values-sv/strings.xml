@@ -189,4 +189,10 @@
     <!-- Launch YouTube App -->
     <string name="launch_youtube_app_title">Öppna i YouTube-appen</string>
     <string name="launch_youtube_app_description">Vid byte till videoläge, öppna YouTube-appen vid aktuell position istället för att spela i Podcasto.</string>
+
+    <!-- Restart Episode Dialog -->
+    <string name="episode_already_played_title">Avsnittet redan spelat</string>
+    <string name="episode_already_played_message">Det här avsnittet har redan spelats helt. Vill du börja om från början?</string>
+    <string name="restart_from_beginning">Från början</string>
+    <string name="resume_playback">Återuppta</string>
 </resources>

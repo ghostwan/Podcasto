@@ -50,8 +50,17 @@ data class PlayerState(
 data class LanguageSelectionRequest(
     val episode: EpisodeEntity,
     val artworkUrl: String,
-    /** language code -> display name, e.g. "fr" -> "Fran\u00e7ais" */
+    /** language code -> display name, e.g. "fr" -> "Français" */
     val availableLanguages: Map<String, String>,
+)
+
+/**
+ * Emitted when the user tries to play an episode that was already fully played.
+ * The UI should show a dialog asking whether to restart from the beginning or resume.
+ */
+data class RestartRequest(
+    val episode: EpisodeEntity,
+    val artworkUrl: String,
 )
 
 @Singleton
@@ -70,6 +79,10 @@ class PlayerManager @Inject constructor(
     private val _languageSelectionRequest = MutableStateFlow<LanguageSelectionRequest?>(null)
     val languageSelectionRequest: StateFlow<LanguageSelectionRequest?> = _languageSelectionRequest.asStateFlow()
 
+    /** Emitted when user plays an already-finished episode; UI should ask restart or resume. */
+    private val _restartRequest = MutableStateFlow<RestartRequest?>(null)
+    val restartRequest: StateFlow<RestartRequest?> = _restartRequest.asStateFlow()
+
     private var currentEpisode: EpisodeEntity? = null
     private var currentArtworkUrl: String = ""
     private var currentSourceType: String = "rss"
@@ -79,6 +92,9 @@ class PlayerManager @Inject constructor(
     // that Media3 fires when replacing the current media item.
     private var isChangingMedia: Boolean = false
     private var isVideoMode: Boolean = false
+    /** Remember video mode preference so it persists across episode transitions. */
+    var preferVideoMode: Boolean = false
+        private set
     /** Remembers the language code selected by the user (for audio↔video switch preservation). */
     private var currentLanguageCode: String? = null
 
@@ -180,7 +196,13 @@ class PlayerManager @Inject constructor(
         }, MoreExecutors.directExecutor())
     }
 
-    fun play(episode: EpisodeEntity, artworkUrl: String = "") {
+    fun play(episode: EpisodeEntity, artworkUrl: String = "", forceRestart: Boolean = false) {
+        // If episode was already played, ask user whether to restart from beginning
+        if (episode.played && !forceRestart && episode.id != currentEpisode?.id) {
+            _restartRequest.value = RestartRequest(episode, artworkUrl)
+            return
+        }
+
         // Save position of currently playing episode before switching
         saveCurrentPosition()
 
@@ -281,6 +303,36 @@ class PlayerManager @Inject constructor(
     }
 
     /**
+     * Called by the UI when user chooses to restart a played episode from the beginning.
+     */
+    fun restartFromBeginning() {
+        val request = _restartRequest.value ?: return
+        _restartRequest.value = null
+        scope.launch {
+            repository.updatePlaybackPosition(request.episode.id, 0)
+            repository.markAsUnplayed(request.episode.id)
+            val freshEp = repository.getEpisodeById(request.episode.id) ?: request.episode
+            play(freshEp.copy(playbackPosition = 0, played = false), request.artworkUrl, forceRestart = true)
+        }
+    }
+
+    /**
+     * Called by the UI when user chooses to resume a played episode.
+     */
+    fun resumePlayed() {
+        val request = _restartRequest.value ?: return
+        _restartRequest.value = null
+        play(request.episode, request.artworkUrl, forceRestart = true)
+    }
+
+    /**
+     * Called by the UI if the user dismisses the restart dialog.
+     */
+    fun dismissRestartRequest() {
+        _restartRequest.value = null
+    }
+
+    /**
      * Internal: play an episode without language check (already determined).
      */
     private suspend fun playInternal(freshEpisode: EpisodeEntity, artworkUrl: String) {
@@ -352,6 +404,18 @@ class PlayerManager @Inject constructor(
         controller?.play()
         isChangingMedia = false
         updateState()
+
+        // If the user was in video mode and the new episode is also YouTube,
+        // automatically switch back to video mode after audio starts.
+        if (preferVideoMode && currentSourceType == "youtube") {
+            scope.launch {
+                // Small delay to let audio playback initialize
+                kotlinx.coroutines.delay(500)
+                if (currentEpisode?.id == episode.id && !isVideoMode) {
+                    toggleVideoMode()
+                }
+            }
+        }
     }
 
     fun playMultiple(episodes: List<EpisodeEntity>, startIndex: Int = 0, artworkUrl: String = "") {
@@ -424,6 +488,7 @@ class PlayerManager @Inject constructor(
         saveCurrentPosition()
         isChangingMedia = true
         isVideoMode = false
+        preferVideoMode = false
         controller?.stop()
         isChangingMedia = false
         currentEpisode = null
@@ -461,6 +526,7 @@ class PlayerManager @Inject constructor(
         if (isVideoMode) {
             // Switch back to audio-only mode
             isVideoMode = false
+            preferVideoMode = false
             scope.launch {
                 try {
                     // Reload from DB to get latest download paths
@@ -497,6 +563,7 @@ class PlayerManager @Inject constructor(
         } else {
             // Switch to video mode — need MergingMediaSource via PlaybackService custom command
             isVideoMode = true
+            preferVideoMode = true
             scope.launch {
                 try {
                     // Reload from DB to get latest download paths

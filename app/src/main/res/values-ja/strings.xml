@@ -189,4 +189,10 @@
     <!-- Launch YouTube App -->
     <string name="launch_youtube_app_title">YouTubeアプリで開く</string>
     <string name="launch_youtube_app_description">動画モードに切り替える際、Podcasto内で再生する代わりにYouTubeアプリを現在の位置で開きます。</string>
+
+    <!-- Restart Episode Dialog -->
+    <string name="episode_already_played_title">再生済みのエピソード</string>
+    <string name="episode_already_played_message">このエピソードは既に最後まで再生されています。最初から再生しますか？</string>
+    <string name="restart_from_beginning">最初から</string>
+    <string name="resume_playback">再開</string>
 </resources>

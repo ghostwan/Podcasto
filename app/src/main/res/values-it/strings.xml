@@ -189,4 +189,10 @@
     <!-- Launch YouTube App -->
     <string name="launch_youtube_app_title">Apri nell\'app YouTube</string>
     <string name="launch_youtube_app_description">Quando si passa alla modalità video, apri l\'app YouTube alla posizione corrente invece di riprodurre in Podcasto.</string>
+
+    <!-- Restart Episode Dialog -->
+    <string name="episode_already_played_title">Episodio già riprodotto</string>
+    <string name="episode_already_played_message">Questo episodio è già stato riprodotto completamente. Vuoi ricominciare dall\'inizio?</string>
+    <string name="restart_from_beginning">Dall\'inizio</string>
+    <string name="resume_playback">Riprendi</string>
 </resources>

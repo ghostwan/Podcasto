@@ -18,15 +18,17 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Forward30
-import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.StayCurrentLandscape
+import androidx.compose.material.icons.filled.StayCurrentPortrait
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -128,6 +130,7 @@ fun PlayerScreen(
 
     var showBookmarkDialog by remember { mutableStateOf(false) }
     var isFullscreen by remember { mutableStateOf(false) }
+    var fullscreenLandscape by remember { mutableStateOf(true) }
 
     // Single shared PlayerView — reused between inline and fullscreen to avoid
     // surface re-attachment issues that cause the video to disappear.
@@ -152,9 +155,12 @@ fun PlayerScreen(
     }
 
     // Manage orientation and system bars for fullscreen
-    DisposableEffect(isFullscreen) {
+    DisposableEffect(isFullscreen, fullscreenLandscape) {
         if (isFullscreen && activity != null) {
-            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            activity.requestedOrientation = if (fullscreenLandscape)
+                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            else
+                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             activity.window?.let { window ->
                 window.insetsController?.let { controller ->
                     controller.hide(WindowInsets.Type.systemBars())
@@ -173,9 +179,9 @@ fun PlayerScreen(
         }
     }
 
-    // Exit fullscreen if video mode is turned off
+    // Exit fullscreen only if user explicitly disabled video mode (not during episode transition)
     LaunchedEffect(playerState.isVideoMode) {
-        if (!playerState.isVideoMode) {
+        if (!playerState.isVideoMode && !playerManager.preferVideoMode) {
             isFullscreen = false
         }
     }
@@ -200,6 +206,8 @@ fun PlayerScreen(
             playerState = playerState,
             sharedPlayerView = sharedPlayerView,
             onExitFullscreen = { isFullscreen = false },
+            isLandscape = fullscreenLandscape,
+            onToggleOrientation = { fullscreenLandscape = !fullscreenLandscape },
         )
         return
     }
@@ -263,23 +271,49 @@ fun PlayerScreen(
                             },
                             modifier = Modifier.fillMaxSize(),
                         )
-                        // Fullscreen button overlay
-                        IconButton(
-                            onClick = { isFullscreen = true },
+                        // Fullscreen buttons overlay
+                        Row(
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
-                                .padding(4.dp)
-                                .size(36.dp),
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = Color.Black.copy(alpha = 0.5f),
-                                contentColor = Color.White,
-                            ),
+                                .padding(4.dp),
                         ) {
-                            Icon(
-                                Icons.Default.Fullscreen,
-                                contentDescription = stringResource(R.string.fullscreen),
-                                modifier = Modifier.size(24.dp),
-                            )
+                            // Portrait fullscreen
+                            IconButton(
+                                onClick = {
+                                    fullscreenLandscape = false
+                                    isFullscreen = true
+                                },
+                                modifier = Modifier.size(36.dp),
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    containerColor = Color.Black.copy(alpha = 0.5f),
+                                    contentColor = Color.White,
+                                ),
+                            ) {
+                                Icon(
+                                    Icons.Default.StayCurrentPortrait,
+                                    contentDescription = stringResource(R.string.fullscreen),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            // Landscape fullscreen
+                            IconButton(
+                                onClick = {
+                                    fullscreenLandscape = true
+                                    isFullscreen = true
+                                },
+                                modifier = Modifier.size(36.dp),
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    containerColor = Color.Black.copy(alpha = 0.5f),
+                                    contentColor = Color.White,
+                                ),
+                            ) {
+                                Icon(
+                                    Icons.Default.StayCurrentLandscape,
+                                    contentDescription = stringResource(R.string.fullscreen),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
                         }
                     }
                 } else {
@@ -475,6 +509,8 @@ fun FullscreenVideoPlayer(
     playerState: PlayerState,
     sharedPlayerView: PlayerView,
     onExitFullscreen: () -> Unit,
+    isLandscape: Boolean,
+    onToggleOrientation: () -> Unit,
 ) {
     var showControls by remember { mutableStateOf(true) }
 
@@ -528,6 +564,13 @@ fun FullscreenVideoPlayer(
                     Icon(
                         Icons.Default.FullscreenExit,
                         contentDescription = stringResource(R.string.exit_fullscreen),
+                        tint = Color.White,
+                    )
+                }
+                IconButton(onClick = onToggleOrientation) {
+                    Icon(
+                        Icons.Default.ScreenRotation,
+                        contentDescription = null,
                         tint = Color.White,
                     )
                 }
