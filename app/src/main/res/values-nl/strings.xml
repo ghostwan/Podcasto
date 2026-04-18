@@ -194,5 +194,5 @@
     <string name="episode_already_played_title">Aflevering al afgespeeld</string>
     <string name="episode_already_played_message">Deze aflevering is al volledig afgespeeld. Wilt u opnieuw beginnen vanaf het begin?</string>
     <string name="restart_from_beginning">Vanaf het begin</string>
-    <string name="resume_playback">Hervatten</string>
+    <string name="skip_episode">Overslaan</string>
 </resources>

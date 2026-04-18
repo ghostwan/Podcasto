@@ -194,5 +194,5 @@
     <string name="episode_already_played_title">已播放的节目</string>
     <string name="episode_already_played_message">此节目已完整播放。是否要从头开始？</string>
     <string name="restart_from_beginning">从头开始</string>
-    <string name="resume_playback">继续播放</string>
+    <string name="skip_episode">跳过</string>
 </resources>

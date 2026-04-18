@@ -194,5 +194,5 @@
     <string name="episode_already_played_title">Episodio già riprodotto</string>
     <string name="episode_already_played_message">Questo episodio è già stato riprodotto completamente. Vuoi ricominciare dall\'inizio?</string>
     <string name="restart_from_beginning">Dall\'inizio</string>
-    <string name="resume_playback">Riprendi</string>
+    <string name="skip_episode">Salta</string>
 </resources>

@@ -240,5 +240,5 @@
     <string name="episode_already_played_title">Episode bereits abgespielt</string>
     <string name="episode_already_played_message">Diese Episode wurde bereits vollständig abgespielt. Möchten Sie von Anfang an neu starten?</string>
     <string name="restart_from_beginning">Von Anfang an</string>
-    <string name="resume_playback">Fortsetzen</string>
+    <string name="skip_episode">Überspringen</string>
 </resources>

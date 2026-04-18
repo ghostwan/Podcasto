@@ -194,5 +194,5 @@
     <string name="episode_already_played_title">Avsnittet redan spelat</string>
     <string name="episode_already_played_message">Det här avsnittet har redan spelats helt. Vill du börja om från början?</string>
     <string name="restart_from_beginning">Från början</string>
-    <string name="resume_playback">Återuppta</string>
+    <string name="skip_episode">Hoppa över</string>
 </resources>

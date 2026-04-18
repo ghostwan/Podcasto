@@ -317,12 +317,21 @@ class PlayerManager @Inject constructor(
     }
 
     /**
-     * Called by the UI when user chooses to resume a played episode.
+     * Called by the UI when user chooses to skip a played episode (play next in playlist).
      */
-    fun resumePlayed() {
+    fun skipPlayed() {
         val request = _restartRequest.value ?: return
         _restartRequest.value = null
-        play(request.episode, request.artworkUrl, forceRestart = true)
+        scope.launch {
+            // Remove the skipped episode from playlist
+            repository.removeFromPlaylist(request.episode.id)
+            // Play next episode in playlist if available
+            val playlist = repository.getPlaylistEpisodesWithArtworkList()
+            if (playlist.isNotEmpty()) {
+                val next = playlist.first()
+                play(next.episode, next.artworkUrl)
+            }
+        }
     }
 
     /**

@@ -194,5 +194,5 @@
     <string name="episode_already_played_title">再生済みのエピソード</string>
     <string name="episode_already_played_message">このエピソードは既に最後まで再生されています。最初から再生しますか？</string>
     <string name="restart_from_beginning">最初から</string>
-    <string name="resume_playback">再開</string>
+    <string name="skip_episode">スキップ</string>
 </resources>

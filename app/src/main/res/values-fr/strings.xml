@@ -240,5 +240,5 @@
     <string name="episode_already_played_title">Épisode déjà écouté</string>
     <string name="episode_already_played_message">Cet épisode a déjà été entièrement écouté. Voulez-vous reprendre depuis le début ?</string>
     <string name="restart_from_beginning">Depuis le début</string>
-    <string name="resume_playback">Reprendre</string>
+    <string name="skip_episode">Passer</string>
 </resources>

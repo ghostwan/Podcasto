@@ -318,7 +318,7 @@ fun PodcastoNavHost(
         restartRequest?.let {
             RestartEpisodeDialog(
                 onRestart = { playerManager.restartFromBeginning() },
-                onResume = { playerManager.resumePlayed() },
+                onSkip = { playerManager.skipPlayed() },
                 onDismiss = { playerManager.dismissRestartRequest() },
             )
         }
@@ -368,7 +368,7 @@ private fun LanguageSelectionDialog(
 @Composable
 private fun RestartEpisodeDialog(
     onRestart: () -> Unit,
-    onResume: () -> Unit,
+    onSkip: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -381,8 +381,8 @@ private fun RestartEpisodeDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onResume) {
-                Text(stringResource(R.string.resume_playback))
+            TextButton(onClick = onSkip) {
+                Text(stringResource(R.string.skip_episode))
             }
         },
     )
