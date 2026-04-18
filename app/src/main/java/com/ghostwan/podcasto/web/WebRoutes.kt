@@ -1043,7 +1043,10 @@ Réponds UNIQUEMENT avec un objet JSON valide dans ce format exact, sans markdow
                         "defaultAudioUrl" to (options?.defaultAudioUrl ?: ""),
                     ))
                 } else {
-                    call.respond(mapOf("languages" to options.availableLanguages))
+                    call.respond(mapOf(
+                        "languages" to options.availableLanguages,
+                        "originalLanguageCode" to (options.originalLanguageCode ?: ""),
+                    ))
                 }
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, ErrorResponse("Failed to get languages: ${e.message}"))

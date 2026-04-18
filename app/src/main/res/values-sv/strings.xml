@@ -195,4 +195,9 @@
     <string name="episode_already_played_message">Det här avsnittet har redan spelats helt. Vill du börja om från början?</string>
     <string name="restart_from_beginning">Från början</string>
     <string name="skip_episode">Hoppa över</string>
+
+    <!-- YouTube Playback Settings -->
+    <string name="youtube_playback_settings_title">YouTube-uppspelning</string>
+    <string name="auto_select_original_language">Välj originalspråk automatiskt</string>
+    <string name="auto_select_original_language_description">Välj automatiskt originalljudspråket för YouTube-videor istället för att visa en språkväljare.</string>
 </resources>

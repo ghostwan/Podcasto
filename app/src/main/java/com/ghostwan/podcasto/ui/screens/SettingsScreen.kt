@@ -67,6 +67,8 @@ fun SettingsScreen(
     var keyVisible by remember { mutableStateOf(false) }
     var webPassword by remember { mutableStateOf(prefs.getString("web_server_password", "") ?: "") }
     var passwordVisible by remember { mutableStateOf(false) }
+    val playerPrefs = remember { context.getSharedPreferences("player_prefs", Context.MODE_PRIVATE) }
+    var autoSelectOriginalLanguage by remember { mutableStateOf(playerPrefs.getBoolean("auto_select_original_language", true)) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var isExporting by remember { mutableStateOf(false) }
@@ -632,6 +634,49 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+
+            // ==========================================
+            // YouTube Playback section
+            // ==========================================
+            if (BuildConfig.YOUTUBE_ENABLED) {
+                HorizontalDivider()
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = stringResource(R.string.youtube_playback_settings_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Auto-select original language toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.auto_select_original_language),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.auto_select_original_language_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = autoSelectOriginalLanguage,
+                        onCheckedChange = { enabled ->
+                            autoSelectOriginalLanguage = enabled
+                            playerPrefs.edit().putBoolean("auto_select_original_language", enabled).apply()
+                        },
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+            }
 
             // Guide section
             HorizontalDivider()

@@ -318,6 +318,8 @@ const SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
 // Volume normalization (Web Audio API)
 let volumeNormEnabled = localStorage.getItem('volumeNormEnabled') === 'true';
+// Auto-select original language for YouTube (default: true)
+let autoSelectOriginalLanguage = localStorage.getItem('autoSelectOriginalLanguage') !== 'false';
 let audioContext = null;
 let sourceNode = null;
 let compressorNode = null;
@@ -2048,8 +2050,13 @@ async function playEpisode(episodeId, seekTo) {
         if (isYouTubeUrl(episode.audioUrl)) {
             const langData = await checkYouTubeLanguages(episode);
             if (langData && langData.languages && Object.keys(langData.languages).length > 1) {
-                selectedLang = await showLangDialog(langData.languages, episode.title);
-                if (selectedLang === null) return; // User dismissed
+                // Auto-select original language if setting enabled and original is known
+                if (autoSelectOriginalLanguage && langData.originalLanguageCode) {
+                    selectedLang = langData.originalLanguageCode;
+                } else {
+                    selectedLang = await showLangDialog(langData.languages, episode.title);
+                    if (selectedLang === null) return; // User dismissed
+                }
             } else if (langData && langData.defaultAudioUrl) {
                 // Single language — use pre-resolved URL to avoid double network call
                 preResolvedUrl = langData.defaultAudioUrl;
@@ -2116,8 +2123,12 @@ async function playEpisodeFromPlaylist(episodeId, artworkUrl, podcastTitle) {
         if (isYouTubeUrl(episode.audioUrl)) {
             const langData = await checkYouTubeLanguages(episode);
             if (langData && langData.languages && Object.keys(langData.languages).length > 1) {
-                selectedLang = await showLangDialog(langData.languages, episode.title);
-                if (selectedLang === null) return; // User dismissed
+                if (autoSelectOriginalLanguage && langData.originalLanguageCode) {
+                    selectedLang = langData.originalLanguageCode;
+                } else {
+                    selectedLang = await showLangDialog(langData.languages, episode.title);
+                    if (selectedLang === null) return; // User dismissed
+                }
             } else if (langData && langData.defaultAudioUrl) {
                 preResolvedUrl = langData.defaultAudioUrl;
             }

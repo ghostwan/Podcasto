@@ -195,4 +195,9 @@
     <string name="episode_already_played_message">Deze aflevering is al volledig afgespeeld. Wilt u opnieuw beginnen vanaf het begin?</string>
     <string name="restart_from_beginning">Vanaf het begin</string>
     <string name="skip_episode">Overslaan</string>
+
+    <!-- YouTube Playback Settings -->
+    <string name="youtube_playback_settings_title">YouTube-afspelen</string>
+    <string name="auto_select_original_language">Originele taal automatisch selecteren</string>
+    <string name="auto_select_original_language_description">Selecteer automatisch de originele audiotaal voor YouTube-video\'s in plaats van een taalkiezer te tonen.</string>
 </resources>

@@ -226,7 +226,23 @@ class PlayerManager @Inject constructor(
                 try {
                     val langOptions = repository.getAvailableLanguages(freshEpisode)
                     if (langOptions != null && langOptions.availableLanguages.size > 1) {
-                        // Multiple languages available — ask user to choose
+                        // Check if auto-select original language is enabled
+                        val autoSelectOriginal = prefs.getBoolean("auto_select_original_language", true)
+                        val originalCode = langOptions.originalLanguageCode
+                        if (autoSelectOriginal && originalCode != null) {
+                            // Auto-select the original language
+                            android.util.Log.d("PlayerManager", "Auto-selecting original language: $originalCode")
+                            currentLanguageCode = originalCode
+                            val resolved = repository.resolveAudioUrlForLanguage(freshEpisode, originalCode)
+                            if (resolved.durationSeconds > 0 && freshEpisode.duration == 0L) {
+                                repository.updateEpisodeDuration(freshEpisode.id, resolved.durationSeconds)
+                            }
+                            repository.addHistoryEntry(freshEpisode.id, freshEpisode.podcastId)
+                            repository.addToPlaylistTop(freshEpisode.id)
+                            startMediaPlayback(freshEpisode, artworkUrl, Uri.parse(resolved.url))
+                            return@launch
+                        }
+                        // Multiple languages available and no auto-select — ask user to choose
                         isChangingMedia = false
                         _languageSelectionRequest.value = LanguageSelectionRequest(
                             episode = freshEpisode,

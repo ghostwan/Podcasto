@@ -12,6 +12,7 @@ import org.schabi.newpipe.extractor.channel.ChannelInfo
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Response
 import org.schabi.newpipe.extractor.exceptions.ExtractionException
+import org.schabi.newpipe.extractor.stream.AudioTrackType
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
@@ -53,6 +54,8 @@ data class AudioLanguageOptions(
     val availableLanguages: Map<String, String>,
     /** The default (highest bitrate) audio stream URL (for single-language videos) */
     val defaultAudioUrl: String,
+    /** The language code of the ORIGINAL audio track, if detected (null if unknown) */
+    val originalLanguageCode: String? = null,
 )
 
 data class YouTubeChannelInfo(
@@ -260,6 +263,7 @@ class YouTubeExtractor @Inject constructor(
 
         // Group streams by locale
         val languageMap = mutableMapOf<String, String>()
+        var originalLanguageCode: String? = null
         for (stream in audioStreams) {
             val locale = stream.audioLocale
             if (locale != null) {
@@ -267,18 +271,23 @@ class YouTubeExtractor @Inject constructor(
                 if (code.isNotEmpty() && code !in languageMap) {
                     languageMap[code] = locale.getDisplayLanguage(locale).replaceFirstChar { it.uppercase() }
                 }
+                // Detect the ORIGINAL track
+                if (stream.audioTrackType == AudioTrackType.ORIGINAL && code.isNotEmpty()) {
+                    originalLanguageCode = code
+                }
             }
         }
 
         // Default: best stream by bitrate
         val bestStream = audioStreams.sortedByDescending { it.averageBitrate }.first()
 
-        Log.d(TAG, "Available languages: $languageMap (${audioStreams.size} total streams)")
+        Log.d(TAG, "Available languages: $languageMap, original=$originalLanguageCode (${audioStreams.size} total streams)")
         AudioLanguageOptions(
             videoUrl = videoUrl,
             durationSeconds = info.duration,
             availableLanguages = languageMap,
             defaultAudioUrl = bestStream.content,
+            originalLanguageCode = originalLanguageCode,
         )
     }
 

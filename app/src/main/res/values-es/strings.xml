@@ -241,4 +241,9 @@
     <string name="episode_already_played_message">Este episodio ya se ha reproducido completamente. ¿Desea empezar desde el principio?</string>
     <string name="restart_from_beginning">Desde el inicio</string>
     <string name="skip_episode">Saltar</string>
+
+    <!-- YouTube Playback Settings -->
+    <string name="youtube_playback_settings_title">Reproducción de YouTube</string>
+    <string name="auto_select_original_language">Seleccionar idioma original automáticamente</string>
+    <string name="auto_select_original_language_description">Seleccionar automáticamente el idioma de audio original de los vídeos de YouTube en lugar de mostrar un selector de idioma.</string>
 </resources>

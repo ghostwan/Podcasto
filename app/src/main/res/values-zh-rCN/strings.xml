@@ -195,4 +195,9 @@
     <string name="episode_already_played_message">此节目已完整播放。是否要从头开始？</string>
     <string name="restart_from_beginning">从头开始</string>
     <string name="skip_episode">跳过</string>
+
+    <!-- YouTube Playback Settings -->
+    <string name="youtube_playback_settings_title">YouTube 播放</string>
+    <string name="auto_select_original_language">自动选择原始语言</string>
+    <string name="auto_select_original_language_description">自动选择 YouTube 视频的原始音频语言，而不显示语言选择器。</string>
 </resources>

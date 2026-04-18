@@ -25,6 +25,7 @@ data class AudioLanguageOptions(
     val durationSeconds: Long,
     val availableLanguages: Map<String, String>,
     val defaultAudioUrl: String,
+    val originalLanguageCode: String? = null,
 )
 
 data class YouTubeChannelInfo(

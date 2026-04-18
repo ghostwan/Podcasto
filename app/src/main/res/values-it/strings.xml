@@ -195,4 +195,9 @@
     <string name="episode_already_played_message">Questo episodio è già stato riprodotto completamente. Vuoi ricominciare dall\'inizio?</string>
     <string name="restart_from_beginning">Dall\'inizio</string>
     <string name="skip_episode">Salta</string>
+
+    <!-- YouTube Playback Settings -->
+    <string name="youtube_playback_settings_title">Riproduzione YouTube</string>
+    <string name="auto_select_original_language">Seleziona automaticamente la lingua originale</string>
+    <string name="auto_select_original_language_description">Seleziona automaticamente la lingua audio originale dei video YouTube invece di mostrare un selettore di lingua.</string>
 </resources>

@@ -195,4 +195,9 @@
     <string name="episode_already_played_message">このエピソードは既に最後まで再生されています。最初から再生しますか？</string>
     <string name="restart_from_beginning">最初から</string>
     <string name="skip_episode">スキップ</string>
+
+    <!-- YouTube Playback Settings -->
+    <string name="youtube_playback_settings_title">YouTube再生</string>
+    <string name="auto_select_original_language">オリジナル言語を自動選択</string>
+    <string name="auto_select_original_language_description">YouTube動画のオリジナル音声言語を言語選択画面を表示せずに自動的に選択します。</string>
 </resources>
