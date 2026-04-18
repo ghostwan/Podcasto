@@ -456,15 +456,6 @@ class PlayerManager @Inject constructor(
 
         val currentPos = controller?.currentPosition ?: 0L
 
-        // Check if user prefers to launch the YouTube app instead
-        if (!isVideoMode) {
-            val launchExternal = prefs.getBoolean("launch_youtube_app", false)
-            if (launchExternal) {
-                launchYouTubeApp(ep, currentPos)
-                return
-            }
-        }
-
         isChangingMedia = true
 
         if (isVideoMode) {
@@ -560,7 +551,11 @@ class PlayerManager @Inject constructor(
      * Launch the YouTube app at the current playback position.
      * Pauses Podcasto audio playback first to avoid double audio.
      */
-    private fun launchYouTubeApp(episode: EpisodeEntity, positionMs: Long) {
+    fun launchYouTubeApp() {
+        val episode = currentEpisode ?: return
+        if (currentSourceType != "youtube") return
+        val positionMs = controller?.currentPosition ?: 0L
+
         // Pause playback in Podcasto
         controller?.pause()
 

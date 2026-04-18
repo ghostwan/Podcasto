@@ -22,7 +22,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -77,10 +77,6 @@ fun SettingsScreen(
     var youTubeSubsList by remember { mutableStateOf<List<YouTubeSubscription>>(emptyList()) }
     var isFetchingYouTubeSubs by remember { mutableStateOf(false) }
     var subscribedFeedUrls by remember { mutableStateOf<Set<String>>(emptySet()) }
-
-    // Launch YouTube app preference
-    val playerPrefs = remember { context.getSharedPreferences("player_prefs", Context.MODE_PRIVATE) }
-    var launchYouTubeApp by remember { mutableStateOf(playerPrefs.getBoolean("launch_youtube_app", false)) }
 
     // Google Drive state
     val signedInAccount by driveBackupManager.signedInAccount.collectAsState()
@@ -492,42 +488,6 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ==========================================
-            // Launch YouTube App toggle (only when YouTube enabled)
-            // ==========================================
-            if (BuildConfig.YOUTUBE_ENABLED) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.launch_youtube_app_title),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(R.string.launch_youtube_app_description),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Switch(
-                        checked = launchYouTubeApp,
-                        onCheckedChange = { enabled ->
-                            launchYouTubeApp = enabled
-                            playerPrefs.edit().putBoolean("launch_youtube_app", enabled).apply()
-                        },
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                HorizontalDivider()
-
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
             // ==========================================
             // Web Server Password section
             // ==========================================
@@ -714,7 +674,7 @@ fun SettingsScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.gemini_guide_link))
             }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Forward30
@@ -440,6 +441,18 @@ fun PlayerScreen(
                                 Icon(
                                     if (playerState.isVideoMode) Icons.Default.MusicNote else Icons.Default.Videocam,
                                     contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            },
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        FilterChip(
+                            selected = false,
+                            onClick = { playerManager.launchYouTubeApp() },
+                            label = {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.OpenInNew,
+                                    contentDescription = stringResource(R.string.launch_youtube_app_title),
                                     modifier = Modifier.size(18.dp),
                                 )
                             },
