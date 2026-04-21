@@ -253,6 +253,9 @@
     <string name="sort_subscription_date">Subscription date</string>
     <string name="sort_latest_episode">Latest episode</string>
 
+    <!-- Player -->
+    <string name="keep_screen_on">Screen on</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube Playback</string>
     <string name="auto_select_original_language">Auto-select original language</string>

@@ -253,6 +253,8 @@
     <string name="sort_subscription_date">Fecha de suscripción</string>
     <string name="sort_latest_episode">Último episodio</string>
 
+    <string name="keep_screen_on">Pantalla encendida</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">Reproducción de YouTube</string>
     <string name="auto_select_original_language">Seleccionar idioma original automáticamente</string>

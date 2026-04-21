@@ -207,6 +207,8 @@
     <string name="sort_subscription_date">登録日順</string>
     <string name="sort_latest_episode">最新エピソード順</string>
 
+    <string name="keep_screen_on">画面オン</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube再生</string>
     <string name="auto_select_original_language">オリジナル言語を自動選択</string>

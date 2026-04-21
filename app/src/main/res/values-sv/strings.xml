@@ -207,6 +207,8 @@
     <string name="sort_subscription_date">Prenumerationsdatum</string>
     <string name="sort_latest_episode">Senaste avsnitt</string>
 
+    <string name="keep_screen_on">Skärm på</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube-uppspelning</string>
     <string name="auto_select_original_language">Välj originalspråk automatiskt</string>

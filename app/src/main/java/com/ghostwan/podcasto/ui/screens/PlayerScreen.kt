@@ -9,8 +9,10 @@ import android.view.WindowInsetsController
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -20,6 +22,7 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Forward30
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -145,8 +148,8 @@ fun PlayerScreen(
         sharedPlayerView.player = playerManager.getController()
     }
 
-    // Keep screen on while video is playing
-    val keepScreenOn = playerState.isVideoMode && playerState.isPlaying
+    // Keep screen on — user toggle
+    var keepScreenOn by remember { mutableStateOf(false) }
     DisposableEffect(keepScreenOn) {
         if (keepScreenOn) {
             activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -455,7 +458,9 @@ fun PlayerScreen(
 
                 // Volume normalization toggle + Video toggle
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -466,6 +471,19 @@ fun PlayerScreen(
                         leadingIcon = {
                             Icon(
                                 Icons.Default.GraphicEq,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    FilterChip(
+                        selected = keepScreenOn,
+                        onClick = { keepScreenOn = !keepScreenOn },
+                        label = { Text(stringResource(R.string.keep_screen_on)) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Lock,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )

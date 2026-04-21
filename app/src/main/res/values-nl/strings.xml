@@ -207,6 +207,8 @@
     <string name="sort_subscription_date">Abonnementsdatum</string>
     <string name="sort_latest_episode">Laatste aflevering</string>
 
+    <string name="keep_screen_on">Scherm aan</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube-afspelen</string>
     <string name="auto_select_original_language">Originele taal automatisch selecteren</string>
