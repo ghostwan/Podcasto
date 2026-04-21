@@ -28,6 +28,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import com.ghostwan.podcasto.R
 import java.io.File
+import kotlin.math.abs
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -46,6 +47,18 @@ class PodcastRepository @Inject constructor(
     private val historyDao: HistoryDao,
     @ApplicationContext private val context: Context,
 ) {
+
+    /**
+     * Generate a stable episode ID based on the audio/video URL.
+     * Uses a 63-bit positive hash to avoid ID shifts when new episodes appear in a feed.
+     */
+    private fun generateStableEpisodeId(audioUrl: String): Long {
+        var hash = 0L
+        for (c in audioUrl) {
+            hash = hash * 31 + c.code.toLong()
+        }
+        return abs(hash) // abs ensures positive; Long.MIN_VALUE edge case is astronomically unlikely
+    }
 
     // --- Search ---
     suspend fun searchPodcasts(query: String, country: String? = null): List<ITunesPodcast> {
@@ -118,7 +131,7 @@ class PodcastRepository @Inject constructor(
                 // Match existing episode by audioUrl (stable) instead of by index (shifts when new episodes are added)
                 val existingEpisode = existingByAudioUrl[rssEpisode.audioUrl]
                 EpisodeEntity(
-                    id = (podcast.id * 100000 + index),
+                    id = existingEpisode?.id ?: generateStableEpisodeId(rssEpisode.audioUrl),
                     podcastId = podcast.id,
                     title = rssEpisode.title,
                     description = rssEpisode.description,
@@ -132,6 +145,12 @@ class PodcastRepository @Inject constructor(
                 )
             }
             episodeDao.insertEpisodes(episodes)
+            // Clean up episodes no longer in the feed + orphaned references
+            val keepIds = episodes.map { it.id }
+            episodeDao.deleteEpisodesNotIn(podcast.id, keepIds)
+            episodeDao.deleteOrphanedPlaylistItems()
+            episodeDao.deleteOrphanedBookmarks()
+            episodeDao.deleteOrphanedHistory()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -154,7 +173,7 @@ class PodcastRepository @Inject constructor(
         )
         val episodes = feed.episodes.mapIndexed { index, rssEpisode ->
             EpisodeEntity(
-                id = (collectionId * 100000 + index),
+                id = generateStableEpisodeId(rssEpisode.audioUrl),
                 podcastId = collectionId,
                 title = rssEpisode.title,
                 description = rssEpisode.description,
@@ -193,7 +212,7 @@ class PodcastRepository @Inject constructor(
         val videos = youTubeExtractor.fetchChannelVideos(channelInfo.channelId)
         val episodes = videos.mapIndexed { index, video ->
             EpisodeEntity(
-                id = podcastId * 100000 + index,
+                id = generateStableEpisodeId(video.videoUrl),
                 podcastId = podcastId,
                 title = video.title,
                 description = video.description,
@@ -231,7 +250,7 @@ class PodcastRepository @Inject constructor(
         val videos = youTubeExtractor.fetchChannelVideos(channelId)
         val episodes = videos.mapIndexed { index, video ->
             EpisodeEntity(
-                id = podcastId * 100000 + index,
+                id = generateStableEpisodeId(video.videoUrl),
                 podcastId = podcastId,
                 title = video.title,
                 description = video.description,
@@ -286,11 +305,9 @@ class PodcastRepository @Inject constructor(
             val existingByAudioUrl = episodeDao.getEpisodesForPodcastList(podcast.id)
                 .associateBy { it.audioUrl }
             val episodes = videos.mapIndexed { index, video ->
-                val episodeId = podcast.id * 100000 + index
-                // Match existing episode by audioUrl (stable) instead of by index
                 val existingEpisode = existingByAudioUrl[video.videoUrl]
                 EpisodeEntity(
-                    id = episodeId,
+                    id = existingEpisode?.id ?: generateStableEpisodeId(video.videoUrl),
                     podcastId = podcast.id,
                     title = video.title,
                     description = video.description,
@@ -305,6 +322,12 @@ class PodcastRepository @Inject constructor(
                 )
             }
             episodeDao.insertEpisodes(episodes)
+            // Clean up episodes no longer in the feed + orphaned references
+            val keepIds = episodes.map { it.id }
+            episodeDao.deleteEpisodesNotIn(podcast.id, keepIds)
+            episodeDao.deleteOrphanedPlaylistItems()
+            episodeDao.deleteOrphanedBookmarks()
+            episodeDao.deleteOrphanedHistory()
         } catch (e: Exception) {
             e.printStackTrace()
         }

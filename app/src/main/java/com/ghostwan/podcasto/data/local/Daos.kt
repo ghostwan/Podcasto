@@ -116,6 +116,18 @@ interface EpisodeDao {
         GROUP BY podcastId
     """)
     fun getLatestEpisodeTimestampPerPodcast(): Flow<List<PodcastLatestTimestamp>>
+
+    @Query("DELETE FROM episodes WHERE podcastId = :podcastId AND id NOT IN (:keepIds)")
+    suspend fun deleteEpisodesNotIn(podcastId: Long, keepIds: List<Long>)
+
+    @Query("DELETE FROM playlist_items WHERE episodeId NOT IN (SELECT id FROM episodes)")
+    suspend fun deleteOrphanedPlaylistItems()
+
+    @Query("DELETE FROM bookmarks WHERE episodeId NOT IN (SELECT id FROM episodes)")
+    suspend fun deleteOrphanedBookmarks()
+
+    @Query("DELETE FROM listening_history WHERE episodeId NOT IN (SELECT id FROM episodes)")
+    suspend fun deleteOrphanedHistory()
 }
 
 @Dao
