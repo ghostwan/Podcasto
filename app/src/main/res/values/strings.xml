@@ -247,6 +247,12 @@
     <string name="auto_refill_playlist">Auto-refill playlist</string>
     <string name="auto_refill_playlist_description">When the playlist ends, automatically add the latest unplayed episode from each subscribed podcast and continue playing.</string>
 
+    <!-- Sort -->
+    <string name="sort_podcasts">Sort podcasts</string>
+    <string name="sort_alphabetical">Alphabetical</string>
+    <string name="sort_subscription_date">Subscription date</string>
+    <string name="sort_latest_episode">Latest episode</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube Playback</string>
     <string name="auto_select_original_language">Auto-select original language</string>

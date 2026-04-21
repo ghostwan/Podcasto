@@ -201,6 +201,12 @@
     <string name="auto_refill_playlist">Afspeellijst automatisch aanvullen</string>
     <string name="auto_refill_playlist_description">Wanneer de afspeellijst eindigt, automatisch de nieuwste onbeluisterde aflevering van elke podcast toevoegen en verder afspelen.</string>
 
+    <!-- Sort -->
+    <string name="sort_podcasts">Podcasts sorteren</string>
+    <string name="sort_alphabetical">Alfabetisch</string>
+    <string name="sort_subscription_date">Abonnementsdatum</string>
+    <string name="sort_latest_episode">Laatste aflevering</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube-afspelen</string>
     <string name="auto_select_original_language">Originele taal automatisch selecteren</string>

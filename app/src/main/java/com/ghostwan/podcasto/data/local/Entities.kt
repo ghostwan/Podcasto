@@ -15,6 +15,7 @@ data class PodcastEntity(
     val subscribed: Boolean = false,
     val hidden: Boolean = false,
     val sourceType: String = "rss", // "rss" or "youtube"
+    val subscribedAt: Long = 0,
 )
 
 @Entity(tableName = "episodes")

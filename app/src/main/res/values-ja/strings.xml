@@ -201,6 +201,12 @@
     <string name="auto_refill_playlist">プレイリスト自動補充</string>
     <string name="auto_refill_playlist_description">プレイリストが終了したら、各登録済みポッドキャストの最新の未再生エピソードを自動的に追加して再生を続けます。</string>
 
+    <!-- Sort -->
+    <string name="sort_podcasts">ポッドキャストを並べ替え</string>
+    <string name="sort_alphabetical">アルファベット順</string>
+    <string name="sort_subscription_date">登録日順</string>
+    <string name="sort_latest_episode">最新エピソード順</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube再生</string>
     <string name="auto_select_original_language">オリジナル言語を自動選択</string>

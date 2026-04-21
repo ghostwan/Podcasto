@@ -76,6 +76,22 @@
                 <button id="hidden-toggle" class="btn-icon" onclick="toggleShowHidden()" style="display:none" title="Afficher/masquer les podcasts cach\u00e9s">
                     <span class="material-icons-round">visibility_off</span>
                 </button>
+                <div class="sort-dropdown">
+                    <button class="btn-icon" onclick="toggleSortMenu()" title="Trier">
+                        <span class="material-icons-round">sort</span>
+                    </button>
+                    <div id="sort-menu" class="sort-menu" style="display:none">
+                        <button class="sort-option" data-sort="alphabetical" onclick="setSortOrder('alphabetical')">
+                            <span class="material-icons-round">sort_by_alpha</span>Alphab&eacute;tique
+                        </button>
+                        <button class="sort-option" data-sort="subscription" onclick="setSortOrder('subscription')">
+                            <span class="material-icons-round">calendar_month</span>Date d&rsquo;abonnement
+                        </button>
+                        <button class="sort-option" data-sort="latest" onclick="setSortOrder('latest')">
+                            <span class="material-icons-round">new_releases</span>Dernier &eacute;pisode
+                        </button>
+                    </div>
+                </div>
             </div>
             <div id="tags-filter" class="tags-bar"></div>
             <div id="podcasts-grid" class="podcasts-grid"></div>

@@ -30,6 +30,7 @@ data class PodcastResponse(
     val latestEpisodeTimestamp: Long = 0,
     val hidden: Boolean = false,
     val sourceType: String = "rss",
+    val subscribedAt: Long = 0,
 )
 
 @Serializable
@@ -368,6 +369,7 @@ fun configureRoutes(context: Context, repository: PodcastRepository) : Routing.(
                     latestEpisodeTimestamp = latestTimestamps[p.id] ?: 0L,
                     hidden = p.hidden,
                     sourceType = p.sourceType,
+                    subscribedAt = p.subscribedAt,
                 )
             }
             call.respond(response)

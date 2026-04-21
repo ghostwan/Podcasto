@@ -16,11 +16,16 @@ import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -53,6 +58,12 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import javax.inject.Inject
 
+enum class PodcastSortOrder {
+    ALPHABETICAL,
+    SUBSCRIPTION_DATE,
+    LATEST_EPISODE,
+}
+
 @HiltViewModel
 class SubscriptionsViewModel @Inject constructor(
     private val repository: PodcastRepository,
@@ -76,7 +87,14 @@ class SubscriptionsViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private val _sortOrder = MutableStateFlow(PodcastSortOrder.ALPHABETICAL)
+    val sortOrder: StateFlow<PodcastSortOrder> = _sortOrder.asStateFlow()
+
     private var tagFilterJob: kotlinx.coroutines.Job? = null
+
+    fun setSortOrder(order: PodcastSortOrder) {
+        _sortOrder.value = order
+    }
 
     fun toggleHidden(podcastId: Long, currentlyHidden: Boolean) {
         viewModelScope.launch {
@@ -136,9 +154,11 @@ fun SubscriptionsScreen(
     val filteredPodcasts by viewModel.filteredPodcasts.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val latestTimestamps by viewModel.latestTimestamps.collectAsState()
+    val sortOrder by viewModel.sortOrder.collectAsState()
     val threeMonthsAgo = remember { System.currentTimeMillis() - 90L * 24 * 60 * 60 * 1000 }
 
     var showTagReorderDialog by remember { mutableStateOf(false) }
+    var showSortMenu by remember { mutableStateOf(false) }
 
     // Apply tag filter when navigating from PodcastDetailScreen
     LaunchedEffect(pendingTagId) {
@@ -150,7 +170,15 @@ fun SubscriptionsScreen(
 
     // Filter: apply tag filter, then hide hidden podcasts unless showHidden is enabled
     val tagFiltered = filteredPodcasts ?: allPodcasts
-    val displayPodcasts = if (showHidden) tagFiltered else tagFiltered.filter { !it.hidden }
+    val visiblePodcasts = if (showHidden) tagFiltered else tagFiltered.filter { !it.hidden }
+    // Sort
+    val displayPodcasts = remember(visiblePodcasts, sortOrder, latestTimestamps) {
+        when (sortOrder) {
+            PodcastSortOrder.ALPHABETICAL -> visiblePodcasts.sortedBy { it.title.lowercase() }
+            PodcastSortOrder.SUBSCRIPTION_DATE -> visiblePodcasts.sortedByDescending { it.subscribedAt }
+            PodcastSortOrder.LATEST_EPISODE -> visiblePodcasts.sortedByDescending { latestTimestamps[it.id] ?: 0L }
+        }
+    }
     val hiddenCount = tagFiltered.count { it.hidden }
 
     val context = LocalContext.current
@@ -212,6 +240,35 @@ fun SubscriptionsScreen(
                                 tint = if (webServerRunning) {
                                     if (tunnelUrlState != null) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
                                 } else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    // Sort menu
+                    Box {
+                        IconButton(onClick = { showSortMenu = true }) {
+                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = stringResource(R.string.sort_podcasts))
+                        }
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sort_alphabetical)) },
+                                onClick = { viewModel.setSortOrder(PodcastSortOrder.ALPHABETICAL); showSortMenu = false },
+                                leadingIcon = { Icon(Icons.Default.SortByAlpha, contentDescription = null) },
+                                trailingIcon = { if (sortOrder == PodcastSortOrder.ALPHABETICAL) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sort_subscription_date)) },
+                                onClick = { viewModel.setSortOrder(PodcastSortOrder.SUBSCRIPTION_DATE); showSortMenu = false },
+                                leadingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
+                                trailingIcon = { if (sortOrder == PodcastSortOrder.SUBSCRIPTION_DATE) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sort_latest_episode)) },
+                                onClick = { viewModel.setSortOrder(PodcastSortOrder.LATEST_EPISODE); showSortMenu = false },
+                                leadingIcon = { Icon(Icons.Default.NewReleases, contentDescription = null) },
+                                trailingIcon = { if (sortOrder == PodcastSortOrder.LATEST_EPISODE) Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                             )
                         }
                     }

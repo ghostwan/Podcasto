@@ -330,6 +330,8 @@ let volumeNormEnabled = localStorage.getItem('volumeNormEnabled') === 'true';
 let autoSelectOriginalLanguage = localStorage.getItem('autoSelectOriginalLanguage') !== 'false';
 // Auto-refill playlist when it ends (default: false)
 let autoRefillPlaylist = localStorage.getItem('autoRefillPlaylist') === 'true';
+// Library sort order
+let librarySortOrder = localStorage.getItem('librarySortOrder') || 'alphabetical';
 let audioContext = null;
 let sourceNode = null;
 let compressorNode = null;
@@ -482,6 +484,34 @@ function toggleShowHidden() {
     }
 }
 
+function toggleSortMenu() {
+    const menu = document.getElementById('sort-menu');
+    menu.style.display = menu.style.display === 'none' ? '' : 'none';
+    // Close on click outside
+    if (menu.style.display !== 'none') {
+        setTimeout(() => {
+            const handler = (e) => {
+                if (!menu.contains(e.target) && !e.target.closest('.sort-dropdown')) {
+                    menu.style.display = 'none';
+                    document.removeEventListener('click', handler);
+                }
+            };
+            document.addEventListener('click', handler);
+        }, 0);
+    }
+}
+
+function setSortOrder(order) {
+    librarySortOrder = order;
+    localStorage.setItem('librarySortOrder', order);
+    document.getElementById('sort-menu').style.display = 'none';
+    if (selectedTagId === null) {
+        renderLibrary(allPodcasts);
+    } else {
+        renderLibrary(allPodcasts.filter(p => p.tags && p.tags.some(t => t.id === selectedTagId)));
+    }
+}
+
 async function toggleHidden(podcastId, hidden, title) {
     try {
         await fetch(`/api/podcasts/${podcastId}/hidden`, {
@@ -521,7 +551,21 @@ function renderLibrary(podcasts) {
     }
 
     // Filter hidden unless showHidden is true
-    const displayPodcasts = showHidden ? podcasts : podcasts.filter(p => !p.hidden);
+    let displayPodcasts = showHidden ? [...podcasts] : podcasts.filter(p => !p.hidden);
+
+    // Sort
+    if (librarySortOrder === 'subscription') {
+        displayPodcasts.sort((a, b) => (b.subscribedAt || 0) - (a.subscribedAt || 0));
+    } else if (librarySortOrder === 'latest') {
+        displayPodcasts.sort((a, b) => (b.latestEpisodeTimestamp || 0) - (a.latestEpisodeTimestamp || 0));
+    } else {
+        displayPodcasts.sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    // Update sort menu active state
+    document.querySelectorAll('.sort-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.sort === librarySortOrder);
+    });
     document.getElementById('podcast-count').textContent = displayPodcasts.length;
 
     if (displayPodcasts.length === 0) {

@@ -247,6 +247,12 @@
     <string name="auto_refill_playlist">Rellenar lista automáticamente</string>
     <string name="auto_refill_playlist_description">Cuando la lista termina, agregar automáticamente el último episodio no reproducido de cada podcast suscrito y continuar la reproducción.</string>
 
+    <!-- Sort -->
+    <string name="sort_podcasts">Ordenar podcasts</string>
+    <string name="sort_alphabetical">Alfabético</string>
+    <string name="sort_subscription_date">Fecha de suscripción</string>
+    <string name="sort_latest_episode">Último episodio</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">Reproducción de YouTube</string>
     <string name="auto_select_original_language">Seleccionar idioma original automáticamente</string>

@@ -201,6 +201,12 @@
     <string name="auto_refill_playlist">Fyll på spellista automatiskt</string>
     <string name="auto_refill_playlist_description">När spellistan tar slut, lägg automatiskt till det senaste ospelda avsnittet från varje prenumererad podcast och fortsätt spela.</string>
 
+    <!-- Sort -->
+    <string name="sort_podcasts">Sortera podcasts</string>
+    <string name="sort_alphabetical">Alfabetisk</string>
+    <string name="sort_subscription_date">Prenumerationsdatum</string>
+    <string name="sort_latest_episode">Senaste avsnitt</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube-uppspelning</string>
     <string name="auto_select_original_language">Välj originalspråk automatiskt</string>

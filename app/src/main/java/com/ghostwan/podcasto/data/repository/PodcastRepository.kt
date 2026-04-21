@@ -87,13 +87,14 @@ class PodcastRepository @Inject constructor(
             feedUrl = feedUrl,
             artworkUrl = podcast.artworkUrl600 ?: podcast.artworkUrl100 ?: "",
             subscribed = true,
+            subscribedAt = System.currentTimeMillis(),
         )
         podcastDao.insertPodcast(entity)
         refreshPodcastEpisodes(entity)
     }
 
     suspend fun subscribeToPodcastFromDetail(podcastEntity: PodcastEntity, episodes: List<EpisodeEntity> = emptyList()) {
-        val subscribed = podcastEntity.copy(subscribed = true)
+        val subscribed = podcastEntity.copy(subscribed = true, subscribedAt = System.currentTimeMillis())
         podcastDao.insertPodcast(subscribed)
         if (episodes.isNotEmpty()) {
             episodeDao.insertEpisodes(episodes)
@@ -282,6 +283,7 @@ class PodcastRepository @Inject constructor(
             feedUrl = feedUrl,
             artworkUrl = channelInfo.avatarUrl,
             subscribed = true,
+            subscribedAt = System.currentTimeMillis(),
             sourceType = "youtube",
         )
         podcastDao.insertPodcast(entity)
@@ -710,6 +712,7 @@ class PodcastRepository @Inject constructor(
                     description = p.description, feedUrl = p.feedUrl,
                     artworkUrl = p.artworkUrl, subscribed = p.subscribed,
                     hidden = p.hidden, sourceType = p.sourceType,
+                    subscribedAt = p.subscribedAt,
                 )
             )
         }
@@ -789,7 +792,7 @@ data class BackupPodcast(
     val id: Long, val title: String, val author: String,
     val description: String, val feedUrl: String, val artworkUrl: String,
     val subscribed: Boolean = true, val hidden: Boolean = false,
-    val sourceType: String = "rss",
+    val sourceType: String = "rss", val subscribedAt: Long = 0,
 )
 
 @Serializable
@@ -824,7 +827,7 @@ data class BackupHistory(
 private fun PodcastEntity.toBackup() = BackupPodcast(
     id = id, title = title, author = author, description = description,
     feedUrl = feedUrl, artworkUrl = artworkUrl, subscribed = subscribed, hidden = hidden,
-    sourceType = sourceType,
+    sourceType = sourceType, subscribedAt = subscribedAt,
 )
 
 private fun EpisodeEntity.toBackup() = BackupEpisode(

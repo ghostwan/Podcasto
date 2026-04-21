@@ -1992,3 +1992,42 @@ body.player-visible .toast {
 .toggle-switch input:checked + .toggle-slider::before {
     transform: translateX(20px);
 }
+
+/* Sort dropdown */
+.sort-dropdown {
+    position: relative;
+}
+.sort-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--surface);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 100;
+    min-width: 200px;
+    padding: 4px 0;
+}
+.sort-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--on-surface);
+    text-align: left;
+}
+.sort-option:hover {
+    background: var(--primary-light);
+}
+.sort-option.active {
+    color: var(--primary);
+    font-weight: 600;
+}
+.sort-option .material-icons-round {
+    font-size: 20px;
+}

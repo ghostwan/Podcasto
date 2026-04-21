@@ -247,6 +247,12 @@
     <string name="auto_refill_playlist">Playlist automatisch auffüllen</string>
     <string name="auto_refill_playlist_description">Wenn die Playlist endet, automatisch die neueste ungehörte Folge jedes abonnierten Podcasts hinzufügen und weiterspielen.</string>
 
+    <!-- Sort -->
+    <string name="sort_podcasts">Podcasts sortieren</string>
+    <string name="sort_alphabetical">Alphabetisch</string>
+    <string name="sort_subscription_date">Abonnementdatum</string>
+    <string name="sort_latest_episode">Neueste Folge</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube-Wiedergabe</string>
     <string name="auto_select_original_language">Originalsprache automatisch wählen</string>
