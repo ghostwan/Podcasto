@@ -6,7 +6,7 @@ Full-featured Android podcast app built from scratch. Allows users to search for
 ## Tech Stack
 - **Language**: Kotlin
 - **UI**: Jetpack Compose + Material 3
-- **Database**: Room (SQLite) — schema version 8 with proper migrations
+- **Database**: Room (SQLite) — schema version 9 with proper migrations
 - **Networking**: Retrofit + OkHttp + iTunes Search API + custom RSS parser
 - **Audio/Video**: Media3 (ExoPlayer) with MediaSessionService, MergingMediaSource for video
 - **DI**: Hilt
@@ -43,8 +43,8 @@ Full-featured Android podcast app built from scratch. Allows users to search for
 - DB versioning: proper migrations, NO `fallbackToDestructiveMigration()` (was destroying data)
 - Whatever is done on Android must also be done on the web interface
 
-## Database Schema (version 8)
-- **PodcastEntity**: id, title, author, description, feedUrl, artworkUrl, subscribed, hidden, sourceType ("rss"/"youtube")
+## Database Schema (version 9)
+- **PodcastEntity**: id, title, author, description, feedUrl, artworkUrl, subscribed, hidden, sourceType ("rss"/"youtube"), subscribedAt
 - **EpisodeEntity**: id, podcastId, title, description, audioUrl, pubDate, pubDateTimestamp, duration, downloadPath, videoDownloadPath, played, playbackPosition
 - **PlaylistItemEntity**: id, episodeId, position
 - **TagEntity**: id, name, position
@@ -53,8 +53,8 @@ Full-featured Android podcast app built from scratch. Allows users to search for
 - **HistoryEntity**: id, episodeId, podcastId, listenedAt
 - **EpisodeWithArtwork**: Embedded Episode + artworkUrl + sourceType from Podcast
 - **HistoryWithDetails**: Embedded HistoryEntity + episodeTitle, podcastTitle, artworkUrl, playbackPosition, duration, played
-- Episode ID scheme: `podcast.id * 100000 + index` (deterministic based on podcast ID and episode index in feed)
-- Migrations: 2->3 (pubDateTimestamp), 3->4 (hidden), 4->5 (listening_history + sourceType), 5->6 (tags position), 6->7 (downloadPath rename), 7->8 (videoDownloadPath)
+- Episode ID scheme: stable hash of `audioUrl` (was `podcast.id * 100000 + index`, fixed to avoid ID shifts when new episodes appear)
+- Migrations: 2->3 (pubDateTimestamp), 3->4 (hidden), 4->5 (listening_history + sourceType), 5->6 (tags position), 6->7 (downloadPath rename), 7->8 (videoDownloadPath), 8->9 (subscribedAt)
 
 ## Key Architectural Decisions
 
@@ -74,7 +74,7 @@ Full-featured Android podcast app built from scratch. Allows users to search for
 - Centralized position polling every 500ms while playing (removed duplicate polling from PlayerScreen)
 - Saves current position before switching episodes (`saveCurrentPosition()` at start of `play()` and `playMultiple()`)
 - Reloads episode from DB before seeking to get latest `playbackPosition`
-- On episode completion (`STATE_ENDED`): marks as played, removes from playlist, auto-advances to next
+- On episode completion (`STATE_ENDED`): marks as played, removes from playlist, auto-advances to next; optionally auto-refills playlist with latest unplayed episodes
 - Custom notification buttons: `SEEK_BACKWARD_10` and `SEEK_FORWARD_30` with i18n display names
 - `isVideoMode` in `PlayerState` for YouTube video toggle
 - `currentLanguageCode: String?` — preserved across audio/video mode switches
@@ -125,7 +125,7 @@ Full-featured Android podcast app built from scratch. Allows users to search for
 - Present in: PodcastDetailScreen, PlaylistScreen, NewEpisodesScreen, HistoryScreen, and web equivalents
 
 ### i18n
-- `values/strings.xml` (EN default, ~173 strings)
+- `values/strings.xml` (EN default, ~190 strings)
 - 9 languages: English, French, German, Spanish, Italian, Dutch, Japanese, Swedish, Chinese (Simplified)
 - All screens use `stringResource()`
 
@@ -137,7 +137,7 @@ Full-featured Android podcast app built from scratch. Allows users to search for
 
 ### SharedPreferences
 - `"app_settings"` for web server password, Gemini API key, auto-backup, last Drive backup time
-- `"player_prefs"` for volume normalization and last episode state
+- `"player_prefs"` for volume normalization, last episode state, auto_select_original_language, auto_refill_playlist
 
 ## Important Discoveries / Gotchas
 
@@ -166,7 +166,7 @@ app/src/main/java/com/ghostwan/podcasto/
 │   ├── local/
 │   │   ├── Entities.kt               # All Room entities + data classes
 │   │   ├── Daos.kt                   # All DAOs (podcast, episode, playlist, tag, bookmark, history)
-│   │   └── PodcastoDatabase.kt       # Room DB (v8, migrations 2-8)
+│   │   └── PodcastoDatabase.kt       # Room DB (v9, migrations 2-9)
 │   ├── remote/
 │   │   ├── ITunesApiService.kt       # Retrofit interface (with country param)
 │   │   ├── ITunesModels.kt           # API response models
@@ -183,7 +183,7 @@ app/src/main/java/com/ghostwan/podcasto/
 │   ├── PlaybackService.kt            # Media3 MediaSessionService, MergingMediaSource for video
 │   └── PlayerManager.kt              # Playback controller + state, video mode, language
 ├── ui/screens/
-│   ├── SubscriptionsScreen.kt        # Library tab (tags, pull-to-refresh, hidden toggle)
+│   ├── SubscriptionsScreen.kt        # Library tab (tags, pull-to-refresh, hidden toggle, sort)
 │   ├── DiscoverScreen.kt             # Search podcasts (country filter, AI)
 │   ├── PodcastDetailScreen.kt        # Episodes list, subscribe, tags, progress bars
 │   ├── EpisodeDetailScreen.kt        # Description, actions, bookmarks, download choice dialog
@@ -215,7 +215,7 @@ app/src/main/assets/web/  -- Web UI (HTML/CSS/JS single-page app)
 - `portforward.sh` — ADB port forward for web server access via USB
 
 ## Resources
-- `res/values/strings.xml` — EN default (~173 strings)
+- `res/values/strings.xml` — EN default (~190 strings)
 - `res/values-{fr,de,es,it,nl,ja,sv,zh-rCN}/strings.xml` — 8 language translations
 - `res/drawable/ic_launcher_foreground.xml` — Custom Podcasto mascot icon
 - `res/mipmap-anydpi-v26/ic_launcher.xml` — Adaptive icon
