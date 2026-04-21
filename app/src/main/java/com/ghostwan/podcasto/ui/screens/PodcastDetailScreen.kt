@@ -13,6 +13,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
@@ -78,6 +82,9 @@ class PodcastDetailViewModel @Inject constructor(
 
     private val _isSubscribed = MutableStateFlow(false)
     val isSubscribed: StateFlow<Boolean> = _isSubscribed.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     private val _hidePlayedEpisodes = MutableStateFlow(false)
     val hidePlayedEpisodes: StateFlow<Boolean> = _hidePlayedEpisodes.asStateFlow()
@@ -174,6 +181,19 @@ class PodcastDetailViewModel @Inject constructor(
         collectEpisodes()
     }
 
+    fun refreshPodcast() {
+        viewModelScope.launch {
+            val pod = _podcast.value ?: return@launch
+            _isRefreshing.value = true
+            try {
+                repository.refreshPodcastEpisodes(pod)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            _isRefreshing.value = false
+        }
+    }
+
     fun toggleSubscription() {
         viewModelScope.launch {
             val pod = _podcast.value ?: return@launch
@@ -223,7 +243,7 @@ class PodcastDetailViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun PodcastDetailScreen(
     onBack: () -> Unit,
@@ -242,6 +262,7 @@ fun PodcastDetailScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val nowPlayingId by viewModel.nowPlayingEpisodeId.collectAsState()
     val playlistIds by viewModel.playlistEpisodeIds.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
 
     if (showTagDialog) {
         TagManagementDialog(
@@ -292,6 +313,15 @@ fun PodcastDetailScreen(
                 )
             }
         } else {
+            val pullRefreshState = rememberPullRefreshState(
+                refreshing = isRefreshing,
+                onRefresh = { viewModel.refreshPodcast() },
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pullRefresh(pullRefreshState),
+            ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
@@ -413,6 +443,12 @@ fun PodcastDetailScreen(
                         onLongClick = { viewModel.playEpisode(episode) },
                     )
                 }
+            }
+            PullRefreshIndicator(
+                refreshing = isRefreshing,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
             }
         }
     }
