@@ -145,6 +145,19 @@ fun PlayerScreen(
         sharedPlayerView.player = playerManager.getController()
     }
 
+    // Keep screen on while video is playing
+    val keepScreenOn = playerState.isVideoMode && playerState.isPlaying
+    DisposableEffect(keepScreenOn) {
+        if (keepScreenOn) {
+            activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
     // Intercept system back gesture — exit fullscreen first, then close player
     BackHandler {
         if (isFullscreen) {
