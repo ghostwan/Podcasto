@@ -196,6 +196,11 @@
     <string name="restart_from_beginning">最初から</string>
     <string name="skip_episode">スキップ</string>
 
+    <!-- Playback Settings -->
+    <string name="playback_settings_title">再生</string>
+    <string name="auto_refill_playlist">プレイリスト自動補充</string>
+    <string name="auto_refill_playlist_description">プレイリストが終了したら、各登録済みポッドキャストの最新の未再生エピソードを自動的に追加して再生を続けます。</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube再生</string>
     <string name="auto_select_original_language">オリジナル言語を自動選択</string>

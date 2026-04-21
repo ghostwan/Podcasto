@@ -196,6 +196,11 @@
     <string name="restart_from_beginning">Från början</string>
     <string name="skip_episode">Hoppa över</string>
 
+    <!-- Playback Settings -->
+    <string name="playback_settings_title">Uppspelning</string>
+    <string name="auto_refill_playlist">Fyll på spellista automatiskt</string>
+    <string name="auto_refill_playlist_description">När spellistan tar slut, lägg automatiskt till det senaste ospelda avsnittet från varje prenumererad podcast och fortsätt spela.</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube-uppspelning</string>
     <string name="auto_select_original_language">Välj originalspråk automatiskt</string>

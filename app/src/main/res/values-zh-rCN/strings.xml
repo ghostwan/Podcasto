@@ -196,6 +196,11 @@
     <string name="restart_from_beginning">从头开始</string>
     <string name="skip_episode">跳过</string>
 
+    <!-- Playback Settings -->
+    <string name="playback_settings_title">播放</string>
+    <string name="auto_refill_playlist">自动补充播放列表</string>
+    <string name="auto_refill_playlist_description">当播放列表结束时，自动添加每个订阅播客的最新未播放剧集并继续播放。</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube 播放</string>
     <string name="auto_select_original_language">自动选择原始语言</string>

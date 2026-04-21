@@ -242,6 +242,11 @@
     <string name="restart_from_beginning">Desde el inicio</string>
     <string name="skip_episode">Saltar</string>
 
+    <!-- Playback Settings -->
+    <string name="playback_settings_title">Reproducción</string>
+    <string name="auto_refill_playlist">Rellenar lista automáticamente</string>
+    <string name="auto_refill_playlist_description">Cuando la lista termina, agregar automáticamente el último episodio no reproducido de cada podcast suscrito y continuar la reproducción.</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">Reproducción de YouTube</string>
     <string name="auto_select_original_language">Seleccionar idioma original automáticamente</string>

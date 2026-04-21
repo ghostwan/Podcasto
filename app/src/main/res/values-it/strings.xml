@@ -196,6 +196,11 @@
     <string name="restart_from_beginning">Dall\'inizio</string>
     <string name="skip_episode">Salta</string>
 
+    <!-- Playback Settings -->
+    <string name="playback_settings_title">Riproduzione</string>
+    <string name="auto_refill_playlist">Riempi automaticamente la playlist</string>
+    <string name="auto_refill_playlist_description">Quando la playlist termina, aggiungere automaticamente l\'ultimo episodio non ascoltato di ogni podcast e continuare la riproduzione.</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">Riproduzione YouTube</string>
     <string name="auto_select_original_language">Seleziona automaticamente la lingua originale</string>

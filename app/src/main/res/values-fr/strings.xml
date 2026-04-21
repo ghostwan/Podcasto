@@ -242,6 +242,11 @@
     <string name="restart_from_beginning">Depuis le début</string>
     <string name="skip_episode">Passer</string>
 
+    <!-- Playback Settings -->
+    <string name="playback_settings_title">Lecture</string>
+    <string name="auto_refill_playlist">Remplissage automatique de la playlist</string>
+    <string name="auto_refill_playlist_description">Quand la playlist se termine, ajouter automatiquement le dernier épisode non écouté de chaque podcast et continuer la lecture.</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">Lecture YouTube</string>
     <string name="auto_select_original_language">Sélection auto de la langue originale</string>

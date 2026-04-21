@@ -703,6 +703,17 @@ class PlayerManager @Inject constructor(
             if (remaining.isNotEmpty()) {
                 val next = remaining.first()
                 play(next.episode, next.artworkUrl)
+            } else if (prefs.getBoolean("auto_refill_playlist", false)) {
+                // Auto-refill: add latest unplayed episodes from all subscriptions
+                repository.autoAddLatestEpisodes()
+                val refilled = repository.getPlaylistEpisodesWithArtworkList()
+                if (refilled.isNotEmpty()) {
+                    val next = refilled.first()
+                    play(next.episode, next.artworkUrl)
+                } else {
+                    currentEpisode = null
+                    updateState()
+                }
             } else {
                 currentEpisode = null
                 updateState()

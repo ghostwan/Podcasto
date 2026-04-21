@@ -242,6 +242,11 @@
     <string name="restart_from_beginning">Von Anfang an</string>
     <string name="skip_episode">Überspringen</string>
 
+    <!-- Playback Settings -->
+    <string name="playback_settings_title">Wiedergabe</string>
+    <string name="auto_refill_playlist">Playlist automatisch auffüllen</string>
+    <string name="auto_refill_playlist_description">Wenn die Playlist endet, automatisch die neueste ungehörte Folge jedes abonnierten Podcasts hinzufügen und weiterspielen.</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube-Wiedergabe</string>
     <string name="auto_select_original_language">Originalsprache automatisch wählen</string>

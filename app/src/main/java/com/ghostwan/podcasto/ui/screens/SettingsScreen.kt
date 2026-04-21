@@ -69,6 +69,7 @@ fun SettingsScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     val playerPrefs = remember { context.getSharedPreferences("player_prefs", Context.MODE_PRIVATE) }
     var autoSelectOriginalLanguage by remember { mutableStateOf(playerPrefs.getBoolean("auto_select_original_language", true)) }
+    var autoRefillPlaylist by remember { mutableStateOf(playerPrefs.getBoolean("auto_refill_playlist", false)) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var isExporting by remember { mutableStateOf(false) }
@@ -631,6 +632,47 @@ fun SettingsScreen(
                 enabled = geminiKey.isNotBlank(),
             ) {
                 Text(stringResource(R.string.save))
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ==========================================
+            // Playback section
+            // ==========================================
+            HorizontalDivider()
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = stringResource(R.string.playback_settings_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Auto-refill playlist toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.auto_refill_playlist),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.auto_refill_playlist_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = autoRefillPlaylist,
+                    onCheckedChange = { enabled ->
+                        autoRefillPlaylist = enabled
+                        playerPrefs.edit().putBoolean("auto_refill_playlist", enabled).apply()
+                    },
+                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))

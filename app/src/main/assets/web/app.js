@@ -145,6 +145,14 @@ async function loadSettings() {
     } catch (e) {
         console.error('Failed to load settings', e);
     }
+    // Init auto-refill toggle
+    const autoRefillCheckbox = document.getElementById('settings-auto-refill');
+    if (autoRefillCheckbox) autoRefillCheckbox.checked = autoRefillPlaylist;
+}
+
+function toggleAutoRefillPlaylist(enabled) {
+    autoRefillPlaylist = enabled;
+    localStorage.setItem('autoRefillPlaylist', enabled ? 'true' : 'false');
 }
 
 async function saveGeminiKey() {
@@ -320,6 +328,8 @@ const SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 let volumeNormEnabled = localStorage.getItem('volumeNormEnabled') === 'true';
 // Auto-select original language for YouTube (default: true)
 let autoSelectOriginalLanguage = localStorage.getItem('autoSelectOriginalLanguage') !== 'false';
+// Auto-refill playlist when it ends (default: false)
+let autoRefillPlaylist = localStorage.getItem('autoRefillPlaylist') === 'true';
 let audioContext = null;
 let sourceNode = null;
 let compressorNode = null;
@@ -2397,6 +2407,22 @@ async function onAudioEnded() {
         if (items.length > 0) {
             const next = items[0];
             playEpisodeFromPlaylist(next.id, next.artworkUrl, next.podcastTitle);
+        } else if (autoRefillPlaylist) {
+            // Auto-refill playlist with latest unplayed episodes
+            try {
+                await fetch('/api/playlist/auto-add', { method: 'POST' });
+                const res2 = await fetch('/api/playlist');
+                const refilled = await res2.json();
+                if (refilled.length > 0) {
+                    const next = refilled[0];
+                    playEpisodeFromPlaylist(next.id, next.artworkUrl, next.podcastTitle);
+                } else {
+                    showToast('Playlist termin\u00e9e');
+                }
+            } catch (e2) {
+                console.error('Failed to auto-refill playlist', e2);
+                showToast('Playlist termin\u00e9e');
+            }
         } else {
             showToast('Playlist termin\u00e9e');
         }

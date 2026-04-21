@@ -349,6 +349,19 @@
                     </ol>
                     <p class="settings-note"><span class="material-icons-round" style="font-size:16px;vertical-align:middle;margin-right:4px">info</span>La cl&eacute; gratuite offre un quota g&eacute;n&eacute;reux suffisant pour un usage personnel.</p>
                 </div>
+                <div class="settings-section">
+                    <h3>Playback</h3>
+                    <div class="settings-toggle-row">
+                        <div>
+                            <p class="settings-toggle-label">Auto-refill playlist</p>
+                            <p class="settings-description">When the playlist ends, automatically add the latest unplayed episode from each subscribed podcast and continue playing.</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="settings-auto-refill" onchange="toggleAutoRefillPlaylist(this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
             </div>
         </section>
     </main>

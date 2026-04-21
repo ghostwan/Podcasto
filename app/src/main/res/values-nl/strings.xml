@@ -196,6 +196,11 @@
     <string name="restart_from_beginning">Vanaf het begin</string>
     <string name="skip_episode">Overslaan</string>
 
+    <!-- Playback Settings -->
+    <string name="playback_settings_title">Afspelen</string>
+    <string name="auto_refill_playlist">Afspeellijst automatisch aanvullen</string>
+    <string name="auto_refill_playlist_description">Wanneer de afspeellijst eindigt, automatisch de nieuwste onbeluisterde aflevering van elke podcast toevoegen en verder afspelen.</string>
+
     <!-- YouTube Playback Settings -->
     <string name="youtube_playback_settings_title">YouTube-afspelen</string>
     <string name="auto_select_original_language">Originele taal automatisch selecteren</string>
