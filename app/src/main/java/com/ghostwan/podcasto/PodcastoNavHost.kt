@@ -36,6 +36,7 @@ fun PodcastoNavHost(
     val navController = rememberNavController()
     val playerState by playerManager.playerState.collectAsState()
     val showHidden by navHostViewModel.showHidden.collectAsState()
+    val hideYoutube by navHostViewModel.hideYoutube.collectAsState()
 
     // Initialize player
     LaunchedEffect(Unit) {
@@ -177,6 +178,8 @@ fun PodcastoNavHost(
                         onPendingTagConsumed = { pendingTagId = null },
                         showHidden = showHidden,
                         onToggleShowHidden = { navHostViewModel.toggleShowHidden() },
+                        hideYoutube = hideYoutube,
+                        onToggleHideYoutube = { navHostViewModel.toggleHideYoutube() },
                     )
                 }
 
@@ -204,6 +207,8 @@ fun PodcastoNavHost(
                             }
                         },
                         showHidden = showHidden,
+                        hideYoutube = hideYoutube,
+                        onToggleHideYoutube = { navHostViewModel.toggleHideYoutube() },
                     )
                 }
 

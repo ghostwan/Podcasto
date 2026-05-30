@@ -23,6 +23,8 @@ import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.OndemandVideo
+import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -146,6 +148,8 @@ fun NewEpisodesScreen(
     onEpisodeClick: (Long) -> Unit,
     onHistoryClick: () -> Unit,
     showHidden: Boolean = false,
+    hideYoutube: Boolean = false,
+    onToggleHideYoutube: () -> Unit = {},
     viewModel: NewEpisodesViewModel = hiltViewModel(),
 ) {
     val episodes by viewModel.episodes.collectAsState()
@@ -157,8 +161,10 @@ fun NewEpisodesScreen(
     val hidePlayed by viewModel.hidePlayed.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
-    // Filter hidden podcasts unless showHidden is enabled
-    val filteredEpisodes = if (showHidden) episodes else episodes.filter { it.episode.podcastId !in hiddenIds }
+    // Filter hidden podcasts unless showHidden is enabled, then optionally hide YouTube
+    val afterHiddenFilter = if (showHidden) episodes else episodes.filter { it.episode.podcastId !in hiddenIds }
+    val filteredEpisodes = if (hideYoutube) afterHiddenFilter.filter { it.sourceType != "youtube" } else afterHiddenFilter
+    val hasYoutubeEpisodes = episodes.any { it.sourceType == "youtube" }
 
     val pullRefreshState = rememberPullRefreshState(
         refreshing = isRefreshing,
@@ -177,6 +183,16 @@ fun NewEpisodesScreen(
                         tint = if (hidePlayed) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                if (BuildConfig.YOUTUBE_ENABLED && hasYoutubeEpisodes) {
+                    IconButton(onClick = onToggleHideYoutube) {
+                        Icon(
+                            imageVector = if (hideYoutube) Icons.Default.VideocamOff else Icons.Default.OndemandVideo,
+                            contentDescription = stringResource(R.string.hide_youtube_videos),
+                            tint = if (hideYoutube) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 IconButton(onClick = onHistoryClick) {
                     Icon(Icons.Default.History, contentDescription = stringResource(R.string.nav_history))

@@ -70,6 +70,7 @@ fun SettingsScreen(
     val playerPrefs = remember { context.getSharedPreferences("player_prefs", Context.MODE_PRIVATE) }
     var autoSelectOriginalLanguage by remember { mutableStateOf(playerPrefs.getBoolean("auto_select_original_language", true)) }
     var autoRefillPlaylist by remember { mutableStateOf(playerPrefs.getBoolean("auto_refill_playlist", false)) }
+    var preferExternalYoutube by remember { mutableStateOf(playerPrefs.getBoolean("prefer_external_youtube", false)) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var isExporting by remember { mutableStateOf(false) }
@@ -713,6 +714,33 @@ fun SettingsScreen(
                         onCheckedChange = { enabled ->
                             autoSelectOriginalLanguage = enabled
                             playerPrefs.edit().putBoolean("auto_select_original_language", enabled).apply()
+                        },
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Prefer external YouTube app toggle (workaround for broken NewPipe extraction)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.prefer_external_youtube),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.prefer_external_youtube_description),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = preferExternalYoutube,
+                        onCheckedChange = { enabled ->
+                            preferExternalYoutube = enabled
+                            playerPrefs.edit().putBoolean("prefer_external_youtube", enabled).apply()
                         },
                     )
                 }

@@ -163,7 +163,7 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.5.1")
 
     // NewPipe Extractor (YouTube audio extraction) — only in 'full' flavor
-    "fullImplementation"("com.github.TeamNewPipe:NewPipeExtractor:v0.26.0")
+    "fullImplementation"("com.github.TeamNewPipe:NewPipeExtractor:v0.26.2")
 
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.10.0")

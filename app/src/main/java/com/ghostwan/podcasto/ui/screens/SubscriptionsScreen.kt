@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.OndemandVideo
+import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -146,6 +148,8 @@ fun SubscriptionsScreen(
     onPendingTagConsumed: () -> Unit = {},
     showHidden: Boolean = false,
     onToggleShowHidden: () -> Unit = {},
+    hideYoutube: Boolean = false,
+    onToggleHideYoutube: () -> Unit = {},
     viewModel: SubscriptionsViewModel = hiltViewModel(),
 ) {
     val allPodcasts by viewModel.subscribedPodcasts.collectAsState()
@@ -168,9 +172,11 @@ fun SubscriptionsScreen(
         }
     }
 
-    // Filter: apply tag filter, then hide hidden podcasts unless showHidden is enabled
+    // Filter: apply tag filter, then hide hidden podcasts unless showHidden is enabled,
+    // then optionally hide YouTube podcasts.
     val tagFiltered = filteredPodcasts ?: allPodcasts
-    val visiblePodcasts = if (showHidden) tagFiltered else tagFiltered.filter { !it.hidden }
+    val afterHiddenFilter = if (showHidden) tagFiltered else tagFiltered.filter { !it.hidden }
+    val visiblePodcasts = if (hideYoutube) afterHiddenFilter.filter { it.sourceType != "youtube" } else afterHiddenFilter
     // Sort
     val displayPodcasts = remember(visiblePodcasts, sortOrder, latestTimestamps) {
         when (sortOrder) {
@@ -279,6 +285,16 @@ fun SubscriptionsScreen(
                                 imageVector = if (showHidden) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                                 contentDescription = stringResource(R.string.show_hidden_podcasts),
                                 tint = if (showHidden) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    // Hide YouTube videos toggle (only if YT enabled and at least one YT podcast subscribed)
+                    if (BuildConfig.YOUTUBE_ENABLED && tagFiltered.any { it.sourceType == "youtube" }) {
+                        IconButton(onClick = { onToggleHideYoutube() }) {
+                            Icon(
+                                imageVector = if (hideYoutube) Icons.Default.VideocamOff else Icons.Default.OndemandVideo,
+                                contentDescription = stringResource(R.string.hide_youtube_videos),
+                                tint = if (hideYoutube) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }

@@ -221,6 +221,25 @@ class PlayerManager @Inject constructor(
             currentSourceType = podcast?.sourceType ?: "rss"
             saveLastEpisode(freshEpisode.id, artworkUrl, currentSourceType)
 
+            // YouTube fallback: if NewPipe extraction is broken, user can opt-in to
+            // launch the YouTube app directly instead of attempting in-app playback.
+            // Only applies to non-downloaded YouTube episodes.
+            // We keep the episode as "current" in the player so the user can find it
+            // later, but we stop any actual playback to avoid audio dissonance with
+            // the YouTube app.
+            if (BuildConfig.YOUTUBE_ENABLED
+                && freshEpisode.downloadPath == null
+                && (YouTubeExtractor.isYouTubeVideoUrl(freshEpisode.audioUrl) || currentSourceType == "youtube")
+                && prefs.getBoolean("prefer_external_youtube", false)
+            ) {
+                controller?.stop()
+                controller?.clearMediaItems()
+                isChangingMedia = false
+                updateState()
+                launchYouTubeIntent(freshEpisode.audioUrl, freshEpisode.playbackPosition)
+                return@launch
+            }
+
             // For YouTube episodes without a local download, check for multiple languages
             if (BuildConfig.YOUTUBE_ENABLED && freshEpisode.downloadPath == null && (YouTubeExtractor.isYouTubeVideoUrl(freshEpisode.audioUrl) || currentSourceType == "youtube")) {
                 try {
@@ -651,21 +670,29 @@ class PlayerManager @Inject constructor(
         // Pause playback in Podcasto
         controller?.pause()
 
-        // Build the YouTube deep link with time parameter
-        val videoUrl = episode.audioUrl // This is the YouTube watch URL
+        if (!launchYouTubeIntent(episode.audioUrl, positionMs)) {
+            // Resume playback if launch failed
+            controller?.play()
+        }
+    }
+
+    /**
+     * Build and start an Intent to open a YouTube video at a given position.
+     * Returns true on success, false if the launch threw.
+     */
+    private fun launchYouTubeIntent(videoUrl: String, positionMs: Long): Boolean {
         val positionSeconds = (positionMs / 1000).toInt()
         val separator = if (videoUrl.contains("?")) "&" else "?"
         val deepLink = "${videoUrl}${separator}t=${positionSeconds}"
-
-        try {
+        return try {
             val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
                 addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
+            true
         } catch (e: Exception) {
-            android.util.Log.e("PlayerManager", "Failed to launch YouTube app", e)
-            // Resume playback if launch failed
-            controller?.play()
+            Log.e("PlayerManager", "Failed to launch YouTube app", e)
+            false
         }
     }
 

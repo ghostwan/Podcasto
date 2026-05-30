@@ -259,4 +259,7 @@
     <string name="youtube_playback_settings_title">Lecture YouTube</string>
     <string name="auto_select_original_language">Sélection auto de la langue originale</string>
     <string name="auto_select_original_language_description">Sélectionner automatiquement la langue audio originale des vidéos YouTube au lieu d\'afficher un sélecteur de langue.</string>
+    <string name="prefer_external_youtube">Ouvrir les vidéos YouTube dans l\'app YouTube</string>
+    <string name="prefer_external_youtube_description">Lance les vidéos YouTube directement dans l\'app YouTube au lieu de les lire dans Podcasto. Utile pendant que l\'extraction NewPipe est cassée.</string>
+    <string name="hide_youtube_videos">Masquer les vidéos YouTube</string>
 </resources>
